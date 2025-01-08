@@ -5,8 +5,8 @@ GraphAI用の言語です。JSONやYAMLよりも簡単に記述できます。
 例えば以下のように記述できます。
 
 ```
-llm = 
-  @params({model: 'gpt-4o'}) 
+llm =
+  @params({model: 'gpt-4o'})
   openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
 
 println({message: llm.text});
@@ -62,4 +62,4 @@ CLIコマンドは今後用意する予定です。
 
 - https://github.com/i-eight/graphai-dsl/blob/main/docs/spec.md
 - https://github.com/i-eight/graphai-dsl/tree/main/examples
-
+- https://github.com/i-eight/graphai-dsl/blob/main/tests/compiler.spec.ts

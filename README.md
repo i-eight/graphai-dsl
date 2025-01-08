@@ -64,3 +64,4 @@ CLI commands will be provided in the future.
 
 - https://github.com/i-eight/graphai-dsl/blob/main/docs/spec.md
 - https://github.com/i-eight/graphai-dsl/tree/main/examples
+- https://github.com/i-eight/graphai-dsl/blob/main/tests/compiler.spec.ts
