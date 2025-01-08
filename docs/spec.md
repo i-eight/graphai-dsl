@@ -1,0 +1,523 @@
+# DSL Specifications
+
+## Types and Literals
+
+| Type      | Examples                                            |
+| :-------- | :-------------------------------------------------- |
+| `boolean` | `true`, `false`                                     |
+| `number`  | `1`, `123`, `123.456`                               |
+| `string`  | `'foo'`, `'bar'`, `'Hello, ${name}'`                |
+| `Array`   | `[true, 1.0, 'foo']`                                |
+| `Object`  | `{ a: 1, b: 'b', c: [1, 2, 3], d: { key: value } }` |
+
+## Operators
+
+The operators are arranged in ascending order of precedence.
+
+| Operator | Agent        |
+| :------- | :----------- |
+| `&&`     | `andAgent`   |
+| `\|\|`   | `orAgent`    |
+| `==`     | `eqAgent`    |
+| `!=`     | `neqAgent`   |
+| `>`      | `gtAgent`    |
+| `>=`     | `gteAgent`   |
+| `<`      | `ltAgent`    |
+| `<=`     | `lteAgent`   |
+| `+`      | `plusAgent`  |
+| `-`      | `minusAgent` |
+| `\*`     | `mulAgent`   |
+| `/`      | `divAgent`   |
+| `%`      | `modAgent`   |
+| `^`      | `powAgent`   |
+
+## Define a static node
+
+```
+static foo = 1;
+
+--- JSON ---
+foo: {
+  value: 1
+}
+```
+
+```
+static foo = true;
+--- JSON  ---
+foo: {
+  value: true
+}
+```
+
+```
+static foo = 'bar';
+
+--- JSON ---
+foo: {
+  value: 'bar'
+}
+```
+
+## Define a computed node
+
+```
+foo = fooAgent({ x: 1 });
+
+--- JSON ---
+foo: {
+    anget: fooAgent
+    inputs: {
+        x: 1
+    }
+}
+```
+
+```
+foo = @isResult(true) @console({after: true}) fooAgent({ x: 1 });
+
+--- JSON ---
+foo: {
+    agent: fooAgent
+    inputs: {
+        x: 1
+    }
+    isResult: true
+    console: {
+        after: true
+    }
+}
+```
+
+```
+foo =
+  @isResult(true)
+  @console({after: true})
+  fooAgent({ x: 1 });
+--- JSON ---
+foo: {
+    agent: fooAgent
+    inputs: {
+        x: 1
+    }
+    isResult: true
+    console: {
+        after: true
+    }
+}
+```
+
+## Anonymous node
+
+```
+static x = 1;
+static y = 2;
+x + y;
+
+--- JSON ---
+{
+  "nodes": {
+    "x": {
+      "value": 1
+    },
+    "y": {
+      "value": 2
+    },
+    "__anon0__": {
+      "isResult": true,
+      "agent": "plusAgent",
+      "inputs": {
+        "left": ":x",
+        "right": ":y"
+      }
+    }
+  }
+}
+```
+
+## Nested graph
+
+```
+foo = {
+    static x = 1;
+    static y = 2;
+    x + y;
+}
+
+--- JSON---
+"foo": {
+  "isResult": true,
+  "agent": "nestedAgent",
+  "inputs": {},
+  "graph": {
+    "nodes": {
+      "x": {
+        "value": 1
+      },
+      "y": {
+        "value": 2
+      },
+      "__anon0__": {
+        "isResult": true,
+        "agent": "plusAgent",
+        "inputs": {
+          "left": ":x",
+          "right": ":y"
+        }
+      }
+    }
+  }
+}
+```
+
+## Operator
+
+```
+1 + 2 * 3 < 10 || 4 / 2 ^ 3;
+
+--- JSON ---
+{
+  "nodes": {
+    "__anon1__": {
+      "agent": "mulAgent",
+      "inputs": {
+        "left": 2,
+        "right": 3
+      }
+    },
+    "__anon2__": {
+      "agent": "plusAgent",
+      "inputs": {
+        "left": 1,
+        "right": ":__anon1__"
+      }
+    },
+    "__anon3__": {
+      "agent": "ltAgent",
+      "inputs": {
+        "left": ":__anon2__",
+        "right": 10
+      }
+    },
+    "__anon4__": {
+      "agent": "powAgent",
+      "inputs": {
+        "base": 2,
+        "exponent": 3
+      }
+    },
+    "__anon5__": {
+      "agent": "divAgent",
+      "inputs": {
+        "left": 4,
+        "right": ":__anon4__"
+      }
+    },
+    "__anon0__": {
+      "isResult": true,
+      "agent": "orAgent",
+      "inputs": {
+        "left": ":__anon3__",
+        "right": ":__anon5__"
+      }
+    }
+  }
+}
+```
+
+## Condition
+
+```
+static a = 1;
+if a < 5 then println({ message: 1}) else println({ message: 1});
+
+--- JSON ---
+{
+  "nodes": {
+    "a": {
+      "value": 1
+    },
+    "__anon2__": {
+      "agent": "defAgent",
+      "inputs": {
+        "capture": {
+          "a": ":a"
+        },
+        "return": [
+          "__anon1__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon1__": {
+            "isResult": true,
+            "agent": "ltAgent",
+            "inputs": {
+              "left": ":a",
+              "right": 5
+            }
+          }
+        }
+      }
+    },
+    "__anon4__": {
+      "agent": "defAgent",
+      "inputs": {
+        "capture": {},
+        "return": [
+          "__anon3__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon3__": {
+            "isResult": true,
+            "agent": "println",
+            "inputs": {
+              "message": 1
+            }
+          }
+        }
+      }
+    },
+    "__anon6__": {
+      "agent": "defAgent",
+      "inputs": {
+        "capture": {},
+        "return": [
+          "__anon5__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon5__": {
+            "isResult": true,
+            "agent": "println",
+            "inputs": {
+              "message": 1
+            }
+          }
+        }
+      }
+    },
+    "__anon0__": {
+      "isResult": true,
+      "agent": "caseAgent",
+      "inputs": {
+        "conditions": [
+          {
+            "if": ":__anon2__",
+            "then": ":__anon4__"
+          },
+          {
+            "else": ":__anon6__"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+## Loop
+
+```
+loopAgent({
+  init: {cnt: 0},
+  callback: (args) ->
+    if args.cnt < 10
+    then recurAgent({return: {cnt: args.cnt + 1}})
+    else identityAgent({return: args.cnt}),
+});
+
+--- JSON ---
+{
+  "nodes": {
+    "__anon12__": {
+      "agent": "defAgent",
+      "inputs": {
+        "args": "args",
+        "capture": {},
+        "return": [
+          "__anon1__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon4__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "args": ":args"
+              },
+              "return": [
+                "__anon2__"
+              ]
+            },
+            "graph": {
+              "nodes": {
+                "__anon3__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":args",
+                    "key": "cnt"
+                  }
+                },
+                "__anon2__": {
+                  "isResult": true,
+                  "agent": "ltAgent",
+                  "inputs": {
+                    "left": ":__anon3__",
+                    "right": 10
+                  }
+                }
+              }
+            }
+          },
+          "__anon8__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "args": ":args"
+              },
+              "return": [
+                "__anon5__"
+              ]
+            },
+            "graph": {
+              "nodes": {
+                "__anon6__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":args",
+                    "key": "cnt"
+                  }
+                },
+                "__anon7__": {
+                  "agent": "plusAgent",
+                  "inputs": {
+                    "left": ":__anon6__",
+                    "right": 1
+                  }
+                },
+                "__anon5__": {
+                  "isResult": true,
+                  "agent": "recurAgent",
+                  "inputs": {
+                    "return": {
+                      "cnt": ":__anon7__"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "__anon11__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "args": ":args"
+              },
+              "return": [
+                "__anon9__"
+              ]
+            },
+            "graph": {
+              "nodes": {
+                "__anon10__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":args",
+                    "key": "cnt"
+                  }
+                },
+                "__anon9__": {
+                  "isResult": true,
+                  "agent": "identityAgent",
+                  "inputs": {
+                    "return": ":__anon10__"
+                  }
+                }
+              }
+            }
+          },
+          "__anon1__": {
+            "isResult": true,
+            "agent": "caseAgent",
+            "inputs": {
+              "conditions": [
+                {
+                  "if": ":__anon4__",
+                  "then": ":__anon8__"
+                },
+                {
+                  "else": ":__anon11__"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "__anon0__": {
+      "isResult": true,
+      "agent": "loopAgent",
+      "inputs": {
+        "init": {
+          "cnt": 0
+        },
+        "callback": ":__anon12__"
+      }
+    }
+  }
+}
+```
+
+## Define an agent
+
+```
+hoge = (args) -> args.left + args.right;
+
+--- JSON ---
+{
+  "nodes": {
+    "hoge": {
+      "isResult": true,
+      "agent": "defAgent",
+      "inputs": {
+        "args": "args",
+        "capture": {},
+        "return": [
+          "__anon0__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon1__": {
+            "agent": "getObjectMemberAgent",
+            "inputs": {
+              "object": ":args",
+              "key": "left"
+            }
+          },
+          "__anon2__": {
+            "agent": "getObjectMemberAgent",
+            "inputs": {
+              "object": ":args",
+              "key": "right"
+            }
+          },
+          "__anon0__": {
+            "isResult": true,
+            "agent": "plusAgent",
+            "inputs": {
+              "left": ":__anon1__",
+              "right": ":__anon2__"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```

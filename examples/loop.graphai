@@ -1,0 +1,169 @@
+
+cnt = loopAgent({
+  init: {cnt: 0},
+  callback: (args) ->  
+    if args.cnt < 10 
+    then recurAgent({return: {cnt: args.cnt + 1}}) 
+    else identityAgent({return: args.cnt}),
+});
+
+println({message: cnt});
+
+/*
+上記のコードは以下のYAMLを生成:
+
+```
+{
+  "nodes": {
+    "__anon11__": {
+      "agent": "defAgent",
+      "inputs": {
+        "args": "args",
+        "capture": {},
+        "return": [
+          "__anon0__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon3__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "args": ":args"
+              },
+              "return": [
+                "__anon1__"
+              ]
+            },
+            "graph": {
+              "nodes": {
+                "__anon2__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":args",
+                    "key": "cnt"
+                  }
+                },
+                "__anon1__": {
+                  "isResult": true,
+                  "agent": "ltAgent",
+                  "inputs": {
+                    "left": ":__anon2__",
+                    "right": 10
+                  }
+                }
+              }
+            }
+          },
+          "__anon7__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "args": ":args"
+              },
+              "return": [
+                "__anon4__"
+              ]
+            },
+            "graph": {
+              "nodes": {
+                "__anon5__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":args",
+                    "key": "cnt"
+                  }
+                },
+                "__anon6__": {
+                  "agent": "plusAgent",
+                  "inputs": {
+                    "left": ":__anon5__",
+                    "right": 1
+                  }
+                },
+                "__anon4__": {
+                  "isResult": true,
+                  "agent": "recurAgent",
+                  "inputs": {
+                    "return": {
+                      "cnt": ":__anon6__"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "__anon10__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "args": ":args"
+              },
+              "return": [
+                "__anon8__"
+              ]
+            },
+            "graph": {
+              "nodes": {
+                "__anon9__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":args",
+                    "key": "cnt"
+                  }
+                },
+                "__anon8__": {
+                  "isResult": true,
+                  "agent": "identityAgent",
+                  "inputs": {
+                    "return": ":__anon9__"
+                  }
+                }
+              }
+            }
+          },
+          "__anon0__": {
+            "isResult": true,
+            "agent": "caseAgent",
+            "inputs": {
+              "conditions": [
+                {
+                  "if": ":__anon3__",
+                  "then": ":__anon7__"
+                },
+                {
+                  "else": ":__anon10__"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "cnt": {
+      "agent": "loopAgent",
+      "inputs": {
+        "init": {
+          "cnt": 0
+        },
+        "callback": ":__anon11__"
+      }
+    },
+    "__anon12__": {
+      "isResult": true,
+      "agent": "println",
+      "inputs": {
+        "message": ":cnt"
+      }
+    }
+  }
+}
+```
+
+実行結果は以下:
+
+```
+10
+```
+*/
