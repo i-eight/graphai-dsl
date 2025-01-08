@@ -26,7 +26,7 @@ The operators are arranged in ascending order of precedence.
 | `<=`     | `lteAgent`   |
 | `+`      | `plusAgent`  |
 | `-`      | `minusAgent` |
-| `\*`     | `mulAgent`   |
+| `*`      | `mulAgent`   |
 | `/`      | `divAgent`   |
 | `%`      | `modAgent`   |
 | `^`      | `powAgent`   |
@@ -135,6 +135,38 @@ x + y;
 }
 ```
 
+```
+static a = 1;
+static b = 2;
+println({message: a + b});
+
+--- JSON ---
+{
+  "nodes": {
+    "a": {
+      "value": 1
+    },
+    "b": {
+      "value": 2
+    },
+    "__anon1__": {
+      "agent": "plusAgent",
+      "inputs": {
+        "left": ":a",
+        "right": ":b"
+      }
+    },
+    "__anon0__": {
+      "isResult": true,
+      "agent": "println",
+      "inputs": {
+        "message": ":__anon1__"
+      }
+    }
+  }
+}
+```
+
 ## Nested graph
 
 ```
@@ -163,6 +195,81 @@ foo = {
         "inputs": {
           "left": ":x",
           "right": ":y"
+        }
+      }
+    }
+  }
+}
+```
+
+```
+static x = 1;
+static y = 2;
+
+graph1 = {
+  graph2 = {
+    graph3 = {
+        println({message: x + y});
+    };
+  };
+};
+
+--- JSON ---
+{
+  "nodes": {
+    "x": {
+      "value": 1
+    },
+    "y": {
+      "value": 2
+    },
+    "graph1": {
+      "isResult": true,
+      "agent": "nestedAgent",
+      "inputs": {
+        "x": ":x",
+        "y": ":y"
+      },
+      "graph": {
+        "nodes": {
+          "graph2": {
+            "isResult": true,
+            "agent": "nestedAgent",
+            "inputs": {
+              "x": ":x",
+              "y": ":y"
+            },
+            "graph": {
+              "nodes": {
+                "graph3": {
+                  "isResult": true,
+                  "agent": "nestedAgent",
+                  "inputs": {
+                    "x": ":x",
+                    "y": ":y"
+                  },
+                  "graph": {
+                    "nodes": {
+                      "__anon1__": {
+                        "agent": "plusAgent",
+                        "inputs": {
+                          "left": ":x",
+                          "right": ":y"
+                        }
+                      },
+                      "__anon0__": {
+                        "isResult": true,
+                        "agent": "println",
+                        "inputs": {
+                          "message": ":__anon1__"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -219,6 +326,104 @@ foo = {
       "inputs": {
         "left": ":__anon3__",
         "right": ":__anon5__"
+      }
+    }
+  }
+}
+```
+
+## String
+
+```
+a = println({message: "Hello World"});
+
+--- JSON ---
+{
+  "nodes": {
+    "a": {
+      "isResult": true,
+      "agent": "println",
+      "inputs": {
+        "message": "Hello World"
+      }
+    }
+  }
+}
+```
+
+```
+static name = "John";
+a = println({message: "Hello World, ${name}"});
+
+--- JSON ---
+{
+  "nodes": {
+    "name": {
+      "value": "John"
+    },
+    "__anon0__": {
+      "agent": "concatStringAgent",
+      "inputs": {
+        "items": [
+          "Hello World, ",
+          ":name"
+        ]
+      }
+    },
+    "a": {
+      "isResult": true,
+      "agent": "println",
+      "inputs": {
+        "message": ":__anon0__"
+      }
+    }
+  }
+}
+```
+
+## Define an agent
+
+```
+hoge = (args) -> args.left + args.right;
+
+--- JSON ---
+{
+  "nodes": {
+    "hoge": {
+      "isResult": true,
+      "agent": "defAgent",
+      "inputs": {
+        "args": "args",
+        "capture": {},
+        "return": [
+          "__anon0__"
+        ]
+      },
+      "graph": {
+        "nodes": {
+          "__anon1__": {
+            "agent": "getObjectMemberAgent",
+            "inputs": {
+              "object": ":args",
+              "key": "left"
+            }
+          },
+          "__anon2__": {
+            "agent": "getObjectMemberAgent",
+            "inputs": {
+              "object": ":args",
+              "key": "right"
+            }
+          },
+          "__anon0__": {
+            "isResult": true,
+            "agent": "plusAgent",
+            "inputs": {
+              "left": ":__anon1__",
+              "right": ":__anon2__"
+            }
+          }
+        }
       }
     }
   }
@@ -467,55 +672,6 @@ loopAgent({
           "cnt": 0
         },
         "callback": ":__anon12__"
-      }
-    }
-  }
-}
-```
-
-## Define an agent
-
-```
-hoge = (args) -> args.left + args.right;
-
---- JSON ---
-{
-  "nodes": {
-    "hoge": {
-      "isResult": true,
-      "agent": "defAgent",
-      "inputs": {
-        "args": "args",
-        "capture": {},
-        "return": [
-          "__anon0__"
-        ]
-      },
-      "graph": {
-        "nodes": {
-          "__anon1__": {
-            "agent": "getObjectMemberAgent",
-            "inputs": {
-              "object": ":args",
-              "key": "left"
-            }
-          },
-          "__anon2__": {
-            "agent": "getObjectMemberAgent",
-            "inputs": {
-              "object": ":args",
-              "key": "right"
-            }
-          },
-          "__anon0__": {
-            "isResult": true,
-            "agent": "plusAgent",
-            "inputs": {
-              "left": ":__anon1__",
-              "right": ":__anon2__"
-            }
-          }
-        }
       }
     }
   }
