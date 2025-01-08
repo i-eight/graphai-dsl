@@ -1,4 +1,4 @@
-[日本語](./README.md.ja)
+[日本語](./README.ja.md)
 
 # GraphAI DSL
 
