@@ -11,7 +11,7 @@
     "@graphai/agents": "^0.2.3",
     "dotenv": "^16.4.7",
     "fp-ts": "^2.16.9",
-    "graphai": "0.6.11"
+    "graphai": "0.6.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
