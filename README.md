@@ -54,8 +54,16 @@ A transformer is a type of machine learning model introduced in the paper "Atten
 
 ## How to Execute
 
+The following command converts the source file to JSON and executes it:
+
 ```
-npx tsx src/index.ts <source file>
+npx tsx src/index.ts run <source file>
+```
+
+To output only the JSON, use the following command:
+
+```
+npx tsx src/index.ts compile <source file>
 ```
 
 CLI commands will be provided in the future.

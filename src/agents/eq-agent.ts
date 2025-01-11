@@ -3,7 +3,7 @@ import { AgentFunction, AgentFunctionInfo } from 'graphai/lib/type';
 const eqAgent: AgentFunction<
   object,
   boolean,
-  Readonly<{ left: boolean; right: boolean }>
+  Readonly<{ left: unknown; right: unknown }>
 > = async ({ namedInputs: { left, right } }) => left === right;
 
 export const eqAgentInfo: AgentFunctionInfo = {

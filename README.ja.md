@@ -52,8 +52,16 @@ A transformer is a type of machine learning model introduced in the paper "Atten
 
 ## 実行方法
 
+以下はソースファイルをJSONに変換して実行します。
+
 ```
-npx tsx src/index.ts <source file>
+npx tsx src/index.ts run <source file>
+```
+
+JSONのみを出力する場合は以下のコマンドを使用してください。
+
+```
+npx tsx src/index.ts compile <source file>
 ```
 
 CLIコマンドは今後用意する予定です。

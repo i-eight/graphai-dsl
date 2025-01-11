@@ -22,6 +22,7 @@ import { powAgentInfo } from './pow-agent';
 import { concatStringAgentInfo } from './concat-string-agent';
 import { getArrayElementAgentInfo } from './get-array-element';
 import { getObjectMemberAgentInfo } from './object-member-agent';
+import { evalAgentInfo } from './eval-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -48,4 +49,5 @@ export const agents: AgentFunctionInfoDictionary = {
   caseAgent: caseAgentInfo,
   loopAgent: loopAgentInfo,
   recurAgent: recurAgentInfo,
+  evalAgent: evalAgentInfo,
 };

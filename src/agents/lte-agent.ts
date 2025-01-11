@@ -1,10 +1,8 @@
 import { AgentFunction, AgentFunctionInfo } from 'graphai/lib/type';
 
-const lteAgent: AgentFunction<
-  object,
-  boolean,
-  Readonly<{ left: boolean; right: boolean }>
-> = async ({ namedInputs: { left, right } }) => left <= right;
+const lteAgent: AgentFunction<object, boolean, Readonly<{ left: number; right: number }>> = async ({
+  namedInputs: { left, right },
+}) => left <= right;
 
 export const lteAgentInfo: AgentFunctionInfo = {
   name: 'lteAgent',

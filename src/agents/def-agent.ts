@@ -28,7 +28,6 @@ const defAgent =
             exec: {
               agent: 'nestedAgent',
               inputs: args == null ? capture : { args: namedInputs, ...capture },
-              //inputs: (args ?? []).reduce((r, a) => ({ ...r, [a]: namedInputs[a] }), capture ?? {}),
               graph: forNestedGraph?.graphData,
               isResult: true,
             },

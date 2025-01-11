@@ -31,6 +31,8 @@ export const toTupleFromExpr = (
     case 'Boolean':
     case 'Number':
       return _.value;
+    case 'Null':
+      return null;
     case 'String':
       return pipe(
         _.value,

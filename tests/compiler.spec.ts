@@ -1520,4 +1520,82 @@ describe('Compiler', () => {
         ),
     );
   });
+
+  test('compare strings', () => {
+    pipe(
+      file,
+      parser.run(
+        stream.create(`
+          'a' == 'a';
+      `),
+      ),
+      either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
+      either.map(([{ json }]) => json),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            nodes: {
+              __anon0__: {
+                isResult: true,
+                agent: 'eqAgent',
+                inputs: {
+                  left: 'a',
+                  right: 'a',
+                },
+              },
+            },
+          }),
+        ),
+    );
+  });
+
+  test('nestedAgent 1', () => {
+    pipe(
+      file,
+      parser.run(
+        stream.create(`
+          static a = 1;
+          static b = {
+            nodes: {
+              n: println({message: a})
+            }
+          };
+          c = @graph(b) nestedAgent({a: a});
+      `),
+      ),
+      either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
+      either.map(([{ json }]) => json),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            nodes: {
+              a: {
+                value: 1,
+              },
+              __anon0__: {
+                agent: 'println',
+                inputs: {
+                  message: ':a',
+                },
+              },
+              b: {
+                value: {
+                  nodes: {
+                    n: ':__anon0__',
+                  },
+                },
+              },
+              c: {
+                graph: ':b',
+                isResult: true,
+                agent: 'nestedAgent',
+                inputs: {
+                  a: ':a',
+                },
+              },
+            },
+          }),
+        ),
+    );
+  });
 });

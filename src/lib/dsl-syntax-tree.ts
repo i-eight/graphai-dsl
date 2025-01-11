@@ -207,7 +207,7 @@ export type PlusMinus = Readonly<{
   context: Context;
 }>;
 
-export type TermCompare = TermPlusMinus | PlusMinus | DSLBoolean;
+export type TermCompare = TermPlusMinus | PlusMinus | DSLBoolean | DSLString | DSLArray | DSLObject;
 
 export type Compare = Readonly<{
   type: 'Compare';

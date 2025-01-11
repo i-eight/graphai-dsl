@@ -10,6 +10,7 @@ import {
   ComputedNodeBodyParen,
   DSLArray,
   DSLBoolean,
+  DSLNull,
   DSLNumber,
   DSLObject,
   DSLObjectPair,
@@ -29,12 +30,15 @@ import {
   Power,
   RawString,
 } from './dsl-syntax-tree';
-import { option, readonlyArray, readonlyRecord, string } from 'fp-ts';
-import { ParserContext } from './parser-combinator';
+import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
+import { parser, ParserContext, ParserError } from './parser-combinator';
 import { StateEither, stateEither as se } from './state-either';
 import { unit, Unit } from './unit';
 import { Either } from 'fp-ts/lib/Either';
 import { Option } from 'fp-ts/lib/Option';
+import { file } from './dsl-parser';
+import { stream } from './stream';
+import fs from 'fs';
 
 export type Json = number | string | boolean | JsonArray | JsonObject | null | undefined;
 
@@ -206,6 +210,24 @@ const addIsResult = (node: ComputedNode): ComputedNode =>
       }
     : node;
 
+export const compileFromFile = async (path: string): Promise<Json> =>
+  pipe(
+    await fs.promises.readFile(path, 'utf-8'),
+    compileFromString,
+    either.match(
+      e => Promise.reject(e),
+      _ => Promise.resolve(_),
+    ),
+  );
+
+export const compileFromString = (source: string): Either<CompileError | ParserError, Json> =>
+  pipe(
+    file,
+    parser.run(stream.create(source)),
+    either.flatMap(({ data }) => pipe(graphToJson(data), run)),
+    either.map(([_]) => _.json),
+  );
+
 export const run = (self: Result): Either<CompileError, [CompileData, Context]> =>
   pipe(
     self({
@@ -289,7 +311,7 @@ export const staticNodeToJson = (expr: Expr): Result =>
         value: _.json,
       },
       captures: _.captures,
-      nodes: {},
+      nodes: _.nodes,
     })),
   );
 
@@ -367,6 +389,8 @@ export const exprToJson = (expr: Expr): Result => {
       return booleanToJson(expr);
     case 'Number':
       return numberToJson(expr);
+    case 'Null':
+      return nullToJson(expr);
     case 'RawString':
       return rawStringToJson(expr);
     case 'String':
@@ -375,16 +399,6 @@ export const exprToJson = (expr: Expr): Result => {
       return arrayToJson(expr);
     case 'Object':
       return objectToJson(expr);
-    default:
-      return se.left<Context, CompileError, CompileData>({
-        type: 'CompileError',
-        items: [
-          {
-            message: `Unknown expression type: ${expr.type}`,
-            parserContext: expr.context,
-          },
-        ],
-      });
   }
 };
 
@@ -1245,3 +1259,10 @@ export const objectToJson = (object: DSLObject): Result =>
         ),
     ),
   );
+
+export const nullToJson = (_: DSLNull): Result =>
+  se.right({
+    json: null,
+    nodes: newJsonObject(),
+    captures: newCapures(),
+  });

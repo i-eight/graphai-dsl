@@ -1,10 +1,8 @@
 import { AgentFunction, AgentFunctionInfo } from 'graphai/lib/type';
 
-const gtAgent: AgentFunction<
-  object,
-  boolean,
-  Readonly<{ left: boolean; right: boolean }>
-> = async ({ namedInputs: { left, right } }) => left > right;
+const gtAgent: AgentFunction<object, boolean, Readonly<{ left: number; right: number }>> = async ({
+  namedInputs: { left, right },
+}) => left > right;
 
 export const gtAgentInfo: AgentFunctionInfo = {
   name: 'gtAgent',

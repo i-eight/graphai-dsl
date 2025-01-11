@@ -14,6 +14,7 @@ import {
   logicalOr,
   mulDivModeOr,
   nodeAnnotation,
+  null_,
   number,
   object,
   objectMember,
@@ -170,6 +171,15 @@ describe('dsl-parser', () => {
             position: { index: 0, row: 1, column: 1 },
           }),
         ),
+    );
+  });
+
+  test('null', () => {
+    pipe(
+      null_,
+      parser.run(stream.create('null')),
+      either.map(_ => _.data.type),
+      _ => expect(_).toStrictEqual(either.right('Null')),
     );
   });
 

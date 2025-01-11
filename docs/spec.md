@@ -14,22 +14,22 @@
 
 The operators are arranged in ascending order of precedence.
 
-| Operator | Agent        |
-| :------- | :----------- |
-| `&&`     | `andAgent`   |
-| `\|\|`   | `orAgent`    |
-| `==`     | `eqAgent`    |
-| `!=`     | `neqAgent`   |
-| `>`      | `gtAgent`    |
-| `>=`     | `gteAgent`   |
-| `<`      | `ltAgent`    |
-| `<=`     | `lteAgent`   |
-| `+`      | `plusAgent`  |
-| `-`      | `minusAgent` |
-| `*`      | `mulAgent`   |
-| `/`      | `divAgent`   |
-| `%`      | `modAgent`   |
-| `^`      | `powAgent`   |
+| Operator | Agent        | Precedence |
+| :------- | :----------- | :--------- |
+| `&&`     | `andAgent`   | =          |
+| `\|\|`   | `orAgent`    | ↓          |
+| `==`     | `eqAgent`    | =          |
+| `!=`     | `neqAgent`   | =          |
+| `>`      | `gtAgent`    | =          |
+| `>=`     | `gteAgent`   | =          |
+| `<`      | `ltAgent`    | =          |
+| `<=`     | `lteAgent`   | ↓          |
+| `+`      | `plusAgent`  | =          |
+| `-`      | `minusAgent` | ↓          |
+| `*`      | `mulAgent`   | =          |
+| `/`      | `divAgent`   | =          |
+| `%`      | `modAgent`   | ↓          |
+| `^`      | `powAgent`   | ↓          |
 
 ## Define a static node
 

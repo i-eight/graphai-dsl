@@ -22,6 +22,7 @@ import {
   ComputedNodeBodyParen,
   DSLArray,
   DSLBoolean,
+  DSLNull,
   DSLNumber,
   DSLObject,
   DSLString,
@@ -263,6 +264,11 @@ export const object: Parser<DSLObject> = pipe(
   parser.context(value => ({ type: 'Object', value })),
 );
 
+export const null_: Parser<DSLNull> = pipe(
+  text('null'),
+  parser.context(_ => ({ type: 'Null' })),
+);
+
 type ArrayType = ArrayAt['array'];
 export const arrayAt: Parser<ArrayAt> = pipe(
   parser.unit,
@@ -463,6 +469,9 @@ export const plusMinusOr: Parser<TermPlusMinus | PlusMinus> = pipe(
 export const termCompare: Parser<TermCompare> = pipe(
   plusMinusOr as Parser<TermCompare>,
   parser.or<TermCompare>(boolean),
+  parser.or<TermCompare>(string),
+  parser.or<TermCompare>(array),
+  parser.or<TermCompare>(object),
 );
 
 export const compareRight = (left: TermCompare | Compare): Parser<Compare> =>
@@ -571,6 +580,7 @@ export const expr: Parser<Expr> = pipe(
   parser.or<Expr>(identifier),
   parser.or<Expr>(boolean),
   parser.or<Expr>(number),
+  parser.or<Expr>(null_),
   parser.or<Expr>(string),
   parser.or<Expr>(array),
   parser.or<Expr>(object),
