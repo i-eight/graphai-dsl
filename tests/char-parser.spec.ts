@@ -34,7 +34,7 @@ describe('char-parser', () => {
     pipe(
       eos,
       parser.run(stream.create('a')),
-      either.mapLeft(_ => (_.type === 'MessageError' ? _.message : '')),
+      either.mapLeft(_ => (_.type === 'UnexpectedParserError' ? _.message : '')),
       _ => expect(_).toStrictEqual(either.left('Expect end of stream')),
     );
   });
@@ -51,7 +51,7 @@ describe('char-parser', () => {
       matchedChar(c => c === 'a', 'a'),
       parser.run(stream.create('b')),
       either.mapLeft(_ =>
-        _.type === 'UnexpectedError' ? { expect: _.expect, actual: _.actual } : {},
+        _.type === 'UnexpectedParserError' ? { expect: _.expect, actual: _.actual } : {},
       ),
       _ => expect(_).toStrictEqual(either.left({ expect: 'a', actual: 'b' })),
     );
@@ -59,7 +59,7 @@ describe('char-parser', () => {
     pipe(
       matchedChar(c => c === 'a', 'a'),
       parser.run(stream.create('')),
-      either.mapLeft(_ => (_.type === 'MessageError' ? _.message : '')),
+      either.mapLeft(_ => (_.type === 'UnexpectedParserError' ? _.message : '')),
       _ =>
         expect(_).toStrictEqual(
           either.left('Expect a but failed to get a next char in the stream'),
@@ -79,7 +79,7 @@ describe('char-parser', () => {
       char('a'),
       parser.run(stream.create('b')),
       either.mapLeft(_ =>
-        _.type === 'UnexpectedError' ? { expect: _.expect, actual: _.actual } : {},
+        _.type === 'UnexpectedParserError' ? { expect: _.expect, actual: _.actual } : {},
       ),
       _ => expect(_).toStrictEqual(either.left({ expect: 'a', actual: 'b' })),
     );
@@ -87,7 +87,7 @@ describe('char-parser', () => {
     pipe(
       char('a'),
       parser.run(stream.create('')),
-      either.mapLeft(_ => (_.type === 'MessageError' ? _.message : '')),
+      either.mapLeft(_ => (_.type === 'UnexpectedParserError' ? _.message : '')),
       _ =>
         expect(_).toStrictEqual(
           either.left('Expect a but failed to get a next char in the stream'),
@@ -119,7 +119,7 @@ describe('char-parser', () => {
       _ =>
         expect(_).toStrictEqual(
           either.left({
-            type: 'UnexpectedError',
+            type: 'UnexpectedParserError',
             expect: 'e',
             actual: 'a',
             position: {
@@ -220,7 +220,7 @@ describe('char-parser', () => {
     pipe(spaces1, parser.run(stream.create('a')), _ =>
       expect(_).toStrictEqual(
         either.left({
-          type: 'UnexpectedError',
+          type: 'UnexpectedParserError',
           actual: 'a',
           expect: 'space',
           position: {
@@ -289,7 +289,7 @@ describe('char-parser', () => {
     pipe(whitespaces1, parser.run(stream.create('a')), _ =>
       expect(_).toStrictEqual(
         either.left({
-          type: 'UnexpectedError',
+          type: 'UnexpectedParserError',
           expect: 'whitespace',
           actual: 'a',
           position: {
@@ -304,7 +304,7 @@ describe('char-parser', () => {
     pipe(whitespaces1, parser.run(stream.create('')), _ =>
       expect(_).toStrictEqual(
         either.left({
-          type: 'MessageError',
+          type: 'UnexpectedParserError',
           message: 'Expect whitespace but failed to get a next char in the stream',
           position: {
             index: 0,
@@ -354,7 +354,7 @@ describe('char-parser', () => {
     pipe(oneOf('abcd'), parser.run(stream.create('x')), _ =>
       expect(_).toStrictEqual(
         either.left({
-          type: 'UnexpectedError',
+          type: 'UnexpectedParserError',
           expect: 'one of abcd',
           actual: 'x',
           position: {
@@ -384,7 +384,7 @@ describe('char-parser', () => {
 
     pipe(noneOf('abcd'), parser.run(stream.create('c')), _ =>
       either.left({
-        type: 'UnexpectedError',
+        type: 'UnexpectedParserError',
         expect: 'none of abcd',
         actual: 'c',
         position: {
@@ -406,7 +406,7 @@ describe('char-parser', () => {
 
     pipe(digit, parser.run(stream.create('a')), _ =>
       either.left({
-        type: 'UnexpectedError',
+        type: 'UnexpectedParserError',
         expect: 'digit',
         actual: 'a',
         position: {
@@ -435,7 +435,7 @@ describe('char-parser', () => {
 
     pipe(alphabet, parser.run(stream.create('1')), _ =>
       either.left({
-        type: 'UnexpectedError',
+        type: 'UnexpectedParserError',
         expect: 'alphabet',
         actual: '1',
         position: {
@@ -478,7 +478,7 @@ describe('char-parser', () => {
 
     pipe(alphaNum, parser.run(stream.create('-')), _ =>
       either.left({
-        type: 'UnexpectedError',
+        type: 'UnexpectedParserError',
         expect: 'alphabet or digit',
         actual: '-',
         position: {

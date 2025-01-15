@@ -2,10 +2,17 @@ import { pipe } from 'fp-ts/lib/function';
 import { file } from '../src/lib/dsl-parser';
 import { parser } from '../src/lib/parser-combinator';
 import { stream } from '../src/lib/stream';
-import { printJson, toTupleFromCompileError } from './helpers';
+import {
+  compileGraphTest,
+  parseFileTest,
+  printJson,
+  runGraphTest,
+  toTupleFromCompileError,
+} from './helpers';
 import { either } from 'fp-ts';
 import { compiler } from '../src/lib';
 import { CompileError } from '../src/lib/compiler';
+import { through } from '../src/lib/through';
 
 describe('Compiler', () => {
   test('static-node: number', () => {
@@ -304,15 +311,16 @@ describe('Compiler', () => {
     );
   });
 
-  test('1 + 1', () => {
-    pipe(
+  test('1 + 1', async () => {
+    await pipe(
       file,
-      parser.run(stream.create('1 + 1;')),
+      parser.run(stream.create('@version("0.6"); 1 + 1;')),
       either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
       either.map(([{ json }]) => json),
-      _ =>
+      through(_ =>
         expect(_).toStrictEqual(
           either.right({
+            version: '0.6',
             nodes: {
               __anon0__: {
                 agent: 'plusAgent',
@@ -325,6 +333,8 @@ describe('Compiler', () => {
             },
           }),
         ),
+      ),
+      runGraphTest(either.right({ __anon0__: 2 })),
     );
   });
 
@@ -956,7 +966,7 @@ describe('Compiler', () => {
       file,
       parser.run(
         stream.create(`
-          "hello";
+          static a = "hello";
         `),
       ),
       either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
@@ -965,11 +975,8 @@ describe('Compiler', () => {
         expect(_).toStrictEqual(
           either.right({
             nodes: {
-              __anon0__: {
-                agent: 'concatStringAgent',
-                inputs: {
-                  items: ['hello'],
-                },
+              a: {
+                value: 'hello',
               },
             },
           }),
@@ -980,27 +987,18 @@ describe('Compiler', () => {
   test('string 2', () => {
     pipe(
       file,
-      parser.run(
-        stream.create(`
-          static name = "Tom";
-          "hello, \${name}";
-        `),
-      ),
+      parser.run(stream.create(`static name = "Tom"; "hello, \${name}";`)),
       either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
       either.map(([{ json }]) => json),
       _ =>
         expect(_).toStrictEqual(
-          either.right({
-            nodes: {
-              name: {
-                value: 'Tom',
-              },
-              __anon0__: {
-                agent: 'concatStringAgent',
-                inputs: {
-                  items: ['hello, ', ':name'],
-                },
-              },
+          either.left({
+            type: 'InvalidSyntaxError',
+            message: 'String cannot be used in computed node.',
+            position: {
+              index: 21,
+              row: 1,
+              column: 22,
             },
           }),
         ),
@@ -1212,31 +1210,28 @@ describe('Compiler', () => {
     );
   });
 
-  test('array-at 1', () => {
-    pipe(
-      file,
-      parser.run(
-        stream.create(`
+  test('array-at 1', async () => {
+    await pipe(
+      parseFileTest(`
+        @version("0.6");
         [1, 2, 3][0];
       `),
-      ),
-      either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
-      either.map(([{ json }]) => json),
-      _ =>
-        expect(_).toStrictEqual(
-          either.right({
-            nodes: {
-              __anon0__: {
-                isResult: true,
-                agent: 'getArrayElementAgent',
-                inputs: {
-                  array: [1, 2, 3],
-                  index: 0,
-                },
+      compileGraphTest(
+        either.right({
+          version: '0.6',
+          nodes: {
+            __anon0__: {
+              isResult: true,
+              agent: 'getArrayElementAgent',
+              inputs: {
+                array: [1, 2, 3],
+                index: 0,
               },
             },
-          }),
-        ),
+          },
+        }),
+      ),
+      runGraphTest(either.right({ __anon0__: 1 })),
     );
   });
 
@@ -1340,135 +1335,157 @@ describe('Compiler', () => {
     );
   });
 
-  test('loop', () => {
-    pipe(
-      file,
-      parser.run(
-        stream.create(`
-          loop({
-            init: 0,
-            callback: (cnt) -> 
-              if cnt < 10 
-              then recur({return: cnt + 1}) 
-              else identity({return: cnt}),
+  test('loop', async () => {
+    await pipe(
+      parseFileTest(`
+          @version('0.6');
+          sum = loopAgent({
+            init: {cnt: 0},
+            callback: (args) -> 
+              if args.cnt < 10 
+              then recurAgent({return: {cnt: args.cnt + 1}}) 
+              else identityAgent({return: args.cnt}),
           });
       `),
-      ),
-      either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
-      either.map(([{ json }]) => json),
-      _ =>
-        expect(_).toStrictEqual(
-          either.right({
-            nodes: {
-              __anon9__: {
-                agent: 'defAgent',
-                inputs: {
-                  args: 'cnt',
-                  capture: {},
-                  return: ['__anon1__'],
-                },
-                graph: {
-                  nodes: {
-                    __anon3__: {
-                      agent: 'defAgent',
-                      inputs: {
-                        args: undefined,
-                        capture: {
-                          cnt: ':cnt',
-                        },
-                        return: ['__anon2__'],
+      compileGraphTest(
+        either.right({
+          version: '0.6',
+          nodes: {
+            __anon11__: {
+              agent: 'defAgent',
+              inputs: {
+                args: 'args',
+                capture: {},
+                return: ['__anon0__'],
+              },
+              graph: {
+                nodes: {
+                  __anon3__: {
+                    agent: 'defAgent',
+                    inputs: {
+                      args: undefined,
+                      capture: {
+                        args: ':args',
                       },
-                      graph: {
-                        nodes: {
-                          __anon2__: {
-                            isResult: true,
-                            agent: 'ltAgent',
-                            inputs: {
-                              left: ':cnt',
-                              right: 10,
+                      return: ['__anon1__'],
+                    },
+                    graph: {
+                      nodes: {
+                        __anon2__: {
+                          agent: 'getObjectMemberAgent',
+                          inputs: {
+                            object: ':args',
+                            key: 'cnt',
+                          },
+                        },
+                        __anon1__: {
+                          isResult: true,
+                          agent: 'ltAgent',
+                          inputs: {
+                            left: ':__anon2__',
+                            right: 10,
+                          },
+                        },
+                      },
+                    },
+                  },
+                  __anon7__: {
+                    agent: 'defAgent',
+                    inputs: {
+                      args: undefined,
+                      capture: {
+                        args: ':args',
+                      },
+                      return: ['__anon4__'],
+                    },
+                    graph: {
+                      nodes: {
+                        __anon5__: {
+                          agent: 'getObjectMemberAgent',
+                          inputs: {
+                            object: ':args',
+                            key: 'cnt',
+                          },
+                        },
+                        __anon6__: {
+                          agent: 'plusAgent',
+                          inputs: {
+                            left: ':__anon5__',
+                            right: 1,
+                          },
+                        },
+                        __anon4__: {
+                          isResult: true,
+                          agent: 'recurAgent',
+                          inputs: {
+                            return: {
+                              cnt: ':__anon6__',
                             },
                           },
                         },
                       },
                     },
-                    __anon6__: {
-                      agent: 'defAgent',
-                      inputs: {
-                        args: undefined,
-                        capture: {
-                          cnt: ':cnt',
-                        },
-                        return: ['__anon4__'],
+                  },
+                  __anon10__: {
+                    agent: 'defAgent',
+                    inputs: {
+                      args: undefined,
+                      capture: {
+                        args: ':args',
                       },
-                      graph: {
-                        nodes: {
-                          __anon5__: {
-                            agent: 'plusAgent',
-                            inputs: {
-                              left: ':cnt',
-                              right: 1,
-                            },
+                      return: ['__anon8__'],
+                    },
+                    graph: {
+                      nodes: {
+                        __anon9__: {
+                          agent: 'getObjectMemberAgent',
+                          inputs: {
+                            object: ':args',
+                            key: 'cnt',
                           },
-                          __anon4__: {
-                            isResult: true,
-                            agent: 'recur',
-                            inputs: {
-                              return: ':__anon5__',
-                            },
+                        },
+                        __anon8__: {
+                          isResult: true,
+                          agent: 'identityAgent',
+                          inputs: {
+                            return: ':__anon9__',
                           },
                         },
                       },
                     },
-                    __anon8__: {
-                      agent: 'defAgent',
-                      inputs: {
-                        args: undefined,
-                        capture: {
-                          cnt: ':cnt',
+                  },
+                  __anon0__: {
+                    isResult: true,
+                    agent: 'caseAgent',
+                    inputs: {
+                      conditions: [
+                        {
+                          if: ':__anon3__',
+                          then: ':__anon7__',
                         },
-                        return: ['__anon7__'],
-                      },
-                      graph: {
-                        nodes: {
-                          __anon7__: {
-                            isResult: true,
-                            agent: 'identity',
-                            inputs: {
-                              return: ':cnt',
-                            },
-                          },
+                        {
+                          else: ':__anon10__',
                         },
-                      },
-                    },
-                    __anon1__: {
-                      isResult: true,
-                      agent: 'caseAgent',
-                      inputs: {
-                        conditions: [
-                          {
-                            if: ':__anon3__',
-                            then: ':__anon6__',
-                          },
-                          {
-                            else: ':__anon8__',
-                          },
-                        ],
-                      },
+                      ],
                     },
                   },
                 },
               },
-              __anon0__: {
-                isResult: true,
-                agent: 'loop',
-                inputs: {
-                  init: 0,
-                  callback: ':__anon9__',
+            },
+            sum: {
+              isResult: true,
+              agent: 'loopAgent',
+              inputs: {
+                init: {
+                  cnt: 0,
                 },
+                callback: ':__anon11__',
               },
             },
-          }),
-        ),
+          },
+        }),
+      ),
+      runGraphTest(either.right({ sum: 10 })),
     );
   });
 
@@ -1531,7 +1548,7 @@ describe('Compiler', () => {
       ),
       either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
       either.map(([{ json }]) => json),
-      _ =>
+      through(_ =>
         expect(_).toStrictEqual(
           either.right({
             nodes: {
@@ -1546,6 +1563,7 @@ describe('Compiler', () => {
             },
           }),
         ),
+      ),
     );
   });
 
@@ -1565,7 +1583,7 @@ describe('Compiler', () => {
       ),
       either.flatMap(({ data }) => pipe(compiler.graphToJson(data), compiler.run)),
       either.map(([{ json }]) => json),
-      _ =>
+      through(_ =>
         expect(_).toStrictEqual(
           either.right({
             nodes: {
@@ -1596,6 +1614,19 @@ describe('Compiler', () => {
             },
           }),
         ),
+      ),
+    );
+  });
+
+  test('curried function call 1', async () => {
+    await pipe(
+      parseFileTest(`
+          @version('0.6');
+          f = (a) -> (b) -> a.value + b.value;
+          v = f({value: 1})({value: 2});
+      `),
+      compileGraphTest(),
+      runGraphTest(either.right({ v: 3 })),
     );
   });
 });

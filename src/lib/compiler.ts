@@ -3,7 +3,6 @@ import {
   AgentCall,
   AgentDef,
   ArrayAt,
-  Compare,
   ComputedNode,
   ComputedNodeBody,
   ComputedNodeBodyExpr,
@@ -15,6 +14,7 @@ import {
   DSLObject,
   DSLObjectPair,
   DSLString,
+  Equality,
   Expr,
   Graph,
   Identifier,
@@ -29,6 +29,7 @@ import {
   PlusMinus,
   Power,
   RawString,
+  Relational,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
 import { parser, ParserContext, ParserError } from './parser-combinator';
@@ -285,6 +286,7 @@ export const graphToJson = (
       ),
     se.map(({ json, captures, lastNodeName }) => ({
       json: {
+        ...(graph.version == null ? {} : { version: graph.version }),
         nodes: json,
       },
       captures,
@@ -330,8 +332,10 @@ export const computedNodeBodyExprToJson = (
       return agentDefToJson(expr);
     case 'Logical':
       return logicalToJson(expr);
-    case 'Compare':
-      return compareToJson(expr);
+    case 'Equality':
+      return equalityToJson(expr);
+    case 'Relational':
+      return relationalToJson(expr);
     case 'PlusMinus':
       return plusMinusToJson(expr);
     case 'MulDivMod':
@@ -375,8 +379,10 @@ export const exprToJson = (expr: Expr): Result => {
       return agentDefToJson(expr);
     case 'Logical':
       return logicalToJson(expr);
-    case 'Compare':
-      return compareToJson(expr);
+    case 'Equality':
+      return equalityToJson(expr);
+    case 'Relational':
+      return relationalToJson(expr);
     case 'PlusMinus':
       return plusMinusToJson(expr);
     case 'MulDivMod':
@@ -631,27 +637,47 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
     result.Do,
     se.bind('annotations', () => annotationsToJson(agentCall.annotations)),
     se.bind('agent', () =>
-      pipe(
-        result.get(),
-        se.flatMap(({ stack }) =>
-          pipe(findIdentifier(agentCall.agent, stack), _ =>
-            _ === 'InThisStack' || _ === 'InParentStacks'
-              ? result.of({
-                  json: `:${agentCall.agent.name}`,
-                  captures: {
-                    [agentCall.agent.name]: agentCall.agent,
-                  },
-                  nodes: {},
-                })
-              : result.of({
-                  json: agentCall.agent.name,
-                  captures: {},
-                  nodes: {},
-                }),
-          ),
-        ),
-      ),
+      agentCall.agent.type === 'Identifier'
+        ? pipe(
+            result.Do,
+            se.bind('ctx', () => result.get()),
+            se.let_('agent', () => agentCall.agent as Identifier),
+            se.flatMap(({ ctx: { stack }, agent }) =>
+              pipe(findIdentifier(agent, stack), _ =>
+                _ === 'InThisStack' || _ === 'InParentStacks'
+                  ? result.of<CompileData>({
+                      json: `:${agent.name}`,
+                      captures: {
+                        [agent.name]: agent,
+                      },
+                      nodes: {},
+                    })
+                  : result.of({
+                      json: agent.name,
+                      captures: {},
+                      nodes: {},
+                    }),
+              ),
+            ),
+          )
+        : agentCall.agent.type === 'AgentCall'
+          ? pipe(
+              result.Do,
+              se.bind('call', () => agentCallToJson(agentCall.agent as AgentCall)),
+              se.bind('name', () => getAnnonName()),
+              se.map(({ call, name }) => ({
+                json: `:${name}`,
+                captures: call.captures,
+                nodes: {
+                  ...call.nodes,
+                  [name]: call.json,
+                },
+              })),
+            )
+          : exprToJson(agentCall.agent),
     ),
+    // An agent is called in the argument object of this agent call
+    // e.g. agent1({ value: agent2() })
     se.bind('nestedAgentCall', () =>
       pipe(agentCall.args?.type, _ =>
         _ === 'Boolean' || _ === 'Number' || _ === 'String' || _ === 'Array'
@@ -659,7 +685,7 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
               type: 'CompileError',
               items: [
                 {
-                  message: `${_} can not be used as inputs`,
+                  message: `${_} can not be used as inputs of an anget`,
                   parserContext: agentCall.context,
                 },
               ],
@@ -693,6 +719,7 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
                 ...args.captures,
               },
               nodes: {
+                ...agent.nodes,
                 ...args.nodes,
                 [agentName]: args.json,
               },
@@ -714,7 +741,10 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
               ...agent.captures,
               ...args.captures,
             },
-            nodes: args.nodes,
+            nodes: {
+              ...agent.nodes,
+              ...args.nodes,
+            },
           }),
     ),
   );
@@ -823,19 +853,59 @@ export const logicalToJson = (logical: Logical): Result<CompileData<JsonObject>>
     context: logical.context,
   });
 
-export const compareToJson = (compare: Compare): Result<CompileData<JsonObject>> =>
+export const equalityToJson = (equality: Equality): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: compare.annotations,
+    annotations: equality.annotations,
     agent: {
       type: 'Identifier',
       annotations: [],
       name: (() => {
-        switch (compare.operator) {
+        switch (equality.operator) {
           case '==':
             return 'eqAgent';
           case '!=':
             return 'neqAgent';
+        }
+      })(),
+      context: equality.context,
+    },
+    args: {
+      type: 'Object',
+      value: [
+        {
+          key: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'left',
+            context: equality.left.context,
+          },
+          value: equality.left,
+        },
+        {
+          key: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'right',
+            context: equality.right.context,
+          },
+          value: equality.right,
+        },
+      ],
+      context: equality.context,
+    },
+    context: equality.context,
+  });
+
+export const relationalToJson = (relational: Relational): Result<CompileData<JsonObject>> =>
+  agentCallToJson({
+    type: 'AgentCall',
+    annotations: relational.annotations,
+    agent: {
+      type: 'Identifier',
+      annotations: [],
+      name: (() => {
+        switch (relational.operator) {
           case '<':
             return 'ltAgent';
           case '<=':
@@ -846,7 +916,7 @@ export const compareToJson = (compare: Compare): Result<CompileData<JsonObject>>
             return 'gteAgent';
         }
       })(),
-      context: compare.context,
+      context: relational.context,
     },
     args: {
       type: 'Object',
@@ -856,23 +926,23 @@ export const compareToJson = (compare: Compare): Result<CompileData<JsonObject>>
             type: 'Identifier',
             annotations: [],
             name: 'left',
-            context: compare.left.context,
+            context: relational.left.context,
           },
-          value: compare.left,
+          value: relational.left,
         },
         {
           key: {
             type: 'Identifier',
             annotations: [],
             name: 'right',
-            context: compare.right.context,
+            context: relational.right.context,
           },
-          value: compare.right,
+          value: relational.right,
         },
       ],
-      context: compare.context,
+      context: relational.context,
     },
-    context: compare.context,
+    context: relational.context,
   });
 
 export const plusMinusToJson = (plusMinus: PlusMinus): Result<CompileData<JsonObject>> =>

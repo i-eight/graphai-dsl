@@ -1,32 +1,32 @@
 import { pipe } from 'fp-ts/lib/function';
 import {
-  agentCall,
+  call,
   agentDef,
   array,
-  arrayAt,
   boolean,
-  compareOr,
   computedNode,
   expr,
   file,
   identifier,
   ifThenElse,
-  logicalOr,
-  mulDivModeOr,
+  logical,
+  mulDivMod,
   nodeAnnotation,
   null_,
   number,
   object,
-  objectMember,
   paren,
-  plusMinusOr,
-  powerOr,
+  plusMinus,
+  power,
   staticNode,
   string,
+  equality,
+  relational,
+  termRelational,
 } from '../src/lib/dsl-parser';
 import { parser } from '../src/lib/parser-combinator';
 import { stream } from '../src/lib/stream';
-import { toTupleFromExpr } from './helpers';
+import { printJson, toTupleFromExpr } from './helpers';
 import { either } from 'fp-ts';
 import { Expr } from '../src/lib/dsl-syntax-tree';
 
@@ -74,7 +74,7 @@ describe('dsl-parser', () => {
 
     pipe(identifier, parser.run(stream.create('123_abc')), _ =>
       either.left({
-        type: 'UnexpectedError',
+        type: 'UnexpectedParserError',
         expect: 'identifier',
         actual: '1',
         message: 'An identifier can not start with 1',
@@ -88,7 +88,7 @@ describe('dsl-parser', () => {
 
     pipe(identifier, parser.run(stream.create('static')), _ =>
       either.left({
-        type: 'MessageError',
+        type: 'MessageParserError',
         message: "Cannot use 'static' as an identifier",
         position: {
           index: 6,
@@ -115,49 +115,55 @@ describe('dsl-parser', () => {
     );
   });
 
-  test('number', () => {
+  test('number 1', () =>
     pipe(
       number,
       parser.run(stream.create('123')),
       either.map(_ => _.data.value),
       _ => expect(_).toEqual(either.right(123)),
-    );
+    ));
 
+  test('number 2', () =>
     pipe(
       number,
       parser.run(stream.create('+123')),
       either.map(_ => _.data.value),
       _ => expect(_).toEqual(either.right(123)),
-    );
+    ));
 
+  test('number 3', () =>
     pipe(
       number,
       parser.run(stream.create('-123')),
       either.map(_ => _.data.value),
       _ => expect(_).toEqual(either.right(-123)),
-    );
+    ));
 
+  test('number 4', () =>
     pipe(
       number,
       parser.run(stream.create('123.456')),
       either.map(_ => _.data.value),
       _ => expect(_).toEqual(either.right(123.456)),
-    );
+    ));
 
+  test('number 5', () =>
     pipe(
       number,
       parser.run(stream.create('0.123')),
       either.map(_ => _.data.value),
       _ => expect(_).toEqual(either.right(0.123)),
-    );
+    ));
 
+  test('number 6', () =>
     pipe(
       number,
       parser.run(stream.create('-0.123')),
       either.map(_ => _.data.value),
       _ => expect(_).toEqual(either.right(-0.123)),
-    );
+    ));
 
+  test('number 7', () =>
     pipe(
       number,
       parser.run(stream.create('')),
@@ -165,14 +171,13 @@ describe('dsl-parser', () => {
       _ =>
         expect(_).toEqual(
           either.left({
-            type: 'UnexpectedError',
+            type: 'UnexpectedParserError',
             expect: 'number',
             actual: '?',
             position: { index: 0, row: 1, column: 1 },
           }),
         ),
-    );
-  });
+    ));
 
   test('null', () => {
     pipe(
@@ -285,56 +290,37 @@ describe('dsl-parser', () => {
     );
   });
 
-  test('array-at', () => {
+  test('array-at 1', () =>
     pipe(
-      arrayAt,
+      call,
       parser.run(stream.create('abc[1]')),
-      either.map(_ => [
-        _.data.array.type === 'Identifier' ? _.data.array.name : _,
-        _.data.index.type === 'Number' ? _.data.index.value : _,
-      ]),
-      _ => expect(_).toStrictEqual(either.right(['abc', 1])),
-    );
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right({ array: 'abc', at: 1 })),
+    ));
 
+  test('array-at 1', () =>
     pipe(
-      arrayAt,
+      call,
       parser.run(stream.create('[1, 2, 3][1]')),
-      either.map(_ => [
-        _.data.array.type === 'Array'
-          ? _.data.array.value.map(_ => (_.type === 'Number' ? _.value : _))
-          : _,
-        _.data.index.type === 'Number' ? _.data.index.value : _,
-      ]),
-      _ => expect(_).toStrictEqual(either.right([[1, 2, 3], 1])),
-    );
-  });
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right({ array: [1, 2, 3], at: 1 })),
+    ));
 
-  test('object-member', () => {
+  test('object-member 1', () =>
     pipe(
-      objectMember,
+      call,
       parser.run(stream.create('abc.key')),
-      either.map(_ => [
-        _.data.object.type === 'Identifier' ? _.data.object.name : _,
-        _.data.key.type === 'Identifier' ? _.data.key.name : _,
-      ]),
-      _ => expect(_).toStrictEqual(either.right(['abc', 'key'])),
-    );
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right({ object: 'abc', member: 'key' })),
+    ));
 
+  test('object-member 2', () =>
     pipe(
-      objectMember,
+      call,
       parser.run(stream.create('{ a: 1 }.key')),
-      either.map(_ => [
-        _.data.object.type === 'Object'
-          ? _.data.object.value.map(_ => ({
-              key: _.key.name,
-              value: _.value.type === 'Number' ? _.value.value : _,
-            }))
-          : _,
-        _.data.key.type === 'Identifier' ? _.data.key.name : _,
-      ]),
-      _ => expect(_).toStrictEqual(either.right([[{ key: 'a', value: 1 }], 'key'])),
-    );
-  });
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right({ object: { a: 1 }, member: 'key' })),
+    ));
 
   test('node-annotation', () => {
     pipe(
@@ -352,65 +338,119 @@ describe('dsl-parser', () => {
     );
   });
 
-  test('agent-call', () => {
+  test('agent-call 1', () =>
     pipe(
-      agentCall,
+      call,
       parser.run(stream.create('someAgent(hoge)')),
-      either.map(_ => [
-        _.data.agent.name,
-        _.data.args?.type === 'Identifier' ? _.data.args.name : _,
-      ]),
-      _ => expect(_).toStrictEqual(either.right(['someAgent', 'hoge'])),
-    );
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            agent: 'someAgent',
+            annotations: [],
+            args: 'hoge',
+          }),
+        ),
+    ));
 
+  test('agent-call 2', () =>
     pipe(
-      agentCall,
-      parser.run(stream.create('someAgent({ inputs: {a: 1, b: 2}})')),
-      either.map(_ =>
-        _.data.args == null
-          ? [_.data.agent.name]
-          : [_.data.agent.name, toTupleFromExpr(_.data.args)],
-      ),
-      _ => expect(_).toStrictEqual(either.right(['someAgent', { inputs: { a: 1, b: 2 } }])),
-    );
-  });
+      call,
+      parser.run(stream.create('someAgent({a: 1, b: 2})')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            agent: 'someAgent',
+            annotations: [],
+            args: { a: 1, b: 2 },
+          }),
+        ),
+    ));
 
-  test('annotated-agent-call', () => {
+  test('agent-call 3', () =>
     pipe(
-      agentCall,
+      call,
+      parser.run(stream.create('someAgent({a: 1, b: 2})({c: 3})')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            annotations: [],
+            agent: {
+              annotations: [],
+              agent: 'someAgent',
+              args: {
+                a: 1,
+                b: 2,
+              },
+            },
+            args: {
+              c: 3,
+            },
+          }),
+        ),
+    ));
+
+  test('annotated-agent-call 1', () =>
+    pipe(
+      call,
       parser.run(stream.create('@abc(123) someAgent(hoge)')),
-      either.map(_ => [
-        _.data.annotations.map(_ => [_.name.name, toTupleFromExpr(_.value)]),
-        _.data.agent.name,
-        _.data.args?.type === 'Identifier' ? _.data.args.name : _,
-      ]),
-      _ => expect(_).toStrictEqual(either.right([[['abc', 123]], 'someAgent', 'hoge'])),
-    );
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            annotations: [{ annotation: 'abc', value: 123 }],
+            agent: 'someAgent',
+            args: 'hoge',
+          }),
+        ),
+    ));
 
+  test('annotated-agent-call 2', () =>
     pipe(
-      agentCall,
+      call,
       parser.run(
         stream.create('@abc(123) @console({after: true}) @isResult(true) someAgent(hoge)'),
       ),
-      either.map(_ => [
-        _.data.annotations.map(_ => [_.name.name, toTupleFromExpr(_.value)]),
-        _.data.agent.name,
-        _.data.args?.type === 'Identifier' ? _.data.args.name : _,
-      ]),
+      either.map(_ => toTupleFromExpr(_.data)),
       _ =>
         expect(_).toStrictEqual(
-          either.right([
-            [
-              ['abc', 123],
-              ['console', { after: true }],
-              ['isResult', true],
+          either.right({
+            annotations: [
+              { annotation: 'abc', value: 123 },
+              { annotation: 'console', value: { after: true } },
+              { annotation: 'isResult', value: true },
             ],
-            'someAgent',
-            'hoge',
-          ]),
+            agent: 'someAgent',
+            args: 'hoge',
+          }),
         ),
-    );
-  });
+    ));
+
+  test('call 1', () =>
+    pipe(
+      call,
+      parser.run(stream.create('someAgent({a: 1, b: 2})[0].key')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            object: {
+              array: {
+                annotations: [],
+                agent: 'someAgent',
+                args: {
+                  a: 1,
+                  b: 2,
+                },
+              },
+              at: 0,
+            },
+            member: 'key',
+          }),
+        ),
+    ));
 
   test('agent-def', () => {
     pipe(
@@ -423,7 +463,7 @@ describe('dsl-parser', () => {
 
   test('power 1', () => {
     pipe(
-      powerOr,
+      power,
       parser.run(stream.create('2 ^ 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '^', 3])),
@@ -432,7 +472,7 @@ describe('dsl-parser', () => {
 
   test('mult-div-mod 1', () => {
     pipe(
-      mulDivModeOr,
+      mulDivMod,
       parser.run(stream.create('2 * 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '*', 3])),
@@ -441,7 +481,7 @@ describe('dsl-parser', () => {
 
   test('mult-div-mod 2', () => {
     pipe(
-      mulDivModeOr,
+      mulDivMod,
       parser.run(stream.create('2 / 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '/', 3])),
@@ -450,7 +490,7 @@ describe('dsl-parser', () => {
 
   test('mult-div-mod 3', () => {
     pipe(
-      mulDivModeOr,
+      mulDivMod,
       parser.run(stream.create('2 % 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '%', 3])),
@@ -459,7 +499,7 @@ describe('dsl-parser', () => {
 
   test('mult-div-mod 4', () => {
     pipe(
-      mulDivModeOr,
+      mulDivMod,
       parser.run(stream.create('2 * 3 / 4 % 5')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[[2, '*', 3], '/', 4], '%', 5])),
@@ -468,7 +508,7 @@ describe('dsl-parser', () => {
 
   test('mult-div-mod 5', () => {
     pipe(
-      mulDivModeOr,
+      mulDivMod,
       parser.run(stream.create('1 ^ 2 * 3 ^ 4')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[1, '^', 2], '*', [3, '^', 4]])),
@@ -477,7 +517,7 @@ describe('dsl-parser', () => {
 
   test('mult-div-mod 6', () => {
     pipe(
-      mulDivModeOr,
+      mulDivMod,
       parser.run(stream.create('1 * 2 ^ 3 / 4')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[1, '*', [2, '^', 3]], '/', 4])),
@@ -486,7 +526,7 @@ describe('dsl-parser', () => {
 
   test('plus-minus 1', () => {
     pipe(
-      plusMinusOr,
+      plusMinus,
       parser.run(stream.create('2 + 3 - 4')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[2, '+', 3], '-', 4])),
@@ -495,7 +535,7 @@ describe('dsl-parser', () => {
 
   test('plus-minus 2', () => {
     pipe(
-      plusMinusOr,
+      plusMinus,
       parser.run(stream.create('1 + 2 * 3 ^ 4 - 5 / 6')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ =>
@@ -503,63 +543,63 @@ describe('dsl-parser', () => {
     );
   });
 
-  test('compare 1', () => {
+  test('equality 1', () => {
     pipe(
-      compareOr,
+      equality,
       parser.run(stream.create('2 == 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '==', 3])),
     );
   });
 
-  test('compare 2', () => {
+  test('equality 2', () => {
     pipe(
-      compareOr,
+      equality,
       parser.run(stream.create('2 != 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '!=', 3])),
     );
   });
 
-  test('compare 3', () => {
+  test('relational 3', () => {
     pipe(
-      compareOr,
+      relational,
       parser.run(stream.create('2 > 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '>', 3])),
     );
   });
 
-  test('compare 4', () => {
+  test('relational 4', () => {
     pipe(
-      compareOr,
+      relational,
       parser.run(stream.create('2 >= 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '>=', 3])),
     );
   });
 
-  test('compare 5', () => {
+  test('relational 5', () => {
     pipe(
-      compareOr,
+      relational,
       parser.run(stream.create('2 < 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '<', 3])),
     );
   });
 
-  test('compare 6', () => {
+  test('relational 6', () => {
     pipe(
-      compareOr,
+      relational,
       parser.run(stream.create('2 <= 3')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([2, '<=', 3])),
     );
   });
 
-  test('compare 7', () => {
+  test('relational 7', () => {
     pipe(
-      compareOr,
+      relational,
       parser.run(stream.create('1 + 2 <= 3 * 4')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[1, '+', 2], '<=', [3, '*', 4]])),
@@ -568,7 +608,7 @@ describe('dsl-parser', () => {
 
   test('logical 1', () => {
     pipe(
-      logicalOr,
+      logical,
       parser.run(stream.create('true && false')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([true, '&&', false])),
@@ -577,7 +617,7 @@ describe('dsl-parser', () => {
 
   test('logical 2', () => {
     pipe(
-      logicalOr,
+      logical,
       parser.run(stream.create('true || false')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([true, '||', false])),
@@ -586,7 +626,7 @@ describe('dsl-parser', () => {
 
   test('logical 3', () => {
     pipe(
-      logicalOr,
+      logical,
       parser.run(stream.create('1 > 2 && 3 < 4')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[1, '>', 2], '&&', [3, '<', 4]])),
@@ -761,7 +801,7 @@ describe('dsl-parser', () => {
 
   test('expr 3', () => {
     pipe(
-      agentCall,
+      call,
       parser.run(
         stream.create(`loop({
           init: {cnt: 0}, 

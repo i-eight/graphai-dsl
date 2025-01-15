@@ -8,9 +8,16 @@ import {
   StaticNode,
   ComputedNodeBody,
 } from '../src/lib/dsl-syntax-tree';
-import { CompileError } from '../src/lib/compiler';
+import { CompileError, Json } from '../src/lib/compiler';
 import { either, readonlyArray } from 'fp-ts';
 import { Either } from 'fp-ts/lib/Either';
+import { DefaultResultData, ResultDataDictionary } from 'graphai';
+import { runFromJson } from '../src/lib/run';
+import { parser, ParserError } from '../src/lib/parser-combinator';
+import { file, object } from '../src/lib/dsl-parser';
+import { stream } from '../src/lib/stream';
+import { compiler } from '../src/lib';
+import { through } from '../src/lib/through';
 
 export const printJson = (json: unknown): void => console.log(JSON.stringify(json, null, 2));
 
@@ -53,10 +60,10 @@ export const toTupleFromExpr = (
       return { annotation: _.name.name, value: toTupleFromExpr(_.value) };
     case 'AgentCall':
       return _.args == null
-        ? { annotations: _.annotations.map(toTupleFromExpr), agent: _.agent.name }
+        ? { annotations: _.annotations.map(toTupleFromExpr), agent: toTupleFromExpr(_.agent) }
         : {
             annotations: _.annotations.map(toTupleFromExpr),
-            agent: _.agent.name,
+            agent: toTupleFromExpr(_.agent),
             args: toTupleFromExpr(_.args),
           };
     case 'AgentDef':
@@ -65,12 +72,13 @@ export const toTupleFromExpr = (
         body: toTupleFromExpr(_.body),
       };
     case 'Logical':
-    case 'Compare':
+    case 'Equality':
+    case 'Relational':
     case 'PlusMinus':
     case 'MulDivMod':
       return [toTupleFromExpr(_.left), _.operator, toTupleFromExpr(_.right)];
     case 'Power':
-      return [toTupleFromExpr(_.base), '^', _.exponent.value];
+      return [toTupleFromExpr(_.base), '^', toTupleFromExpr(_.exponent)];
     case 'StaticNode':
       return { staticNode: _.name.name, value: toTupleFromExpr(_.value) };
     case 'ComputedNode':
@@ -87,3 +95,35 @@ export const toTupleFromExpr = (
 export const toTupleFromCompileError = (
   _: Readonly<{ type: string }>,
 ): Either<[string, string], unknown> => either.left([_.type, (_ as CompileError).items[0].message]);
+
+export const parseFileTest = (src: string): Either<ParserError, Graph> =>
+  pipe(
+    file,
+    parser.run(stream.create(src)),
+    either.map(_ => _.data),
+  );
+
+export const compileGraphTest =
+  (result: Either<unknown, Json> | undefined = undefined) =>
+  (graph: Either<ParserError, Graph>): Either<unknown, Json> =>
+    pipe(
+      graph,
+      either.flatMap(_ => pipe(compiler.graphToJson(_), compiler.run)),
+      either.map(([{ json }]) => json),
+      through(_ => (result == null ? void 0 : expect(_).toStrictEqual(result))),
+    );
+
+export const runGraphTest =
+  (result: Either<unknown, unknown> | undefined = undefined) =>
+  (json: Either<unknown, Json>): Promise<void> =>
+    pipe(
+      json,
+      either.match(
+        async e => expect(e).toStrictEqual(result),
+        async _ => {
+          await runFromJson(_)
+            .catch(e => expect(either.left(e)).toStrictEqual(result))
+            .then(r => expect(either.right(r)).toStrictEqual(result));
+        },
+      ),
+    );

@@ -7,7 +7,11 @@ import { unit, Unit } from './unit';
 
 export const eos: Parser<Unit> = parser.create(s =>
   s.position.index < s.source.length
-    ? either.left({ type: 'MessageError', message: 'Expect end of stream', position: s.position })
+    ? either.left({
+        type: 'UnexpectedParserError',
+        message: 'Expect end of stream',
+        position: s.position,
+      })
     : either.right({ stream: s, data: unit }),
 );
 
@@ -18,14 +22,19 @@ export const matchedChar = (f: (c: string) => boolean, expect: string): Parser<s
       option.match(
         () =>
           either.left({
-            type: 'MessageError',
+            type: 'UnexpectedParserError',
             message: `Expect ${expect} but failed to get a next char in the stream`,
             position: s.position,
           }),
         c =>
           f(c)
             ? either.right({ stream: stream.tail(s), data: c })
-            : either.left({ type: 'UnexpectedError', expect, actual: c, position: s.position }),
+            : either.left({
+                type: 'UnexpectedParserError',
+                expect,
+                actual: c,
+                position: s.position,
+              }),
       ),
     ),
   );
@@ -44,9 +53,11 @@ export const text = (expect: string, index: number = 0): Parser<string> =>
 
 export const space: Parser<string> = matchedChar(c => c === ' ' || c === '\t', 'space');
 
-export const spaces: Parser<string> = pipe(
-  space,
-  parser.repeat('', (acc, s) => acc + s),
+export const spaces: Parser<string> = parser.repeat('', acc =>
+  pipe(
+    space,
+    parser.map(s => acc + s),
+  ),
 );
 
 export const spaces1: Parser<string> = pipe(
@@ -64,9 +75,11 @@ export const whitespace: Parser<string> = matchedChar(
   'whitespace',
 );
 
-export const whitespaces: Parser<string> = pipe(
-  whitespace,
-  parser.repeat('', (acc, s) => acc + s),
+export const whitespaces: Parser<string> = parser.repeat('', acc =>
+  pipe(
+    whitespace,
+    parser.map(s => acc + s),
+  ),
 );
 
 export const whitespaces1: Parser<string> = pipe(
@@ -99,9 +112,9 @@ export const alphaNum: Parser<string> = pipe(
   parser.or(digit),
   parser.orElse(cause =>
     parser.fail({
-      type: 'UnexpectedError',
+      type: 'UnexpectedParserError',
       expect: 'alphabet or digit',
-      actual: cause.type === 'UnexpectedError' ? cause.actual : '?',
+      actual: cause.type === 'UnexpectedParserError' ? cause.actual : '?',
       cause,
     }),
   ),

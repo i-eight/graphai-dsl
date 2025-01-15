@@ -11,26 +11,26 @@ export type ParserData<A> = Readonly<{
   data: A;
 }>;
 
-export type BaseError = MessageError | UnexpectedError | NotImplementedError;
+export type BaseError = UnexpectedError | NotImplementedError | InvalidSyntaxError;
 
 export type ParserError = BaseError & Readonly<{ position: Position }>;
 
-export type MessageError = Readonly<{
-  type: 'MessageError';
-  message: string;
-  cause?: ParserError;
-}>;
-
 export type UnexpectedError = Readonly<{
-  type: 'UnexpectedError';
-  expect: string;
-  actual: string;
+  type: 'UnexpectedParserError';
+  expect?: string;
+  actual?: string;
   message?: string;
   cause?: ParserError;
 }>;
 
 export type NotImplementedError = Readonly<{
   type: 'NotImplementedError';
+  message: string;
+  cause?: ParserError;
+}>;
+
+export type InvalidSyntaxError = Readonly<{
+  type: 'InvalidSyntaxError';
   message: string;
   cause?: ParserError;
 }>;
@@ -49,7 +49,7 @@ export type ParserContext = Readonly<{
 
 export namespace error {
   export const getActual = (self: ParserError): string =>
-    self.type === 'UnexpectedError' ? self.actual : '?';
+    self.type === 'UnexpectedParserError' ? (self.actual ?? '?') : '?';
 }
 
 export namespace parser {
@@ -166,7 +166,7 @@ export namespace parser {
           () => either.right({ stream: s, data: { type: 'Unit' } }),
           a =>
             either.left({
-              type: 'MessageError',
+              type: 'UnexpectedParserError',
               message: `Expect not followed by ${a}`,
               position: s.position,
             }),
@@ -200,41 +200,39 @@ export namespace parser {
         ),
       );
 
-  export const repeat =
-    <A, B>(init: B, f: (acc: B, a: A) => B) =>
-    (self: Parser<A>): Parser<B> =>
-      create<B>(s =>
-        pipe(
-          loop({ stream: s, data: init }, result =>
-            pipe(
-              self,
-              run(result.stream),
-              either.match(
-                () =>
-                  ({
-                    stream: result.stream,
-                    data: result.data,
-                  }) as Recur<ParserData<B>> | ParserData<B>,
-                ({ stream, data }) => recur({ stream, data: f(result.data, data) }),
-              ),
+  export const repeat = <A>(init: A, f: (acc: A) => Parser<A>) =>
+    create<A>(s =>
+      pipe(
+        loop({ stream: s, data: init }, result =>
+          pipe(
+            f(result.data),
+            run(result.stream),
+            either.match(
+              () =>
+                ({
+                  stream: result.stream,
+                  data: result.data,
+                }) as Recur<ParserData<A>> | ParserData<A>,
+              ({ stream, data }) => recur({ stream, data }),
             ),
           ),
-          either.right,
         ),
-      );
+        either.right,
+      ),
+    );
 
-  export const repeat1 =
-    <A, B>(init: B, f: (acc: B, a: A) => B) =>
-    (self: Parser<A>): Parser<B> =>
-      pipe(
-        self,
-        flatMap(a => pipe(self, repeat(f(init, a), f))),
-      );
+  export const repeat1 = <A>(init: A, f: (acc: A) => Parser<A>) =>
+    pipe(
+      f(init),
+      flatMap(a => repeat(a, f)),
+    );
 
   export const many = <A>(self: Parser<A>): Parser<ReadonlyArray<A>> =>
-    pipe(
-      self,
-      repeat<A, ReadonlyArray<A>>([], (xs, a) => [...xs, a]),
+    repeat<ReadonlyArray<A>>([], (xs: ReadonlyArray<A>) =>
+      pipe(
+        self,
+        map(a => [...xs, a]),
+      ),
     );
 
   export const many1 = <A>(self: Parser<A>): Parser<ReadonlyArray<A>> =>

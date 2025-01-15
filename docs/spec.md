@@ -14,22 +14,24 @@
 
 The operators are arranged in ascending order of precedence.
 
-| Operator | Agent        | Precedence |
-| :------- | :----------- | :--------- |
-| `&&`     | `andAgent`   | =          |
-| `\|\|`   | `orAgent`    | ↓          |
-| `==`     | `eqAgent`    | =          |
-| `!=`     | `neqAgent`   | =          |
-| `>`      | `gtAgent`    | =          |
-| `>=`     | `gteAgent`   | =          |
-| `<`      | `ltAgent`    | =          |
-| `<=`     | `lteAgent`   | ↓          |
-| `+`      | `plusAgent`  | =          |
-| `-`      | `minusAgent` | ↓          |
-| `*`      | `mulAgent`   | =          |
-| `/`      | `divAgent`   | =          |
-| `%`      | `modAgent`   | ↓          |
-| `^`      | `powAgent`   | ↓          |
+| Operator | Agent                  | Precedence |
+| :------- | :--------------------- | :--------- |
+| `&&`     | `andAgent`             | =          |
+| `\|\|`   | `orAgent`              | ↓          |
+| `==`     | `eqAgent`              | =          |
+| `!=`     | `neqAgent`             | =          |
+| `>`      | `gtAgent`              | =          |
+| `>=`     | `gteAgent`             | =          |
+| `<`      | `ltAgent`              | =          |
+| `<=`     | `lteAgent`             | ↓          |
+| `+`      | `plusAgent`            | =          |
+| `-`      | `minusAgent`           | ↓          |
+| `*`      | `mulAgent`             | =          |
+| `/`      | `divAgent`             | =          |
+| `%`      | `modAgent`             | ↓          |
+| `^`      | `powAgent`             | ↓          |
+| `[]`     | `getArrayElementAgent` | =          |
+| `.`      | `getObjectMemberAgent` |            |
 
 ## Define a static node
 

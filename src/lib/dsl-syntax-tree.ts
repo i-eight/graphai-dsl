@@ -4,9 +4,12 @@ export type File = Graph;
 
 export type Graph = Readonly<{
   type: 'Graph';
-  statements: ReadonlyArray<Node>;
+  version?: string;
+  statements: Statements;
   context: Context;
 }>;
+
+export type Statements = ReadonlyArray<Node>;
 
 export type NestedGraph = Readonly<{
   type: 'NestedGraph';
@@ -117,34 +120,10 @@ export type DSLObject = Readonly<{
 
 export type DSLNull = Readonly<{ type: 'Null'; context: Context }>;
 
-export type ArrayAt = Readonly<{
-  type: 'ArrayAt';
-  annotations: ReadonlyArray<NodeAnnotation>;
-  array: DSLArray | Paren | Identifier | AgentCall;
-  index: Expr;
-  context: Context;
-}>;
-
-export type ObjectMember = Readonly<{
-  type: 'ObjectMember';
-  annotations: ReadonlyArray<NodeAnnotation>;
-  object: DSLObject | Paren | Identifier | AgentCall;
-  key: Identifier;
-  context: Context;
-}>;
-
 export type NodeAnnotation = Readonly<{
   type: 'NodeAnnotation';
   name: Identifier;
   value: Expr;
-  context: Context;
-}>;
-
-export type AgentCall = Readonly<{
-  type: 'AgentCall';
-  annotations: ReadonlyArray<NodeAnnotation>;
-  agent: Identifier;
-  args?: Expr;
   context: Context;
 }>;
 
@@ -175,17 +154,57 @@ export type ObjectDestruction = Readonly<{
   context: Context;
 }>;
 
-export type PowerBase = DSLNumber | Identifier | Paren | ArrayAt | ObjectMember | AgentCall;
+export type Term =
+  | DSLNumber
+  | DSLString
+  | DSLBoolean
+  | DSLArray
+  | DSLObject
+  | DSLNull
+  | Paren
+  | Identifier;
+
+export type Arrayable = DSLArray | Paren | Identifier;
+export type ArrayAt = Readonly<{
+  type: 'ArrayAt';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  array: Arrayable | Call;
+  index: Expr;
+  context: Context;
+}>;
+
+export type Objectable = DSLObject | Paren | Identifier;
+export type ObjectMember = Readonly<{
+  type: 'ObjectMember';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  object: Objectable | Call;
+  key: Identifier;
+  context: Context;
+}>;
+
+export type Agentable = Paren | Identifier;
+export type AgentCall = Readonly<{
+  type: 'AgentCall';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  agent: Agentable | Call;
+  args?: Expr;
+  context: Context;
+}>;
+
+export type Callable = Arrayable | Objectable | Agentable;
+export type Call = ArrayAt | ObjectMember | AgentCall;
+
+export type TermPower = DSLNumber | Identifier | Paren | Call;
 
 export type Power = Readonly<{
   type: 'Power';
   annotations: ReadonlyArray<NodeAnnotation>;
-  base: PowerBase | Power;
-  exponent: DSLNumber;
+  base: TermPower | Power;
+  exponent: TermPower;
   context: Context;
 }>;
 
-export type TermMulDivMod = PowerBase | Power;
+export type TermMulDivMod = TermPower | Power;
 
 export type MulDivMod = Readonly<{
   type: 'MulDivMod';
@@ -207,18 +226,29 @@ export type PlusMinus = Readonly<{
   context: Context;
 }>;
 
-export type TermCompare = TermPlusMinus | PlusMinus | DSLBoolean | DSLString | DSLArray | DSLObject;
+export type TermRelational = TermPlusMinus | PlusMinus | DSLString;
 
-export type Compare = Readonly<{
-  type: 'Compare';
+export type Relational = Readonly<{
+  type: 'Relational';
   annotations: ReadonlyArray<NodeAnnotation>;
-  left: TermCompare | Compare;
-  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
-  right: TermCompare;
+  left: TermRelational | Relational;
+  operator: '<' | '<=' | '>' | '>=';
+  right: TermRelational;
   context: Context;
 }>;
 
-export type TermLogical = TermCompare | Compare;
+export type TermEquality = TermRelational | Relational | DSLBoolean | DSLArray | DSLObject;
+
+export type Equality = Readonly<{
+  type: 'Equality';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  left: TermEquality | Equality;
+  operator: '==' | '!=';
+  right: TermEquality;
+  context: Context;
+}>;
+
+export type TermLogical = TermEquality | Equality;
 
 export type Logical = Readonly<{
   type: 'Logical';

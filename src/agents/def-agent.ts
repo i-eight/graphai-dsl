@@ -4,6 +4,18 @@ type NestedObject = Readonly<{
   [key: string]: NestedObject;
 }>;
 
+type OnError = Readonly<{
+  message: string;
+  error: object;
+}>;
+
+type ErrorResult = Readonly<{
+  onError: OnError;
+}>;
+
+const isErrorResult = (result: unknown): result is ErrorResult =>
+  typeof result === 'object' && result != null && 'onError' in result;
+
 const extractReturnValue = (result: NestedObject, returnKeys: ReadonlyArray<string>) =>
   returnKeys.reduce((r, k) => r[k], result);
 
@@ -27,7 +39,7 @@ const defAgent =
           nodes: {
             exec: {
               agent: 'nestedAgent',
-              inputs: args == null ? capture : { args: namedInputs, ...capture },
+              inputs: args == null ? capture : { [args]: namedInputs, ...capture },
               graph: forNestedGraph?.graphData,
               isResult: true,
             },
@@ -36,7 +48,10 @@ const defAgent =
         forNestedGraph?.agents ?? {},
       ).run()
     ).exec;
-    if (typeof result === 'object' && returnKeys != null) {
+
+    if (isErrorResult(result)) {
+      return Promise.reject(new Error(result.onError.message));
+    } else if (typeof result === 'object' && returnKeys != null) {
       return extractReturnValue(result as NestedObject, returnKeys);
     } else {
       return result;

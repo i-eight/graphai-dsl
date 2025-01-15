@@ -12,10 +12,11 @@ import {
 } from './char-parser';
 import {
   AgentCall,
+  Agentable,
   AgentDef,
   ArrayAt,
+  Arrayable,
   BlockComment,
-  Compare,
   ComputedNode,
   ComputedNodeBody,
   ComputedNodeBodyExpr,
@@ -40,17 +41,28 @@ import {
   Paren,
   PlusMinus,
   Power,
-  PowerBase,
   StaticNode,
-  TermCompare,
   TermLogical,
   TermMulDivMod,
   TermPlusMinus,
+  Objectable,
+  Callable,
+  Call,
+  TermRelational,
+  Relational,
+  TermEquality,
+  Equality,
+  Term,
+  TermPower,
+  BinaryTerm,
+  Statements,
 } from './dsl-syntax-tree';
-import { error, Parser, parser } from './parser-combinator';
-import { option, readonlyArray } from 'fp-ts';
+import { error, Parser, parser, ParserError } from './parser-combinator';
+import { either, option, readonlyArray } from 'fp-ts';
 import os from 'os';
-import { unit } from './unit';
+import { Unit, unit } from './unit';
+import { Either } from 'fp-ts/lib/Either';
+import { Option } from 'fp-ts/lib/Option';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -65,10 +77,12 @@ export const reservedWords: ReadonlyArray<string> = [
 export const blockComment: Parser<BlockComment> = pipe(
   text('/*'),
   parser.right(
-    pipe(
-      parser.notFollowedBy(text('*/')),
-      parser.right(anyChar),
-      parser.repeat('', (a, s) => a + s),
+    parser.repeat('', a =>
+      pipe(
+        parser.notFollowedBy(text('*/')),
+        parser.right(anyChar),
+        parser.map(s => a + s),
+      ),
     ),
   ),
   parser.left(text('*/')),
@@ -78,16 +92,18 @@ export const blockComment: Parser<BlockComment> = pipe(
 export const lineComment: Parser<LineComment> = pipe(
   text('//'),
   parser.right(
-    pipe(
-      parser.notFollowedBy(
-        pipe(
-          text(os.EOL),
-          parser.map(_ => unit),
-          parser.or(eos),
+    parser.repeat('', a =>
+      pipe(
+        parser.notFollowedBy(
+          pipe(
+            text(os.EOL),
+            parser.map(_ => unit),
+            parser.or(eos),
+          ),
         ),
+        parser.right(anyChar),
+        parser.map(s => a + s),
       ),
-      parser.right(anyChar),
-      parser.repeat('', (a, s) => a + s),
     ),
   ),
   parser.left(
@@ -107,9 +123,13 @@ export const ignoredToken: Parser<ReadonlyArray<BlockComment | LineComment>> = p
   parser.map(_ => (typeof _ === 'string' ? [] : [_])),
 );
 
-export const whitespaces: Parser<ReadonlyArray<BlockComment | LineComment>> = pipe(
-  ignoredToken,
-  parser.repeat([] as ReadonlyArray<BlockComment | LineComment>, (xs, s) => [...xs, ...s]),
+export const whitespaces: Parser<ReadonlyArray<BlockComment | LineComment>> = parser.repeat(
+  [] as ReadonlyArray<BlockComment | LineComment>,
+  xs =>
+    pipe(
+      ignoredToken,
+      parser.map(s => [...xs, ...s]),
+    ),
 );
 
 export const whitespaces1: Parser<ReadonlyArray<BlockComment | LineComment>> = pipe(
@@ -127,17 +147,19 @@ export const identifier: Parser<Identifier> = pipe(
   parser.bind('first', () => pipe(alphabet, parser.or(underScore))),
   parser.orElse(e =>
     parser.fail({
-      type: 'UnexpectedError',
+      type: 'UnexpectedParserError',
       expect: 'identifier',
       actual: error.getActual(e),
       message: `An identifier can not start with ${error.getActual(e)}`,
     }),
   ),
   parser.bind('rest', () =>
-    pipe(
-      alphaNum,
-      parser.or(underScore),
-      parser.repeat('', (a, s) => a + s),
+    parser.repeat('', a =>
+      pipe(
+        alphaNum,
+        parser.or(underScore),
+        parser.map(s => a + s),
+      ),
     ),
   ),
   parser.bind('name', ({ first, rest }) => parser.of(first + rest)),
@@ -148,7 +170,7 @@ export const identifier: Parser<Identifier> = pipe(
       _ =>
         _
           ? parser.fail<string>({
-              type: 'MessageError',
+              type: 'UnexpectedParserError',
               message: `Cannot use '${name}' as an identifier`,
             })
           : parser.of(name),
@@ -161,14 +183,16 @@ export const boolean: Parser<DSLBoolean> = pipe(
   text('true'),
   parser.or(text('false')),
   parser.orElse(e =>
-    parser.fail({ type: 'UnexpectedError', expect: 'boolean', actual: error.getActual(e) }),
+    parser.fail({ type: 'UnexpectedParserError', expect: 'boolean', actual: error.getActual(e) }),
   ),
   parser.context(_ => ({ type: 'Boolean', value: _ === 'true' })),
 );
 
-export const unsignedInteger: Parser<string> = pipe(
-  digit,
-  parser.repeat1('', (a, s) => a + s),
+export const unsignedInteger: Parser<string> = parser.repeat1('', a =>
+  pipe(
+    digit,
+    parser.map(s => a + s),
+  ),
 );
 
 export const number: Parser<DSLNumber> = pipe(
@@ -185,7 +209,7 @@ export const number: Parser<DSLNumber> = pipe(
   ),
   parser.map(({ sign, uint, decimal }) => Number(`${sign}${uint}${decimal}`)),
   parser.orElse(e =>
-    parser.fail({ type: 'UnexpectedError', expect: 'number', actual: error.getActual(e) }),
+    parser.fail({ type: 'UnexpectedParserError', expect: 'number', actual: error.getActual(e) }),
   ),
   parser.context(value => ({ type: 'Number', value })),
 );
@@ -194,27 +218,33 @@ const stringQuote = (quote: '"' | "'"): Parser<DSLString> =>
   pipe(
     char(quote),
     parser.right(
-      pipe(
-        text('\\$'),
-        parser.map(_ => '$'),
-        parser.or(
-          pipe(
-            text('\\' + quote),
-            parser.map(_ => quote as string),
+      parser.repeat<ReadonlyArray<string | Expr>>([], xs =>
+        pipe(
+          parser.repeat1<string | Expr>('', a =>
+            pipe(
+              text('\\$'),
+              parser.map(_ => '$'),
+              parser.or(
+                pipe(
+                  text('\\' + quote),
+                  parser.map(_ => quote as string),
+                ),
+              ),
+              parser.or(noneOf(quote + '$')),
+              parser.map(s => a + s),
+            ),
           ),
-        ),
-        parser.or(noneOf(quote + '$')),
-        parser.repeat1<string, string | Expr>('', (a, s) => a + s),
-        parser.or<string | Expr>(
-          pipe(
-            text('${'),
-            parser.right(whitespaces),
-            parser.flatMap(() => expr),
-            parser.left(whitespaces),
-            parser.left(char('}')),
+          parser.or<string | Expr>(
+            pipe(
+              text('${'),
+              parser.right(whitespaces),
+              parser.flatMap(() => expr),
+              parser.left(whitespaces),
+              parser.left(char('}')),
+            ),
           ),
+          parser.map(x => [...xs, x]),
         ),
-        parser.repeat<string | Expr, ReadonlyArray<string | Expr>>([], (xs, x) => [...xs, x]),
       ),
     ),
     parser.left(char(quote)),
@@ -269,55 +299,6 @@ export const null_: Parser<DSLNull> = pipe(
   parser.context(_ => ({ type: 'Null' })),
 );
 
-type ArrayType = ArrayAt['array'];
-export const arrayAt: Parser<ArrayAt> = pipe(
-  parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
-  parser.bind('array', () =>
-    pipe(
-      paren as Parser<ArrayType>,
-      parser.or<ArrayType>(array),
-      parser.or<ArrayType>(identifier),
-      parser.or<ArrayType>(agentCall),
-    ),
-  ),
-  parser.left(char('[')),
-  parser.left(whitespaces),
-  parser.bind('index', () => expr),
-  parser.left(whitespaces),
-  parser.left(char(']')),
-  parser.context(({ annotations, array, index }) => ({
-    type: 'ArrayAt',
-    annotations,
-    array,
-    index,
-  })),
-);
-
-type ObjectType = ObjectMember['object'];
-export const objectMember: Parser<ObjectMember> = pipe(
-  parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
-  parser.bind('object', () =>
-    pipe(
-      paren as Parser<ObjectType>,
-      parser.or<ObjectType>(object),
-      parser.or<ObjectType>(identifier),
-      parser.or<ObjectType>(agentCall),
-    ),
-  ),
-  parser.left(whitespaces),
-  parser.left(char('.')),
-  parser.left(whitespaces),
-  parser.bind('key', () => identifier),
-  parser.context(({ annotations, object, key }) => ({
-    type: 'ObjectMember',
-    annotations,
-    object,
-    key,
-  })),
-);
-
 export const nodeAnnotation: Parser<NodeAnnotation> = pipe(
   char('@'),
   parser.bind('name', () => identifier),
@@ -336,23 +317,6 @@ export const nodeAnnotations: Parser<ReadonlyArray<NodeAnnotation>> = pipe(
   parser.or(parser.of<ReadonlyArray<NodeAnnotation>>([])),
 );
 
-export const agentCall: Parser<AgentCall> = pipe(
-  parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
-  parser.bind('agent', () => identifier),
-  parser.left(char('(')),
-  parser.left(whitespaces),
-  parser.bind('args', () => pipe(expr, parser.optional)),
-  parser.left(whitespaces),
-  parser.left(char(')')),
-  parser.context(({ annotations, agent, args }) => ({
-    type: 'AgentCall',
-    annotations,
-    agent,
-    args: option.toUndefined(args),
-  })),
-);
-
 export const agentDef: Parser<AgentDef> = pipe(
   parser.unit,
   parser.bind('annotations', () => nodeAnnotations),
@@ -368,9 +332,16 @@ export const agentDef: Parser<AgentDef> = pipe(
     pipe(
       char('{'),
       parser.right(whitespaces),
-      parser.flatMap(() => graph),
-      parser.left(whitespaces),
-      parser.left(char('}')),
+      parser.flatMap(() =>
+        graph(
+          pipe(
+            whitespaces,
+            parser.left(char('}')),
+            parser.map(() => unit),
+          ),
+          option.none,
+        ),
+      ),
       parser.or<Graph | ComputedNodeBodyExpr>(computedNodeBodyExpr),
     ),
   ),
@@ -382,45 +353,244 @@ export const agentDef: Parser<AgentDef> = pipe(
   })),
 );
 
-export const powerBase: Parser<PowerBase> = pipe(
-  parser.unit,
-  parser.flatMap(() => paren),
-  parser.or<PowerBase>(arrayAt),
-  parser.or<PowerBase>(objectMember),
-  parser.or<PowerBase>(agentCall),
-  parser.or<PowerBase>(number),
-  parser.or<PowerBase>(identifier),
+export const throwOr =
+  <A>(errors: ReadonlyArray<ParserError['type']>, p: Parser<A> | (() => Parser<A>)) =>
+  (self: Parser<A>): Parser<A> =>
+    pipe(
+      self,
+      parser.orElse(e =>
+        pipe(
+          errors,
+          readonlyArray.exists(_ => _ === e.type),
+        )
+          ? parser.fail(e)
+          : typeof p === 'function'
+            ? p()
+            : p,
+      ),
+    );
+
+export const invalidOr =
+  <A>(p: Parser<A> | (() => Parser<A>)) =>
+  (self: Parser<A>): Parser<A> =>
+    pipe(self, throwOr(['InvalidSyntaxError'], p));
+
+export const term: Parser<Term> = pipe(
+  number,
+  parser.or<Term>(string),
+  parser.or<Term>(boolean),
+  parser.or<Term>(null_),
+  parser.or<Term>(array),
+  parser.or<Term>(object),
+  parser.orElse<Term>(() => paren),
+  parser.or<Term>(identifier),
 );
 
-export const powerExponent = (base: PowerBase | Power): Parser<Power> =>
+export const isLiteral = (
+  term: Expr,
+): term is DSLNumber | DSLString | DSLBoolean | DSLArray | DSLObject | DSLNull =>
+  term.type === 'Number' ||
+  term.type === 'String' ||
+  term.type === 'Boolean' ||
+  term.type === 'Array' ||
+  term.type === 'Object' ||
+  term.type === 'Null';
+
+export const isCall = (term: Expr): term is Call =>
+  term.type === 'ArrayAt' || term.type === 'ObjectMember' || term.type === 'AgentCall';
+
+export const isArrayable = (term: Expr): term is Arrayable =>
+  term.type === 'Array' || term.type === 'Paren' || term.type === 'Identifier';
+
+export const arrayAtFrom = (
+  annotations: ReadonlyArray<NodeAnnotation>,
+  term: Term | Call,
+): Parser<ArrayAt> =>
   pipe(
-    whitespaces,
-    parser.right(char('^')),
-    parser.right(whitespaces),
-    parser.right(number),
-    parser.context<DSLNumber, Omit<Power, 'context'>>(exponent => ({
-      type: 'Power',
-      annotations: [],
-      base,
-      exponent,
-    })),
-    parser.flatMap(power => pipe(powerExponent(power), parser.or(parser.of(power)))),
+    parser.unit,
+    parser.left(char('[')),
+    parser.left(whitespaces),
+    parser.bind('index', () => expr),
+    parser.left(whitespaces),
+    parser.left(char(']')),
+    parser.bind('array', () =>
+      isArrayable(term) || isCall(term)
+        ? parser.of<Arrayable | Call>(term)
+        : parser.fail<Arrayable | Call>({
+            type: 'InvalidSyntaxError',
+            message: `Index access cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.context(({ index, array }) =>
+      identity<Omit<ArrayAt, 'context'>>({
+        type: 'ArrayAt',
+        annotations,
+        array,
+        index,
+      }),
+    ),
   );
 
-export const powerOr: Parser<PowerBase | Power> = pipe(
-  powerBase,
-  parser.flatMap(base => pipe(powerExponent(base), parser.or<PowerBase | Power>(parser.of(base)))),
+export const isObjectable = (term: Expr): term is Objectable =>
+  term.type === 'Object' || term.type === 'Paren' || term.type === 'Identifier';
+
+export const objectMemberFrom = (
+  annotations: ReadonlyArray<NodeAnnotation>,
+  term: Term | Call,
+): Parser<ObjectMember> =>
+  pipe(
+    parser.unit,
+    parser.left(whitespaces),
+    parser.left(char('.')),
+    parser.left(whitespaces),
+    parser.bind('key', () => identifier),
+    parser.bind('object', () =>
+      isObjectable(term) || isCall(term)
+        ? parser.of(term)
+        : parser.fail<Objectable | Call>({
+            type: 'InvalidSyntaxError',
+            message: `Object member access cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.context(({ key, object }) => ({
+      type: 'ObjectMember',
+      annotations,
+      object,
+      key,
+    })),
+  );
+
+export const isAgentable = (term: Expr): term is Agentable =>
+  term.type === 'Paren' || term.type === 'Identifier';
+
+export const agentCallFrom = (
+  annotations: ReadonlyArray<NodeAnnotation>,
+  term: Term | Call,
+): Parser<AgentCall> =>
+  pipe(
+    parser.unit,
+    parser.left(char('(')),
+    parser.left(whitespaces),
+    parser.bind('args', () => pipe(expr, parser.optional)),
+    parser.left(whitespaces),
+    parser.left(char(')')),
+    parser.bind('agent', () =>
+      isAgentable(term) || isCall(term)
+        ? parser.of(term)
+        : parser.fail<Agentable | Call>({
+            type: 'InvalidSyntaxError',
+            message: `Agent call cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.context(({ args, agent }) => ({
+      type: 'AgentCall',
+      annotations,
+      agent,
+      args: option.toUndefined(args),
+    })),
+  );
+
+export const callFrom = (
+  annotations: ReadonlyArray<NodeAnnotation>,
+  term: Term | Call,
+): Parser<Term | Call> =>
+  pipe(
+    agentCallFrom(annotations, term),
+    invalidOr<Call>(arrayAtFrom(annotations, term)),
+    invalidOr<Call>(objectMemberFrom(annotations, term)),
+    parser.flatMap(_ => pipe(callFrom(annotations, _), invalidOr<Term | Call>(parser.of(_)))),
+  );
+
+export const call: Parser<Term | Call> = pipe(
+  parser.unit,
+  parser.bind('annotations', () => nodeAnnotations),
+  parser.bind('term', () => term),
+  parser.flatMap(({ annotations, term }) =>
+    pipe(callFrom(annotations, term), invalidOr<Term | Call>(parser.of(term))),
+  ),
 );
 
-export const termMulDivMod: Parser<TermMulDivMod> = powerOr as Parser<TermMulDivMod>;
+export const isTermPower = (term: Expr): term is TermPower =>
+  term.type === 'Number' || term.type === 'Identifier' || term.type === 'Paren' || isCall(term);
 
-export const mulDivModRight = (left: TermMulDivMod | MulDivMod): Parser<MulDivMod> =>
+export const termPower: Parser<Term | TermPower> = call;
+
+export const powerExponent = (term: Term | TermPower | Power): Parser<Power> =>
+  pipe(
+    whitespaces,
+    parser.left(char('^')),
+    parser.left(whitespaces),
+    parser.bind('base', () =>
+      isTermPower(term) || term.type === 'Power'
+        ? parser.of(term)
+        : parser.fail<TermPower | Power>({
+            type: 'InvalidSyntaxError',
+            message: `Exponentiation cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.bind('exponent', () =>
+      pipe(
+        termPower,
+        parser.flatMap(_ =>
+          isTermPower(_)
+            ? parser.of(_)
+            : parser.fail<TermPower>({
+                type: 'InvalidSyntaxError',
+                message: `'^' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.context(({ base, exponent }) =>
+      identity<Omit<Power, 'context'>>({
+        type: 'Power',
+        annotations: [],
+        base,
+        exponent,
+      }),
+    ),
+    parser.flatMap(power => pipe(powerExponent(power), invalidOr(parser.of(power)))),
+  );
+
+export const power: Parser<Term | TermPower | Power> = pipe(
+  call,
+  parser.flatMap(term =>
+    pipe(powerExponent(term), invalidOr<Term | TermPower | Power>(parser.of(term))),
+  ),
+);
+
+export const isTermMulDivMod = (term: Expr): term is TermMulDivMod =>
+  isTermPower(term) || term.type === 'Power';
+
+export const termMulDivMod: Parser<Term | TermMulDivMod> = power;
+
+export const mulDivModRight = (term: Term | TermMulDivMod | MulDivMod): Parser<MulDivMod> =>
   pipe(
     whitespaces,
     parser.bind('operator', () => pipe(char('*'), parser.or(char('/')), parser.or(char('%')))),
     parser.left(whitespaces),
-    parser.bind('right', () => termMulDivMod),
-    parser.context(({ operator, right }) =>
+    parser.bind('left', () =>
+      isTermMulDivMod(term) || term.type === 'MulDivMod'
+        ? parser.of(term)
+        : parser.fail<TermMulDivMod | MulDivMod>({
+            type: 'InvalidSyntaxError',
+            message: `'*', '/' and '%' cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.bind('right', () =>
+      pipe(
+        termMulDivMod,
+        parser.flatMap(_ =>
+          isTermMulDivMod(_)
+            ? parser.of(_)
+            : parser.fail<TermMulDivMod>({
+                type: 'InvalidSyntaxError',
+                message: `'*', '/' and '%' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.context(({ left, operator, right }) =>
       identity<Omit<MulDivMod, 'context'>>({
         type: 'MulDivMod',
         annotations: [],
@@ -429,94 +599,218 @@ export const mulDivModRight = (left: TermMulDivMod | MulDivMod): Parser<MulDivMo
         right,
       }),
     ),
-    parser.flatMap(mulDivMod => pipe(mulDivModRight(mulDivMod), parser.or(parser.of(mulDivMod)))),
+    parser.flatMap(term => pipe(mulDivModRight(term), invalidOr(parser.of(term)))),
   );
 
-export const mulDivModeOr: Parser<TermMulDivMod | MulDivMod> = pipe(
-  termMulDivMod,
+export const mulDivMod: Parser<Term | TermMulDivMod | MulDivMod> = pipe(
+  power,
   parser.flatMap(left =>
-    pipe(mulDivModRight(left), parser.or<TermMulDivMod | MulDivMod>(parser.of(left))),
+    pipe(mulDivModRight(left), invalidOr<Term | TermMulDivMod | MulDivMod>(parser.of(left))),
   ),
 );
 
-export const termPlusMinus: Parser<TermPlusMinus> = mulDivModeOr as Parser<TermPlusMinus>;
+export const isTermPlusMinus = (term: Expr): term is TermPlusMinus =>
+  isTermMulDivMod(term) || term.type === 'MulDivMod';
 
-export const plusMinusRight = (left: TermPlusMinus | PlusMinus): Parser<PlusMinus> =>
+export const termPlusMinus: Parser<Term | TermPlusMinus> = mulDivMod;
+
+export const plusMinusRight = (term: Term | TermPlusMinus | PlusMinus): Parser<PlusMinus> =>
   pipe(
     whitespaces,
     parser.bind('operator', () => pipe(char('+'), parser.or(char('-')))),
     parser.left(whitespaces),
-    parser.bind('right', () => termPlusMinus),
-    parser.context(({ operator, right }) =>
-      identity<Omit<PlusMinus, 'context'>>({
-        type: 'PlusMinus',
-        annotations: [],
-        left,
-        operator: operator as '+' | '-',
-        right,
-      }),
+    parser.bind('left', () =>
+      isTermPlusMinus(term) || term.type === 'PlusMinus'
+        ? parser.of(term)
+        : parser.fail<TermPlusMinus | PlusMinus>({
+            type: 'InvalidSyntaxError',
+            message: `'+', '-' cannot be used for ${term.type}.`,
+          }),
     ),
-    parser.flatMap(plusMinus => pipe(plusMinusRight(plusMinus), parser.or(parser.of(plusMinus)))),
+    parser.bind('right', () =>
+      pipe(
+        termPlusMinus,
+        parser.flatMap(_ =>
+          isTermPlusMinus(_)
+            ? parser.of(_)
+            : parser.fail<TermPlusMinus>({
+                type: 'InvalidSyntaxError',
+                message: `'+', '-' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.flatMap(({ left, operator, right }) =>
+      pipe(
+        parser.unit,
+        parser.context(() =>
+          identity<Omit<PlusMinus, 'context'>>({
+            type: 'PlusMinus',
+            annotations: [],
+            left,
+            operator: operator as '+' | '-',
+            right,
+          }),
+        ),
+        parser.flatMap(plusMinus =>
+          pipe(plusMinusRight(plusMinus), invalidOr(parser.of(plusMinus))),
+        ),
+      ),
+    ),
   );
 
-export const plusMinusOr: Parser<TermPlusMinus | PlusMinus> = pipe(
-  termPlusMinus,
+export const plusMinus: Parser<Term | TermPlusMinus | PlusMinus> = pipe(
+  mulDivMod,
   parser.flatMap(left =>
-    pipe(plusMinusRight(left), parser.or<TermPlusMinus | PlusMinus>(parser.of(left))),
+    pipe(plusMinusRight(left), invalidOr<Term | TermPlusMinus | PlusMinus>(parser.of(left))),
   ),
 );
 
-export const termCompare: Parser<TermCompare> = pipe(
-  plusMinusOr as Parser<TermCompare>,
-  parser.or<TermCompare>(boolean),
-  parser.or<TermCompare>(string),
-  parser.or<TermCompare>(array),
-  parser.or<TermCompare>(object),
-);
+export const isTermRelational = (term: Expr): term is TermRelational =>
+  isTermPlusMinus(term) || term.type === 'PlusMinus' || term.type === 'String';
 
-export const compareRight = (left: TermCompare | Compare): Parser<Compare> =>
+export const termRelational: Parser<Term | TermRelational> = plusMinus;
+
+export const relationalRight = (term: Term | TermRelational | Relational): Parser<Relational> =>
   pipe(
     whitespaces,
     parser.bind('operator', () =>
-      pipe(
-        text('=='),
-        parser.or(text('!=')),
-        parser.or(text('<=')),
-        parser.or(text('<')),
-        parser.or(text('>=')),
-        parser.or(text('>')),
-      ),
+      pipe(text('<='), parser.or(text('<')), parser.or(text('>=')), parser.or(text('>'))),
     ),
     parser.left(whitespaces),
-    parser.bind('right', () => termCompare),
-    parser.context(({ operator, right }) =>
-      identity<Omit<Compare, 'context'>>({
-        type: 'Compare',
-        annotations: [],
-        left,
-        operator: operator as '==' | '!=' | '<=' | '<' | '>=' | '>',
-        right,
-      }),
+    parser.bind('left', () =>
+      isTermRelational(term) || term.type === 'Relational'
+        ? parser.of(term)
+        : parser.fail<TermRelational | Relational>({
+            type: 'InvalidSyntaxError',
+            message: `'<', '<=', '>', '>=' cannot be used for ${term.type}.`,
+          }),
     ),
-    parser.flatMap(compare => pipe(compareRight(compare), parser.or(parser.of(compare)))),
+    parser.bind('right', () =>
+      pipe(
+        termRelational,
+        parser.flatMap(_ =>
+          isTermRelational(_)
+            ? parser.of(_)
+            : parser.fail<TermRelational>({
+                type: 'InvalidSyntaxError',
+                message: `'<', '<=', '>', '>=' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.flatMap(({ left, operator, right }) =>
+      pipe(
+        parser.unit,
+        parser.context(() =>
+          identity<Omit<Relational, 'context'>>({
+            type: 'Relational',
+            annotations: [],
+            left,
+            operator: operator as '<=' | '<' | '>=' | '>',
+            right,
+          }),
+        ),
+        parser.flatMap(relational =>
+          pipe(relationalRight(relational), invalidOr(parser.of(relational))),
+        ),
+      ),
+    ),
   );
 
-export const compareOr: Parser<TermCompare | Compare> = pipe(
-  termCompare,
+export const relational: Parser<Term | TermRelational | Relational> = pipe(
+  plusMinus,
   parser.flatMap(left =>
-    pipe(compareRight(left), parser.or<TermCompare | Compare>(parser.of(left))),
+    pipe(relationalRight(left), invalidOr<Term | TermRelational | Relational>(parser.of(left))),
   ),
 );
 
-export const termLogical: Parser<TermLogical> = compareOr as Parser<TermLogical>;
+export const isTermEquality = (term: Expr): term is TermEquality =>
+  isTermRelational(term) ||
+  term.type === 'Relational' ||
+  term.type === 'Boolean' ||
+  term.type === 'Array' ||
+  term.type === 'Object';
 
-export const logicalRight = (left: TermLogical | Logical): Parser<Logical> =>
+export const termEquality: Parser<Term | TermEquality> = relational;
+
+export const equalityRight = (term: Term | TermEquality | Equality): Parser<Equality> =>
+  pipe(
+    whitespaces,
+    parser.bind('operator', () => pipe(text('=='), parser.or(text('!=')))),
+    parser.left(whitespaces),
+    parser.bind('left', () =>
+      isTermEquality(term) || term.type === 'Equality'
+        ? parser.of(term)
+        : parser.fail<TermEquality | Equality>({
+            type: 'InvalidSyntaxError',
+            message: `'==', '!=' cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.bind('right', () =>
+      pipe(
+        termEquality,
+        parser.flatMap(_ =>
+          isTermEquality(_)
+            ? parser.of(_)
+            : parser.fail<TermEquality>({
+                type: 'InvalidSyntaxError',
+                message: `'==', '!=' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.context(({ left, operator, right }) =>
+      identity<Omit<Equality, 'context'>>({
+        type: 'Equality',
+        annotations: [],
+        left,
+        operator: operator as '==' | '!=',
+        right,
+      }),
+    ),
+    parser.flatMap(equality => pipe(equalityRight(equality), invalidOr(parser.of(equality)))),
+  );
+
+export const equality: Parser<Term | TermEquality | Equality> = pipe(
+  relational,
+  parser.flatMap(left =>
+    pipe(equalityRight(left), invalidOr<Term | TermEquality | Equality>(parser.of(left))),
+  ),
+);
+
+export const isTermLogical = (term: Expr): term is TermLogical =>
+  isTermEquality(term) || term.type === 'Equality';
+
+export const termLogical: Parser<Term | TermLogical> = equality;
+
+export const logicalRight = (term: Term | TermLogical | Logical): Parser<Logical> =>
   pipe(
     whitespaces,
     parser.bind('operator', () => pipe(text('&&'), parser.or(text('||')))),
     parser.left(whitespaces),
-    parser.bind('right', () => termLogical),
-    parser.context(({ operator, right }) =>
+    parser.bind('left', () =>
+      isTermLogical(term) || term.type === 'Logical'
+        ? parser.of(term)
+        : parser.fail<TermLogical | Logical>({
+            type: 'InvalidSyntaxError',
+            message: `'&&', '||' cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.bind('right', () =>
+      pipe(
+        termLogical,
+        parser.flatMap(_ =>
+          isTermLogical(_)
+            ? parser.of(_)
+            : parser.fail<TermLogical>({
+                type: 'InvalidSyntaxError',
+                message: `'&&', '||' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.context(({ left, operator, right }) =>
       identity<Omit<Logical, 'context'>>({
         type: 'Logical',
         annotations: [],
@@ -525,15 +819,17 @@ export const logicalRight = (left: TermLogical | Logical): Parser<Logical> =>
         right,
       }),
     ),
-    parser.flatMap(logical => pipe(logicalRight(logical), parser.or(parser.of(logical)))),
+    parser.flatMap(logical => pipe(logicalRight(logical), invalidOr(parser.of(logical)))),
   );
 
-export const logicalOr: Parser<TermLogical | Logical> = pipe(
-  termLogical,
+export const logical: Parser<Term | TermLogical | Logical> = pipe(
+  equality,
   parser.flatMap(left =>
-    pipe(logicalRight(left), parser.or<TermLogical | Logical>(parser.of(left))),
+    pipe(logicalRight(left), invalidOr<Term | TermLogical | Logical>(parser.of(left))),
   ),
 );
+
+export const operator = logical;
 
 export const ifThenElse: Parser<IfThenElse> = pipe(
   parser.unit,
@@ -572,18 +868,7 @@ export const paren: Parser<Paren> = pipe(
 export const expr: Parser<Expr> = pipe(
   ifThenElse,
   parser.or<Expr>(agentDef),
-  parser.or<Expr>(logicalOr),
-  parser.or<Expr>(paren),
-  parser.or<Expr>(arrayAt),
-  parser.or<Expr>(objectMember),
-  parser.or<Expr>(agentCall),
-  parser.or<Expr>(identifier),
-  parser.or<Expr>(boolean),
-  parser.or<Expr>(number),
-  parser.or<Expr>(null_),
-  parser.or<Expr>(string),
-  parser.or<Expr>(array),
-  parser.or<Expr>(object),
+  parser.or<Expr>(operator),
 );
 
 export const staticNode: Parser<StaticNode> = pipe(
@@ -603,11 +888,19 @@ export const computedNodeBodyExpr: Parser<ComputedNodeBodyExpr> = pipe(
   ifThenElse,
   parser.or<ComputedNodeBodyExpr>(agentDef),
   parser.orElse(() => computedNodeBodyParen as Parser<ComputedNodeBodyExpr>),
-  parser.or<ComputedNodeBodyExpr>(logicalOr),
-  parser.or<ComputedNodeBodyExpr>(arrayAt),
-  parser.or<ComputedNodeBodyExpr>(objectMember),
-  parser.or<ComputedNodeBodyExpr>(agentCall),
-  parser.or<ComputedNodeBodyExpr>(string),
+  parser.or<ComputedNodeBodyExpr>(
+    pipe(
+      operator,
+      parser.flatMap(_ =>
+        isLiteral(_)
+          ? parser.fail({
+              type: 'InvalidSyntaxError',
+              message: `${_.type} cannot be used in computed node.`,
+            })
+          : parser.of<ComputedNodeBodyExpr>(_),
+      ),
+    ),
+  ),
 );
 
 export const computedNodeBodyParen: Parser<ComputedNodeBodyParen> = pipe(
@@ -626,9 +919,16 @@ export const nestedGraph: Parser<NestedGraph> = pipe(
   parser.bind('annotations', () => nodeAnnotations),
   parser.left(char('{')),
   parser.left(whitespaces),
-  parser.bind('graph', () => graph),
-  parser.left(whitespaces),
-  parser.left(char('}')),
+  parser.bind('graph', () =>
+    graph(
+      pipe(
+        whitespaces,
+        parser.left(char('}')),
+        parser.map(() => unit),
+      ),
+      option.none,
+    ),
+  ),
   parser.context(({ annotations, graph }) =>
     identity<Omit<NestedGraph, 'context'>>({
       type: 'NestedGraph',
@@ -668,16 +968,72 @@ export const computedNode: Parser<ComputedNode> = pipe(
   ),
 );
 
-export const graph: Parser<Graph> = pipe(
-  staticNode,
-  parser.or<Node>(computedNode),
-  parser.sepBy1(whitespaces),
-  parser.context(statements => ({ type: 'Graph', statements }) as Graph),
+export const statement: Parser<Node> = pipe(staticNode, parser.or<Node>(computedNode));
+
+type GraphResult = [Statements, ParserError | 'next' | 'stop'];
+export const graph = (end: Parser<Unit>, version: Option<string>): Parser<Graph> =>
+  pipe(
+    parser.repeat<GraphResult>([[], 'next'], ([xs, flag]) =>
+      flag === 'next'
+        ? pipe(
+            statement,
+            parser.left(whitespaces),
+            parser.map(x => identity<GraphResult>([[...xs, x], 'next'])),
+            parser.orElse(e =>
+              pipe(
+                end,
+                parser.map(() => identity<GraphResult>([xs, 'stop'])),
+                parser.orElse(() => parser.of<GraphResult>([xs, e])),
+              ),
+            ),
+          )
+        : flag === 'stop'
+          ? parser.fail({
+              type: 'UnexpectedParserError',
+              message: 'Stop signal',
+            })
+          : parser.fail(flag),
+    ),
+    parser.flatMap(([statements, flag]) =>
+      flag === 'next' || flag === 'stop'
+        ? parser.of(statements)
+        : parser.fail<Graph['statements']>(flag),
+    ),
+    parser.context(statements =>
+      identity<Omit<Graph, 'context'>>({
+        type: 'Graph',
+        version: option.toUndefined(version),
+        statements,
+      }),
+    ),
+  );
+
+export const version: Parser<string> = pipe(
+  nodeAnnotation,
+  parser.left(whitespaces),
+  parser.left(char(';')),
+  parser.flatMap(_ =>
+    _.name.name === 'version' && _.value.type === 'String' && typeof _.value.value[0] === 'string'
+      ? parser.of(_.value.value[0])
+      : parser.fail({
+          type: 'UnexpectedParserError',
+          message: 'Version annotation must be a string',
+        }),
+  ),
 );
 
 export const file: Parser<Graph> = pipe(
   whitespaces,
-  parser.right(graph),
+  parser.right(pipe(version, parser.optional)),
   parser.left(whitespaces),
-  parser.left(eos),
+  parser.flatMap(version =>
+    graph(
+      pipe(
+        whitespaces,
+        parser.left(eos),
+        parser.map(() => unit),
+      ),
+      version,
+    ),
+  ),
 );
