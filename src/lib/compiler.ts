@@ -26,6 +26,7 @@ import {
   NodeAnnotation,
   ObjectMember,
   Paren,
+  Pipeline,
   PlusMinus,
   Power,
   RawString,
@@ -330,6 +331,8 @@ export const computedNodeBodyExprToJson = (
       return computedNodeParenToJson(expr);
     case 'AgentDef':
       return agentDefToJson(expr);
+    case 'Pipeline':
+      return pipelineToJson(expr);
     case 'Logical':
       return logicalToJson(expr);
     case 'Equality':
@@ -377,6 +380,8 @@ export const exprToJson = (expr: Expr): Result => {
       return agentCallToJson(expr);
     case 'AgentDef':
       return agentDefToJson(expr);
+    case 'Pipeline':
+      return pipelineToJson(expr);
     case 'Logical':
       return logicalToJson(expr);
     case 'Equality':
@@ -815,6 +820,60 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
       nodes: graph.nodes,
     })),
   );
+
+export const pipelineToJson = (pipeline: Pipeline): Result<CompileData<JsonObject>> =>
+  agentCallToJson({
+    type: 'AgentCall',
+    annotations: pipeline.annotations,
+    agent: {
+      type: 'Identifier',
+      annotations: [],
+      name: (() => {
+        switch (pipeline.operator) {
+          case '|>':
+            return 'barRightArrowAgent';
+          case '-->':
+            return 'hyphenHyphenRightArrowAgent';
+          case '>>':
+            return 'rightArrowRightArrowAgent';
+          case '>>=':
+            return 'rightArrowRightArrowEqualAgent';
+          case '>>-':
+            return 'rightArrowRightArrowHyphenAgent';
+          case '->>':
+            return 'hyphenRightArrowRightArrowAgent';
+          case ':>':
+            return 'colonRightArrowAgent';
+        }
+      })(),
+      context: pipeline.context,
+    },
+    args: {
+      type: 'Object',
+      value: [
+        {
+          key: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'left',
+            context: pipeline.left.context,
+          },
+          value: pipeline.left,
+        },
+        {
+          key: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'right',
+            context: pipeline.right.context,
+          },
+          value: pipeline.right,
+        },
+      ],
+      context: pipeline.context,
+    },
+    context: pipeline.context,
+  });
 
 export const logicalToJson = (logical: Logical): Result<CompileData<JsonObject>> =>
   agentCallToJson({

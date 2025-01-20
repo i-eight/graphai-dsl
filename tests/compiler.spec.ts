@@ -13,6 +13,7 @@ import { either } from 'fp-ts';
 import { compiler } from '../src/lib';
 import { CompileError } from '../src/lib/compiler';
 import { through } from '../src/lib/through';
+import { runFromJson } from '../src/lib/run';
 
 describe('Compiler', () => {
   test('static-node: number', () => {
@@ -1210,6 +1211,31 @@ describe('Compiler', () => {
     );
   });
 
+  test('operator 2', async () => {
+    await pipe(
+      parseFileTest(`
+        @version('0.6');
+        static a = 1;
+        f = (_) -> _ + 1;
+        a |> f;
+      `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon1__: 2 })),
+    );
+  });
+
+  test('operator 3', async () => {
+    await pipe(
+      parseFileTest(`
+        @version('0.6');
+        static a = 1;
+        a |> ((_) -> _ + 1);
+      `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon0__: 2 })),
+    );
+  });
+
   test('array-at 1', async () => {
     await pipe(
       parseFileTest(`
@@ -1335,16 +1361,31 @@ describe('Compiler', () => {
     );
   });
 
+  test('object-member 3', async () => {
+    await pipe(
+      parseFileTest(`
+        @version('0.6');
+        obj = identity({
+          a: 1,
+          f: (_) -> _ + 1,
+        });
+        obj.a |> obj.f |> obj.f;
+      `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon2__: 3 })),
+    );
+  });
+
   test('loop', async () => {
     await pipe(
       parseFileTest(`
           @version('0.6');
-          sum = loopAgent({
+          sum = loop({
             init: {cnt: 0},
             callback: (args) -> 
               if args.cnt < 10 
-              then recurAgent({return: {cnt: args.cnt + 1}}) 
-              else identityAgent({return: args.cnt}),
+              then recur({return: {cnt: args.cnt + 1}}) 
+              else identity({return: args.cnt}),
           });
       `),
       compileGraphTest(
@@ -1416,7 +1457,7 @@ describe('Compiler', () => {
                         },
                         __anon4__: {
                           isResult: true,
-                          agent: 'recurAgent',
+                          agent: 'recur',
                           inputs: {
                             return: {
                               cnt: ':__anon6__',
@@ -1446,7 +1487,7 @@ describe('Compiler', () => {
                         },
                         __anon8__: {
                           isResult: true,
-                          agent: 'identityAgent',
+                          agent: 'identity',
                           inputs: {
                             return: ':__anon9__',
                           },
@@ -1474,7 +1515,7 @@ describe('Compiler', () => {
             },
             sum: {
               isResult: true,
-              agent: 'loopAgent',
+              agent: 'loop',
               inputs: {
                 init: {
                   cnt: 0,

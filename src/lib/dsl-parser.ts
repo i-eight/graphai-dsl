@@ -46,7 +46,6 @@ import {
   TermMulDivMod,
   TermPlusMinus,
   Objectable,
-  Callable,
   Call,
   TermRelational,
   Relational,
@@ -54,14 +53,14 @@ import {
   Equality,
   Term,
   TermPower,
-  BinaryTerm,
   Statements,
+  TermPipeline,
+  Pipeline,
 } from './dsl-syntax-tree';
 import { error, Parser, parser, ParserError } from './parser-combinator';
-import { either, option, readonlyArray } from 'fp-ts';
+import { option, readonlyArray } from 'fp-ts';
 import os from 'os';
 import { Unit, unit } from './unit';
-import { Either } from 'fp-ts/lib/Either';
 import { Option } from 'fp-ts/lib/Option';
 
 export const reservedWords: ReadonlyArray<string> = [
@@ -829,7 +828,67 @@ export const logical: Parser<Term | TermLogical | Logical> = pipe(
   ),
 );
 
-export const operator = logical;
+export const isTermPipeline = (term: Expr): term is TermPipeline =>
+  isTermLogical(term) || term.type === 'Logical';
+
+export const termPipeline: Parser<Term | TermPipeline> = logical;
+
+export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipeline> =>
+  pipe(
+    whitespaces,
+    parser.bind('operator', () =>
+      pipe(
+        text('|>'),
+        parser.or(text('-->')),
+        parser.or(text('>>=')),
+        parser.or(text('>>-')),
+        parser.or(text('>>')),
+        parser.or(text('->>')),
+        parser.or(text(':>')),
+      ),
+    ),
+    parser.left(whitespaces),
+    parser.bind('left', () =>
+      isTermPipeline(term) || term.type === 'Pipeline'
+        ? parser.of(term)
+        : parser.fail<TermPipeline | Pipeline>({
+            type: 'InvalidSyntaxError',
+            message: `'|>', '-->', '>>', '>>=', '>>=', '->>', ':>' cannot be used for ${term.type}.`,
+          }),
+    ),
+    parser.bind('right', () =>
+      pipe(
+        termPipeline,
+        parser.flatMap(_ =>
+          isTermLogical(_)
+            ? parser.of(_)
+            : parser.fail<TermPipeline>({
+                type: 'InvalidSyntaxError',
+                message: `'|>', '-->', '>>', '>>=', '>>=', '->>', ':>' cannot be used for ${_.type}.`,
+              }),
+        ),
+      ),
+    ),
+    parser.context(({ left, operator, right }) =>
+      identity<Omit<Pipeline, 'context'>>({
+        type: 'Pipeline',
+        annotations: [],
+        left,
+        operator: operator as Pipeline['operator'],
+        right,
+      }),
+    ),
+    parser.flatMap(pipeline => pipe(pipelineRight(pipeline), invalidOr(parser.of(pipeline)))),
+  );
+
+export const pipeline: Parser<Term | TermPipeline | Pipeline> = pipe(
+  logical,
+  parser.flatMap(left =>
+    pipe(pipelineRight(left), invalidOr<Term | TermPipeline | Pipeline>(parser.of(left))),
+  ),
+);
+
+export const operator = pipeline;
 
 export const ifThenElse: Parser<IfThenElse> = pipe(
   parser.unit,

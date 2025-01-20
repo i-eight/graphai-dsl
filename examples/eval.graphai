@@ -1,1 +1,1 @@
-println({ message: evalAgent({src: 'static a = 1; static b = 1; a + b;'}) });
+println({ message: eval({src: 'static a = 1; static b = 1; a + b;'}) });

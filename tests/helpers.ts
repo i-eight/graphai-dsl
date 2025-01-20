@@ -71,6 +71,7 @@ export const toTupleFromExpr = (
         def: _.args?.name,
         body: toTupleFromExpr(_.body),
       };
+    case 'Pipeline':
     case 'Logical':
     case 'Equality':
     case 'Relational':

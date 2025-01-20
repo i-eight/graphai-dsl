@@ -23,10 +23,17 @@ import { concatStringAgentInfo } from './concat-string-agent';
 import { getArrayElementAgentInfo } from './get-array-element';
 import { getObjectMemberAgentInfo } from './object-member-agent';
 import { evalAgentInfo } from './eval-agent';
+import { connectAgentInfo } from './connectAgent';
+import { barRightArrowAgentInfo } from './bar-right-arrow-agent';
+import { rightArrowRightArrowAgentInfo } from './right-arrow-right-arrow-agent';
+import { rightArrowRightArrowEqualAgentInfo } from './right-arrow-right-arrow-equal-agent';
+import { rightArrowRightArrowHyphenAgentInfo } from './right-arrow-right-arrow-hyphen-agent';
+import { hyphenRightArrowRightArrowAgentInfo } from './hyphen-right-arrow-right-arrow-agent';
+import { colonRightArrowAgentInfo } from './colon-right-arrow-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
-  identityAgent: identityAgentInfo,
+  identity: identityAgentInfo,
   println: printlnInfo,
   andAgent: andAgentInfo,
   orAgent: orAgentInfo,
@@ -42,12 +49,20 @@ export const agents: AgentFunctionInfoDictionary = {
   divAgent: divAgentInfo,
   modAgent: modAgentInfo,
   powAgent: powAgentInfo,
+  barRightArrowAgent: barRightArrowAgentInfo,
+  hyphenHyphenRightArrowAgentInfo: connectAgentInfo,
+  rightArrowRightArrow: rightArrowRightArrowAgentInfo,
+  rightArrowRightArrowEqualAgent: rightArrowRightArrowEqualAgentInfo,
+  rightArrowRightArrowHyphenAgent: rightArrowRightArrowHyphenAgentInfo,
+  hyphenRightArrowRightArrowAgent: hyphenRightArrowRightArrowAgentInfo,
+  colonRightArrowAgent: colonRightArrowAgentInfo,
   concatStringAgent: concatStringAgentInfo,
   getArrayElementAgent: getArrayElementAgentInfo,
   getObjectMemberAgent: getObjectMemberAgentInfo,
   defAgent: defAgentInfo,
   caseAgent: caseAgentInfo,
-  loopAgent: loopAgentInfo,
-  recurAgent: recurAgentInfo,
-  evalAgent: evalAgentInfo,
+  loop: loopAgentInfo,
+  recur: recurAgentInfo,
+  eval: evalAgentInfo,
+  connectAgent: connectAgentInfo,
 };

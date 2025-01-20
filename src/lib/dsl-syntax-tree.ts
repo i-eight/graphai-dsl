@@ -259,7 +259,18 @@ export type Logical = Readonly<{
   context: Context;
 }>;
 
-export type BinaryTerm = TermLogical | Logical;
+export type TermPipeline = TermLogical | Logical;
+
+export type Pipeline = Readonly<{
+  type: 'Pipeline';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  left: TermPipeline | Pipeline;
+  operator: '|>' | '-->' | '>>' | '>>=' | '>>-' | '->>' | ':>';
+  right: TermPipeline;
+  context: Context;
+}>;
+
+export type BinaryTerm = TermPipeline | Pipeline;
 
 export type BlockComment = Readonly<{
   type: 'BlockComment';

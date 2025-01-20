@@ -23,6 +23,7 @@ import {
   equality,
   relational,
   termRelational,
+  pipeline,
 } from '../src/lib/dsl-parser';
 import { parser } from '../src/lib/parser-combinator';
 import { stream } from '../src/lib/stream';
@@ -630,6 +631,82 @@ describe('dsl-parser', () => {
       parser.run(stream.create('1 > 2 && 3 < 4')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ => expect(_).toStrictEqual(either.right([[1, '>', 2], '&&', [3, '<', 4]])),
+    );
+  });
+
+  test('pipeline 1', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a |> f1')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right(['a', '|>', 'f1'])),
+    );
+  });
+
+  test('pipeline 2', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a |> f1 --> f2 >>= f3')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right([[['a', '|>', 'f1'], '-->', 'f2'], '>>=', 'f3'])),
+    );
+  });
+
+  test('pipeline 3', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a + b |> ((_) -> f1(_)) --> f2')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right([
+            [
+              ['a', '+', 'b'],
+              '|>',
+              [
+                {
+                  def: '_',
+                  body: {
+                    annotations: [],
+                    agent: 'f1',
+                    args: '_',
+                  },
+                },
+              ],
+            ],
+            '-->',
+            'f2',
+          ]),
+        ),
+    );
+  });
+
+  test('pipeline 4', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a + b |> ((_) -> f1(_) --> f2)')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right([
+            ['a', '+', 'b'],
+            '|>',
+            [
+              {
+                def: '_',
+                body: [
+                  {
+                    annotations: [],
+                    agent: 'f1',
+                    args: '_',
+                  },
+                  '-->',
+                  'f2',
+                ],
+              },
+            ],
+          ]),
+        ),
     );
   });
 
