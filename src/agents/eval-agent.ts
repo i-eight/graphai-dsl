@@ -6,6 +6,7 @@ import { either, task } from 'fp-ts';
 
 const evalAgent: AgentFunction<object, unknown, Readonly<{ src: string }>> = async ({
   namedInputs: { src },
+  forNestedGraph,
 }) =>
   pipe(
     compileFromString(src),
@@ -13,8 +14,11 @@ const evalAgent: AgentFunction<object, unknown, Readonly<{ src: string }>> = asy
       e => Promise.reject(e),
       graph =>
         pipe(
-          () => import('./index'),
-          task.bind('result', m => () => new GraphAI(graph as GraphData, m.agents).run()),
+          task.Do,
+          task.bind(
+            'result',
+            () => () => new GraphAI(graph as GraphData, forNestedGraph?.agents ?? {}).run(),
+          ),
           task.let('keys', ({ result }) => Object.keys(result)),
           task.map(({ result, keys }) => (keys.length === 1 ? result[keys[0]] : result)),
           f => f(),

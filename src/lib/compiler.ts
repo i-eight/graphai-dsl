@@ -640,7 +640,12 @@ export const computedNodeParenToJson = (
 export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
-    se.bind('annotations', () => annotationsToJson(agentCall.annotations)),
+    se.bind('annotations', () =>
+      pipe(
+        annotationsToJson(agentCall.annotations),
+        se.map(_ => ('graph' in _.json ? _ : { ..._, json: { ..._.json, graph: {} } })),
+      ),
+    ),
     se.bind('agent', () =>
       agentCall.agent.type === 'Identifier'
         ? pipe(

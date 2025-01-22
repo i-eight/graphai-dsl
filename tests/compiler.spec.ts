@@ -70,6 +70,7 @@ describe('Compiler', () => {
                   x: 1,
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -96,6 +97,7 @@ describe('Compiler', () => {
                   x: ':a',
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -140,6 +142,7 @@ describe('Compiler', () => {
                 agent: 'identity',
                 inputs: { x: 1 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -160,11 +163,13 @@ describe('Compiler', () => {
               __anon0__: {
                 agent: 'agent2',
                 inputs: { x: 1 },
+                graph: {},
               },
               a: {
                 agent: 'agent1',
                 inputs: ':__anon0__',
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -187,6 +192,7 @@ describe('Compiler', () => {
                 inputs: {
                   y: 1,
                 },
+                graph: {},
               },
               a: {
                 agent: 'agent1',
@@ -194,6 +200,7 @@ describe('Compiler', () => {
                   x: ':__anon0__',
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -216,12 +223,14 @@ describe('Compiler', () => {
                 inputs: {
                   y: 1,
                 },
+                graph: {},
               },
               __anon1__: {
                 agent: 'agent3',
                 inputs: {
                   x: 2,
                 },
+                graph: {},
               },
               a: {
                 agent: 'agent1',
@@ -230,6 +239,7 @@ describe('Compiler', () => {
                   b: ':__anon1__',
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -253,6 +263,7 @@ describe('Compiler', () => {
                 inputs: {
                   x: 1,
                 },
+                graph: {},
               },
             },
           }),
@@ -279,6 +290,7 @@ describe('Compiler', () => {
                 inputs: {
                   x: 1,
                 },
+                graph: {},
               },
             },
           }),
@@ -305,6 +317,7 @@ describe('Compiler', () => {
                 inputs: {
                   x: 1,
                 },
+                graph: {},
               },
             },
           }),
@@ -330,6 +343,7 @@ describe('Compiler', () => {
                   right: 1,
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -362,6 +376,7 @@ describe('Compiler', () => {
                   right: ':b',
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -381,9 +396,11 @@ describe('Compiler', () => {
             nodes: {
               __anon1__: {
                 agent: 'agent1',
+                graph: {},
               },
               __anon2__: {
                 agent: 'agent2',
+                graph: {},
               },
               __anon0__: {
                 agent: 'plusAgent',
@@ -392,6 +409,7 @@ describe('Compiler', () => {
                   right: ':__anon2__',
                 },
                 isResult: true,
+                graph: {},
               },
             },
           }),
@@ -464,6 +482,7 @@ describe('Compiler', () => {
                         left: ':x',
                         right: ':y',
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -534,6 +553,7 @@ describe('Compiler', () => {
                         message: ':a',
                       },
                       isResult: true,
+                      graph: {},
                     },
                   },
                 },
@@ -588,6 +608,7 @@ describe('Compiler', () => {
                               message: ':a',
                             },
                             isResult: true,
+                            graph: {},
                           },
                         },
                       },
@@ -659,6 +680,7 @@ describe('Compiler', () => {
                         left: ':__anon2__',
                         right: ':__anon3__',
                       },
+                      graph: {},
                     },
                     __anon5__: {
                       agent: 'getObjectMemberAgent',
@@ -674,6 +696,7 @@ describe('Compiler', () => {
                         left: ':__anon4__',
                         right: ':__anon5__',
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -729,6 +752,7 @@ describe('Compiler', () => {
                         left: ':__anon2__',
                         right: ':__anon3__',
                       },
+                      graph: {},
                     },
                     __anon5__: {
                       agent: 'getObjectMemberAgent',
@@ -743,6 +767,7 @@ describe('Compiler', () => {
                         left: ':__anon4__',
                         right: ':__anon5__',
                       },
+                      graph: {},
                     },
                     __anon1__: {
                       isResult: true,
@@ -751,6 +776,7 @@ describe('Compiler', () => {
                         left: ':__anon6__',
                         right: ':x',
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -796,6 +822,7 @@ describe('Compiler', () => {
                         left: ':a',
                         right: 1,
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -815,6 +842,7 @@ describe('Compiler', () => {
                       inputs: {
                         message: 1,
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -834,6 +862,7 @@ describe('Compiler', () => {
                       inputs: {
                         message: 2,
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -899,6 +928,7 @@ describe('Compiler', () => {
                         left: ':a',
                         right: 1,
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -918,6 +948,7 @@ describe('Compiler', () => {
                       inputs: {
                         message: 1,
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -937,6 +968,7 @@ describe('Compiler', () => {
                       inputs: {
                         message: 2,
                       },
+                      graph: {},
                     },
                   },
                 },
@@ -1032,6 +1064,7 @@ describe('Compiler', () => {
                 inputs: {
                   items: ['hello, ', ':name'],
                 },
+                graph: {},
               },
               __anon0__: {
                 isResult: true,
@@ -1042,6 +1075,7 @@ describe('Compiler', () => {
                     text2: 'goodbye',
                   },
                 },
+                graph: {},
               },
             },
           }),
@@ -1066,6 +1100,7 @@ describe('Compiler', () => {
                   left: 1,
                   right: 2,
                 },
+                graph: {},
               },
             },
           }),
@@ -1089,6 +1124,7 @@ describe('Compiler', () => {
                   left: 4,
                   right: 2,
                 },
+                graph: {},
               },
               __anon2__: {
                 agent: 'divAgent',
@@ -1096,6 +1132,7 @@ describe('Compiler', () => {
                   left: 3,
                   right: ':__anon1__',
                 },
+                graph: {},
               },
               __anon3__: {
                 agent: 'plusAgent',
@@ -1103,6 +1140,7 @@ describe('Compiler', () => {
                   left: 2,
                   right: ':__anon2__',
                 },
+                graph: {},
               },
               __anon0__: {
                 isResult: true,
@@ -1111,6 +1149,7 @@ describe('Compiler', () => {
                   left: 1,
                   right: ':__anon3__',
                 },
+                graph: {},
               },
             },
           }),
@@ -1154,6 +1193,7 @@ describe('Compiler', () => {
                   left: ':a',
                   right: ':b',
                 },
+                graph: {},
               },
               __anon2__: {
                 agent: 'gtAgent',
@@ -1161,6 +1201,7 @@ describe('Compiler', () => {
                   left: ':__anon1__',
                   right: 10,
                 },
+                graph: {},
               },
               __anon3__: {
                 agent: 'mulAgent',
@@ -1168,6 +1209,7 @@ describe('Compiler', () => {
                   left: ':c',
                   right: ':d',
                 },
+                graph: {},
               },
               __anon4__: {
                 agent: 'ltAgent',
@@ -1175,6 +1217,7 @@ describe('Compiler', () => {
                   left: ':__anon3__',
                   right: 10,
                 },
+                graph: {},
               },
               __anon5__: {
                 agent: 'orAgent',
@@ -1182,6 +1225,7 @@ describe('Compiler', () => {
                   left: ':__anon2__',
                   right: ':__anon4__',
                 },
+                graph: {},
               },
               __anon6__: {
                 agent: 'plusAgent',
@@ -1189,6 +1233,7 @@ describe('Compiler', () => {
                   left: ':a',
                   right: ':d',
                 },
+                graph: {},
               },
               __anon7__: {
                 agent: 'eqAgent',
@@ -1196,6 +1241,7 @@ describe('Compiler', () => {
                   left: ':__anon6__',
                   right: ':c',
                 },
+                graph: {},
               },
               __anon0__: {
                 isResult: true,
@@ -1204,6 +1250,7 @@ describe('Compiler', () => {
                   left: ':__anon5__',
                   right: ':__anon7__',
                 },
+                graph: {},
               },
             },
           }),
@@ -1253,6 +1300,7 @@ describe('Compiler', () => {
                 array: [1, 2, 3],
                 index: 0,
               },
+              graph: {},
             },
           },
         }),
@@ -1286,6 +1334,7 @@ describe('Compiler', () => {
                   array: ':a',
                   index: 0,
                 },
+                graph: {},
               },
             },
           }),
@@ -1426,6 +1475,7 @@ describe('Compiler', () => {
                             left: ':__anon2__',
                             right: 10,
                           },
+                          graph: {},
                         },
                       },
                     },
@@ -1454,6 +1504,7 @@ describe('Compiler', () => {
                             left: ':__anon5__',
                             right: 1,
                           },
+                          graph: {},
                         },
                         __anon4__: {
                           isResult: true,
@@ -1463,6 +1514,7 @@ describe('Compiler', () => {
                               cnt: ':__anon6__',
                             },
                           },
+                          graph: {},
                         },
                       },
                     },
@@ -1491,6 +1543,7 @@ describe('Compiler', () => {
                           inputs: {
                             return: ':__anon9__',
                           },
+                          graph: {},
                         },
                       },
                     },
@@ -1522,6 +1575,7 @@ describe('Compiler', () => {
                 },
                 callback: ':__anon11__',
               },
+              graph: {},
             },
           },
         }),
@@ -1558,6 +1612,7 @@ describe('Compiler', () => {
                 inputs: {
                   prompt: "prompt: Explain ML's transformer in 100 words.",
                 },
+                graph: {},
               },
               __anon1__: {
                 agent: 'getObjectMemberAgent',
@@ -1572,6 +1627,7 @@ describe('Compiler', () => {
                 inputs: {
                   message: ':__anon1__',
                 },
+                graph: {},
               },
             },
           }),
@@ -1600,6 +1656,7 @@ describe('Compiler', () => {
                   left: 'a',
                   right: 'a',
                 },
+                graph: {},
               },
             },
           }),
@@ -1636,6 +1693,7 @@ describe('Compiler', () => {
                 inputs: {
                   message: ':a',
                 },
+                graph: {},
               },
               b: {
                 value: {
@@ -1668,6 +1726,17 @@ describe('Compiler', () => {
       `),
       compileGraphTest(),
       runGraphTest(either.right({ v: 3 })),
+    );
+  });
+
+  test('eval string 1', async () => {
+    await pipe(
+      parseFileTest(`
+          @version('0.6');
+          eval({src: '@version("0.6"); static a = 1; static b = 1; a + b;'});
+      `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon0__: 2 })),
     );
   });
 });
