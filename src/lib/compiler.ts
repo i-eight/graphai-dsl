@@ -646,9 +646,10 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
         se.map(_ => ('graph' in _.json ? _ : { ..._, json: { ..._.json, graph: {} } })),
       ),
     ),
-    se.bind('agent', () =>
-      agentCall.agent.type === 'Identifier'
-        ? pipe(
+    se.bind('agent', () => {
+      switch (agentCall.agent.type) {
+        case 'Identifier':
+          return pipe(
             result.Do,
             se.bind('ctx', () => result.get()),
             se.let_('agent', () => agentCall.agent as Identifier),
@@ -669,23 +670,36 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
                     }),
               ),
             ),
-          )
-        : agentCall.agent.type === 'AgentCall'
-          ? pipe(
-              result.Do,
-              se.bind('call', () => agentCallToJson(agentCall.agent as AgentCall)),
-              se.bind('name', () => getAnnonName()),
-              se.map(({ call, name }) => ({
-                json: `:${name}`,
-                captures: call.captures,
-                nodes: {
-                  ...call.nodes,
-                  [name]: call.json,
-                },
-              })),
-            )
-          : exprToJson(agentCall.agent),
-    ),
+          );
+        default:
+          return pipe(
+            result.Do,
+            se.bind('call', () => {
+              switch (agentCall.agent.type) {
+                case 'AgentCall':
+                  return agentCallToJson(agentCall.agent as AgentCall);
+                case 'ArrayAt':
+                  return arrayAtToJson(agentCall.agent as ArrayAt);
+                case 'ObjectMember':
+                  return objectMemberToJson(agentCall.agent as ObjectMember);
+                case 'Paren':
+                  return parenToJson(agentCall.agent as Paren);
+                default:
+                  return exprToJson(agentCall.agent);
+              }
+            }),
+            se.bind('name', () => getAnnonName()),
+            se.map(({ call, name }) => ({
+              json: `:${name}`,
+              captures: call.captures,
+              nodes: {
+                ...call.nodes,
+                [name]: call.json,
+              },
+            })),
+          );
+      }
+    }),
     // An agent is called in the argument object of this agent call
     // e.g. agent1({ value: agent2() })
     se.bind('nestedAgentCall', () =>

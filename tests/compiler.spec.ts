@@ -1425,6 +1425,21 @@ describe('Compiler', () => {
     );
   });
 
+  test('object-member 4', async () => {
+    await pipe(
+      parseFileTest(`
+        @version('0.6');
+        obj = identity({
+          a: 1,
+          f: (_) -> _.x + 1,
+        });
+        obj.f({x: obj.a});
+      `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon3__: 2 })),
+    );
+  });
+
   test('loop', async () => {
     await pipe(
       parseFileTest(`
