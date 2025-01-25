@@ -5,8 +5,6 @@ import {
   ArrayAt,
   ComputedNode,
   ComputedNodeBody,
-  ComputedNodeBodyExpr,
-  ComputedNodeBodyParen,
   DSLArray,
   DSLBoolean,
   DSLNull,
@@ -181,43 +179,41 @@ const findIdentifier = (
   );
 
 type HasAnnotation = ComputedNodeBody & Readonly<{ annotations: ReadonlyArray<NodeAnnotation> }>;
-const hasAnnotation = (body: ComputedNodeBody): body is HasAnnotation =>
-  (body as HasAnnotation).annotations != null;
 
-const addIsResult = (node: ComputedNode): ComputedNode =>
-  hasAnnotation(node.body)
-    ? {
-        ...node,
-        body: identity<HasAnnotation>({
-          ...node.body,
-          annotations: pipe(
-            node.body.annotations,
-            readonlyArray.exists(_ => _.name.name === 'isResult'),
-            _ =>
-              _
-                ? (node.body as HasAnnotation).annotations
-                : identity<ReadonlyArray<NodeAnnotation>>([
-                    ...(node.body as HasAnnotation).annotations,
-                    identity<NodeAnnotation>({
-                      type: 'NodeAnnotation',
-                      name: {
-                        type: 'Identifier',
-                        annotations: [],
-                        name: 'isResult',
-                        context: node.body.context,
-                      },
-                      value: {
-                        type: 'Boolean',
-                        value: true,
-                        context: node.body.context,
-                      },
-                      context: node.body.context,
-                    }),
-                  ]),
-          ),
-        }),
-      }
-    : node;
+const isResultAnnotation = (value: boolean, context: ParserContext): NodeAnnotation => ({
+  type: 'NodeAnnotation',
+  name: {
+    type: 'Identifier',
+    annotations: [],
+    name: 'isResult',
+    context,
+  },
+  value: {
+    type: 'Boolean',
+    annotations: [],
+    value,
+    context,
+  },
+  context,
+});
+
+const addIsResult = (node: ComputedNode): ComputedNode => ({
+  ...node,
+  body: identity<HasAnnotation>({
+    ...node.body,
+    annotations: pipe(
+      node.body.annotations,
+      readonlyArray.exists(_ => _.name.name === 'isResult'),
+      _ =>
+        _
+          ? (node.body as HasAnnotation).annotations
+          : identity<ReadonlyArray<NodeAnnotation>>([
+              ...(node.body as HasAnnotation).annotations,
+              isResultAnnotation(true, node.body.context),
+            ]),
+    ),
+  }),
+});
 
 export const compileFromFile = async (
   path: string,
@@ -334,13 +330,11 @@ export const staticNodeToJson = (expr: Expr): Result =>
 export const computedNodeToJson = (body: ComputedNodeBody): Result<CompileData<JsonObject>> =>
   body.type === 'NestedGraph' ? nestedGraphToJson(body) : computedNodeBodyExprToJson(body);
 
-export const computedNodeBodyExprToJson = (
-  expr: ComputedNodeBodyExpr,
-): Result<CompileData<JsonObject>> => {
+export const computedNodeBodyExprToJson = (expr: Expr): Result<CompileData<JsonObject>> => {
   switch (expr.type) {
     case 'IfThenElse':
       return ifThenElseToJson(expr);
-    case 'ComputedNodeBodyParen':
+    case 'Paren':
       return computedNodeParenToJson(expr);
     case 'AgentDef':
       return agentDefToJson(expr);
@@ -367,15 +361,20 @@ export const computedNodeBodyExprToJson = (
     case 'String':
       return computedNodeStringToJson(expr);
     default:
-      return se.left<Context, CompileError, CompileData<JsonObject>>({
-        type: 'CompileError',
-        items: [
-          {
-            message: `Unknown computed node expression type: ${expr.type}`,
-            parserContext: expr.context,
+      return exprToJson(
+        identity<AgentCall>({
+          type: 'AgentCall',
+          annotations: expr.annotations,
+          agent: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'identity',
+            context: expr.context,
           },
-        ],
-      });
+          args: expr,
+          context: expr.context,
+        }),
+      ) as Result<CompileData<JsonObject>>;
   }
 };
 
@@ -633,9 +632,7 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
 
 export const parenToJson = (paren: Paren): Result => exprToJson(paren.expr);
 
-export const computedNodeParenToJson = (
-  paren: ComputedNodeBodyParen,
-): Result<CompileData<JsonObject>> =>
+export const computedNodeParenToJson = (paren: Paren): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
     se.bind('annotations', () => annotationsToJson(paren.annotations)),
@@ -662,6 +659,7 @@ export const applyAgentToJson = (agentCall: AgentCall): Result<CompileData<JsonO
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -681,6 +679,7 @@ export const applyAgentToJson = (agentCall: AgentCall): Result<CompileData<JsonO
           },
           value: agentCall.args ?? {
             type: 'Object',
+            annotations: [],
             value: [],
             context: agentCall.context,
           },
@@ -704,38 +703,6 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
       switch (agentCall.agent.type) {
         case 'Identifier':
           return identifierToJson(agentCall.agent);
-        // return pipe(
-        //   result.Do,
-        //   se.bind('ctx', () => result.get()),
-        //   se.let_('agent', () => agentCall.agent as Identifier),
-        //   se.flatMap(({ ctx: { stack }, agent }) =>
-        //     pipe(findIdentifier(agent, stack), _ =>
-        //       _ === 'InThisStack' || _ === 'InParentStacks'
-        //         ? result.of<CompileData>({
-        //             json: `:${agent.name}`,
-        //             captures: {
-        //               [agent.name]: agent,
-        //             },
-        //             nodes: {},
-        //           })
-        //         : _ === 'GlobalAgent'
-        //           ? result.of({
-        //               json: agent.name,
-        //               captures: {},
-        //               nodes: {},
-        //             })
-        //           : result.left<CompileData>({
-        //               type: 'CompileError',
-        //               items: [
-        //                 {
-        //                   message: `Identifier not found: ${agent.name}`,
-        //                   parserContext: agent.context,
-        //                 },
-        //               ],
-        //             }),
-        //     ),
-        //   ),
-        // );
         default:
           return pipe(
             result.Do,
@@ -838,26 +805,6 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
     ),
   );
 
-// export const annotatedAgentCallToJson = (agentCall: AgentCall): Result =>
-//   pipe(
-//     result.Do,
-//     se.bind('annotations', () => annotationsToJson(agentCall.annotations)),
-//     se.bind('agentCall', () => agentCallToJson(agentCall)),
-//     se.map(({ annotations, agentCall }) =>
-//       identity<CompileData>({
-//         json: {
-//           ...annotations.json,
-//           ...agentCall.json,
-//         },
-//         captures: agentCall.captures,
-//         nodes: {
-//           ...annotations.nodes,
-//           ...agentCall.nodes,
-//         },
-//       }),
-//     ),
-//   );
-
 export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
@@ -934,6 +881,7 @@ export const pipelineToJson = (pipeline: Pipeline): Result<CompileData<JsonObjec
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -971,6 +919,7 @@ export const logicalToJson = (logical: Logical): Result<CompileData<JsonObject>>
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1015,6 +964,7 @@ export const equalityToJson = (equality: Equality): Result<CompileData<JsonObjec
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1063,6 +1013,7 @@ export const relationalToJson = (relational: Relational): Result<CompileData<Jso
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1100,6 +1051,7 @@ export const plusMinusToJson = (plusMinus: PlusMinus): Result<CompileData<JsonOb
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1146,6 +1098,7 @@ export const mulDivModToJson = (mulDivMod: MulDivMod): Result<CompileData<JsonOb
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1183,6 +1136,7 @@ export const powerToJson = (power: Power): Result<CompileData<JsonObject>> =>
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1220,6 +1174,7 @@ export const arrayAtToJson = (arrayAt: ArrayAt): Result<CompileData<JsonObject>>
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1361,7 +1316,7 @@ export const stringToJson = (string: DSLString): Result =>
 export const computedNodeStringToJson = (string: DSLString): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: [],
+    annotations: string.annotations,
     agent: {
       type: 'Identifier',
       annotations: [],
@@ -1370,6 +1325,7 @@ export const computedNodeStringToJson = (string: DSLString): Result<CompileData<
     },
     args: {
       type: 'Object',
+      annotations: [],
       value: [
         {
           key: {
@@ -1380,12 +1336,14 @@ export const computedNodeStringToJson = (string: DSLString): Result<CompileData<
           },
           value: {
             type: 'Array',
+            annotations: [],
             value: pipe(
               string.value,
               readonlyArray.map(_ =>
                 typeof _ === 'string'
                   ? {
                       type: 'RawString',
+                      annotations: [],
                       value: _,
                       context: string.context,
                     }
@@ -1437,6 +1395,7 @@ export const objectPairToJson = (pair: DSLObjectPair): Result<CompileData<JsonOb
       pair.value.type === 'Number' ||
       pair.value.type === 'Array' ||
       pair.value.type === 'Object' ||
+      pair.value.type === 'Null' ||
       isRowString
         ? result.of({
             json: { [pair.key.name]: value.json },

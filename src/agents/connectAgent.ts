@@ -68,6 +68,7 @@ const executeAgent = (
           _ => {
             try {
               return task.of(JSON.parse(_));
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               return () =>
                 Promise.reject(new Error('Error parsing arguments in the function calling'));

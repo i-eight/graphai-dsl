@@ -19,8 +19,6 @@ import {
   BlockComment,
   ComputedNode,
   ComputedNodeBody,
-  ComputedNodeBodyExpr,
-  ComputedNodeBodyParen,
   DSLArray,
   DSLBoolean,
   DSLNull,
@@ -179,12 +177,26 @@ export const identifier: Parser<Identifier> = pipe(
 );
 
 export const boolean: Parser<DSLBoolean> = pipe(
-  text('true'),
-  parser.or(text('false')),
-  parser.orElse(e =>
-    parser.fail({ type: 'UnexpectedParserError', expect: 'boolean', actual: error.getActual(e) }),
+  parser.unit,
+  parser.bind('annotations', () => nodeAnnotations),
+  parser.bind('value', () =>
+    pipe(
+      text('true'),
+      parser.or(text('false')),
+      parser.orElse(e =>
+        parser.fail({
+          type: 'UnexpectedParserError',
+          expect: 'boolean',
+          actual: error.getActual(e),
+        }),
+      ),
+    ),
   ),
-  parser.context(_ => ({ type: 'Boolean', value: _ === 'true' })),
+  parser.context(({ annotations, value }) => ({
+    type: 'Boolean',
+    annotations,
+    value: value === 'true',
+  })),
 );
 
 export const unsignedInteger: Parser<string> = parser.repeat1('', a =>
@@ -196,6 +208,7 @@ export const unsignedInteger: Parser<string> = parser.repeat1('', a =>
 
 export const number: Parser<DSLNumber> = pipe(
   parser.unit,
+  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('sign', () => pipe(char('+'), parser.or(char('-')), parser.or(parser.of('')))),
   parser.bind('uint', () => unsignedInteger),
   parser.bind('decimal', () =>
@@ -206,96 +219,116 @@ export const number: Parser<DSLNumber> = pipe(
       parser.or(parser.of('')),
     ),
   ),
-  parser.map(({ sign, uint, decimal }) => Number(`${sign}${uint}${decimal}`)),
+  parser.bind('value', ({ sign, uint, decimal }) => parser.of(Number(`${sign}${uint}${decimal}`))),
   parser.orElse(e =>
     parser.fail({ type: 'UnexpectedParserError', expect: 'number', actual: error.getActual(e) }),
   ),
-  parser.context(value => ({ type: 'Number', value })),
+  parser.context(({ annotations, value }) => ({ type: 'Number', annotations, value })),
 );
 
 const stringQuote = (quote: '"' | "'"): Parser<DSLString> =>
   pipe(
-    char(quote),
-    parser.right(
-      parser.repeat<ReadonlyArray<string | Expr>>([], xs =>
-        pipe(
-          parser.repeat1<string | Expr>('', a =>
+    parser.unit,
+    parser.bind('annotations', () => nodeAnnotations),
+    parser.bind('value', () =>
+      pipe(
+        char(quote),
+        parser.right(
+          parser.repeat<ReadonlyArray<string | Expr>>([], xs =>
             pipe(
-              text('\\$'),
-              parser.map(_ => '$'),
-              parser.or(
+              parser.repeat1<string | Expr>('', a =>
                 pipe(
-                  text('\\' + quote),
-                  parser.map(_ => quote as string),
+                  text('\\$'),
+                  parser.map(_ => '$'),
+                  parser.or(
+                    pipe(
+                      text('\\' + quote),
+                      parser.map(_ => quote as string),
+                    ),
+                  ),
+                  parser.or(noneOf(quote + '$')),
+                  parser.map(s => a + s),
                 ),
               ),
-              parser.or(noneOf(quote + '$')),
-              parser.map(s => a + s),
+              parser.or<string | Expr>(
+                pipe(
+                  text('${'),
+                  parser.right(whitespaces),
+                  parser.flatMap(() => expr),
+                  parser.left(whitespaces),
+                  parser.left(char('}')),
+                ),
+              ),
+              parser.map(x => [...xs, x]),
             ),
           ),
-          parser.or<string | Expr>(
-            pipe(
-              text('${'),
-              parser.right(whitespaces),
-              parser.flatMap(() => expr),
-              parser.left(whitespaces),
-              parser.left(char('}')),
-            ),
-          ),
-          parser.map(x => [...xs, x]),
         ),
+        parser.left(char(quote)),
       ),
     ),
-    parser.left(char(quote)),
-    parser.context(value => ({ type: 'String', value })),
+    parser.context(({ annotations, value }) => ({ type: 'String', annotations, value })),
   );
 
 export const string: Parser<DSLString> = pipe(stringQuote('"'), parser.or(stringQuote("'")));
 
 export const array: Parser<DSLArray> = pipe(
-  char('['),
-  parser.right(whitespaces),
-  parser.right(
+  parser.unit,
+  parser.bind('annotations', () => nodeAnnotations),
+  parser.bind('value', () =>
     pipe(
-      parser.unit,
-      parser.flatMap(() => expr),
-      parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+      char('['),
+      parser.right(whitespaces),
+      parser.right(
+        pipe(
+          parser.unit,
+          parser.flatMap(() => expr),
+          parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+        ),
+      ),
+      parser.left(
+        pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
+      ),
+      parser.left(whitespaces),
+      parser.left(char(']')),
     ),
   ),
-  parser.left(
-    pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
-  ),
-  parser.left(whitespaces),
-  parser.left(char(']')),
-  parser.context(value => ({ type: 'Array', value })),
+  parser.context(({ annotations, value }) => ({ type: 'Array', annotations, value })),
 );
 
 export const object: Parser<DSLObject> = pipe(
-  char('{'),
-  parser.right(whitespaces),
-  parser.right(
+  parser.unit,
+  parser.bind('annotations', () => nodeAnnotations),
+  parser.bind('value', () =>
     pipe(
-      parser.unit,
-      parser.bind('key', () => identifier),
+      char('{'),
+      parser.right(whitespaces),
+      parser.right(
+        pipe(
+          parser.unit,
+          parser.bind('key', () => identifier),
+          parser.left(whitespaces),
+          parser.left(char(':')),
+          parser.left(whitespaces),
+          parser.bind('value', () => expr),
+          parser.map(({ key, value }) => ({ key, value })),
+          parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+        ),
+      ),
+      parser.left(
+        pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
+      ),
       parser.left(whitespaces),
-      parser.left(char(':')),
-      parser.left(whitespaces),
-      parser.bind('value', () => expr),
-      parser.map(({ key, value }) => ({ key, value })),
-      parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+      parser.left(char('}')),
     ),
   ),
-  parser.left(
-    pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
-  ),
-  parser.left(whitespaces),
-  parser.left(char('}')),
-  parser.context(value => ({ type: 'Object', value })),
+  parser.context(({ annotations, value }) => ({ type: 'Object', annotations, value })),
 );
 
 export const null_: Parser<DSLNull> = pipe(
-  text('null'),
-  parser.context(_ => ({ type: 'Null' })),
+  parser.unit,
+  parser.bind('annotations', () => nodeAnnotations),
+  parser.bind('value', () => text('null')),
+  parser.context(({ annotations }) => ({ type: 'Null', annotations })),
 );
 
 export const nodeAnnotation: Parser<NodeAnnotation> = pipe(
@@ -341,7 +374,7 @@ export const agentDef: Parser<AgentDef> = pipe(
           option.none,
         ),
       ),
-      parser.or<Graph | ComputedNodeBodyExpr>(computedNodeBodyExpr),
+      parser.or<Graph | Expr>(expr),
     ),
   ),
   parser.context(({ annotations, args, body }) => ({
@@ -729,7 +762,8 @@ export const isTermEquality = (term: Expr): term is TermEquality =>
   term.type === 'Relational' ||
   term.type === 'Boolean' ||
   term.type === 'Array' ||
-  term.type === 'Object';
+  term.type === 'Object' ||
+  term.type === 'Null';
 
 export const termEquality: Parser<Term | TermEquality> = relational;
 
@@ -943,36 +977,6 @@ export const staticNode: Parser<StaticNode> = pipe(
   parser.context(({ name, value }) => ({ type: 'StaticNode', name, value })),
 );
 
-export const computedNodeBodyExpr: Parser<ComputedNodeBodyExpr> = pipe(
-  ifThenElse,
-  parser.or<ComputedNodeBodyExpr>(agentDef),
-  parser.orElse(() => computedNodeBodyParen as Parser<ComputedNodeBodyExpr>),
-  parser.or<ComputedNodeBodyExpr>(
-    pipe(
-      operator,
-      parser.flatMap(_ =>
-        isLiteral(_)
-          ? parser.fail({
-              type: 'InvalidSyntaxError',
-              message: `${_.type} cannot be used in computed node.`,
-            })
-          : parser.of<ComputedNodeBodyExpr>(_),
-      ),
-    ),
-  ),
-);
-
-export const computedNodeBodyParen: Parser<ComputedNodeBodyParen> = pipe(
-  parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
-  parser.left(char('(')),
-  parser.left(whitespaces),
-  parser.bind('expr', () => computedNodeBodyExpr),
-  parser.left(whitespaces),
-  parser.left(char(')')),
-  parser.context(({ annotations, expr }) => ({ type: 'ComputedNodeBodyParen', annotations, expr })),
-);
-
 export const nestedGraph: Parser<NestedGraph> = pipe(
   parser.unit,
   parser.bind('annotations', () => nodeAnnotations),
@@ -999,7 +1003,7 @@ export const nestedGraph: Parser<NestedGraph> = pipe(
 
 export const computedNodeBody: Parser<ComputedNodeBody> = pipe(
   nestedGraph,
-  parser.or<ComputedNodeBody>(computedNodeBodyExpr),
+  parser.or<ComputedNodeBody>(expr),
 );
 
 export const computedNode: Parser<ComputedNode> = pipe(

@@ -1,11 +1,5 @@
 import { pipe } from 'fp-ts/lib/function';
-import {
-  compileGraphTest,
-  parseFileTest,
-  printJson,
-  runGraphTest,
-  toTupleFromCompileError,
-} from './helpers';
+import { compileGraphTest, parseFileTest, runGraphTest, toTupleFromCompileError } from './helpers';
 import { either } from 'fp-ts';
 import { through } from '../src/lib/through';
 
@@ -37,7 +31,7 @@ describe('Compiler', () => {
     );
   });
 
-  test('computed-node', () => {
+  test('computed-node 1', () => {
     pipe(
       parseFileTest('@version("0.6"); a = identity({x: 1});'),
       compileGraphTest(),
@@ -62,6 +56,141 @@ describe('Compiler', () => {
         ),
       ),
       runGraphTest(either.right({ a: { x: 1 } })),
+    );
+  });
+
+  test('computed-node number', () => {
+    pipe(
+      parseFileTest('@version("0.6"); a = 1;'),
+      compileGraphTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: 1,
+                },
+                isResult: true,
+              },
+            },
+          }),
+        ),
+      ),
+      runGraphTest(either.right({ a: 1 })),
+    );
+  });
+
+  test('computed-node boolean', () => {
+    pipe(
+      parseFileTest('@version("0.6"); a = true;'),
+      compileGraphTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: true,
+                },
+                isResult: true,
+              },
+            },
+          }),
+        ),
+      ),
+      runGraphTest(either.right({ a: true })),
+    );
+  });
+
+  test('computed-node array', () => {
+    pipe(
+      parseFileTest('@version("0.6"); a = [1, 2, 3];'),
+      compileGraphTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                isResult: true,
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: [1, 2, 3],
+                },
+              },
+            },
+          }),
+        ),
+      ),
+      runGraphTest(either.right({ a: [1, 2, 3] })),
+    );
+  });
+
+  test('computed-node object', () => {
+    pipe(
+      parseFileTest('@version("0.6"); a = {a: 1, b: "b", c: [3.0], d: false};'),
+      compileGraphTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                isResult: true,
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: {
+                    a: 1,
+                    b: 'b',
+                    c: [3],
+                    d: false,
+                  },
+                },
+              },
+            },
+          }),
+        ),
+      ),
+      runGraphTest(either.right({ a: { a: 1, b: 'b', c: [3.0], d: false } })),
+    );
+  });
+
+  test('computed-node null', () => {
+    pipe(
+      parseFileTest('@version("0.6"); a = null;'),
+      compileGraphTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                isResult: true,
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: null,
+                },
+              },
+            },
+          }),
+        ),
+      ),
+      runGraphTest(either.right({ a: null })),
     );
   });
 
@@ -1022,18 +1151,31 @@ describe('Compiler', () => {
     ));
 
   test('string 2', () =>
-    pipe(parseFileTest(`static name = "Tom"; "hello, \${name}";`), compileGraphTest(), _ =>
-      expect(_).toStrictEqual(
-        either.left({
-          type: 'InvalidSyntaxError',
-          message: 'String cannot be used in computed node.',
-          position: {
-            index: 21,
-            row: 1,
-            column: 22,
-          },
-        }),
+    pipe(
+      parseFileTest(`@version('0.6'); static name = "Tom"; "hello, \${name}";`),
+      compileGraphTest(),
+      // printJson,
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              name: {
+                value: 'Tom',
+              },
+              __anon0__: {
+                graph: {},
+                agent: 'concatStringAgent',
+                inputs: {
+                  items: ['hello, ', ':name'],
+                },
+                isResult: true,
+              },
+            },
+          }),
+        ),
       ),
+      runGraphTest(either.right({ __anon0__: 'hello, Tom' })),
     ));
 
   test('string 3', () =>

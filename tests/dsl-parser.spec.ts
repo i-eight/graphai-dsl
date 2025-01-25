@@ -22,12 +22,11 @@ import {
   string,
   equality,
   relational,
-  termRelational,
   pipeline,
 } from '../src/lib/dsl-parser';
 import { parser } from '../src/lib/parser-combinator';
 import { stream } from '../src/lib/stream';
-import { printJson, toTupleFromExpr } from './helpers';
+import { toTupleFromExpr } from './helpers';
 import { either } from 'fp-ts';
 import { Expr } from '../src/lib/dsl-syntax-tree';
 
@@ -1033,6 +1032,21 @@ describe('dsl-parser', () => {
                 },
               ],
             },
+          }),
+        ),
+    );
+  });
+
+  test('computed-node 3', () => {
+    pipe(
+      computedNode,
+      parser.run(stream.create('abc = null;')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            computedNode: 'abc',
+            body: null,
           }),
         ),
     );

@@ -37,7 +37,7 @@ export type ComputedNodeBodyExpr =
   | AgentCall
   | DSLString;
 
-export type ComputedNodeBody = NestedGraph | ComputedNodeBodyExpr;
+export type ComputedNodeBody = NestedGraph | Expr;
 
 export type ComputedNode = Readonly<{
   type: 'ComputedNode';
@@ -96,29 +96,58 @@ export type Literal =
   | DSLObject
   | DSLNull;
 
-export type DSLNumber = Readonly<{ type: 'Number'; value: number; context: Context }>;
+export type DSLNumber = Readonly<{
+  type: 'Number';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  value: number;
+  context: Context;
+}>;
 
-export type RawString = Readonly<{ type: 'RawString'; value: string; context: Context }>;
+export type RawString = Readonly<{
+  type: 'RawString';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  value: string;
+  context: Context;
+}>;
 
 export type DSLString = Readonly<{
   type: 'String';
+  annotations: ReadonlyArray<NodeAnnotation>;
   value: ReadonlyArray<string | Expr>;
   context: Context;
 }>;
 
-export type DSLBoolean = Readonly<{ type: 'Boolean'; value: boolean; context: Context }>;
+export type DSLBoolean = Readonly<{
+  type: 'Boolean';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  value: boolean;
+  context: Context;
+}>;
 
-export type DSLArray = Readonly<{ type: 'Array'; value: ReadonlyArray<Expr>; context: Context }>;
+export type DSLArray = Readonly<{
+  type: 'Array';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  value: ReadonlyArray<Expr>;
+  context: Context;
+}>;
 
-export type DSLObjectPair = Readonly<{ key: Identifier; value: Expr }>;
+export type DSLObjectPair = Readonly<{
+  key: Identifier;
+  value: Expr;
+}>;
 
 export type DSLObject = Readonly<{
   type: 'Object';
+  annotations: ReadonlyArray<NodeAnnotation>;
   value: ReadonlyArray<DSLObjectPair>;
   context: Context;
 }>;
 
-export type DSLNull = Readonly<{ type: 'Null'; context: Context }>;
+export type DSLNull = Readonly<{
+  type: 'Null';
+  annotations: ReadonlyArray<NodeAnnotation>;
+  context: Context;
+}>;
 
 export type NodeAnnotation = Readonly<{
   type: 'NodeAnnotation';
@@ -131,7 +160,7 @@ export type AgentDef = Readonly<{
   type: 'AgentDef';
   annotations: ReadonlyArray<NodeAnnotation>;
   args?: Identifier;
-  body: ComputedNodeBodyExpr | Graph;
+  body: Expr | Graph;
   context: Context;
 }>;
 

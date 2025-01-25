@@ -11,10 +11,9 @@ import {
 import { CompileError, Json } from '../src/lib/compiler';
 import { either, readonlyArray } from 'fp-ts';
 import { Either } from 'fp-ts/lib/Either';
-import { DefaultResultData, ResultDataDictionary } from 'graphai';
 import { runFromJson } from '../src/lib/run';
 import { parser, ParserError } from '../src/lib/parser-combinator';
-import { file, object } from '../src/lib/dsl-parser';
+import { file } from '../src/lib/dsl-parser';
 import { stream } from '../src/lib/stream';
 import { compiler } from '../src/lib';
 import { through } from '../src/lib/through';
