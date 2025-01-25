@@ -4,8 +4,8 @@ import { GraphAI, GraphData } from 'graphai';
 import { pipe } from 'fp-ts/lib/function';
 import { either, task } from 'fp-ts';
 
-const evalAgent: AgentFunction<object, unknown, Readonly<{ src: string }>> = async ({
-  namedInputs: { src },
+const evalAgent: AgentFunction<object, unknown, string> = async ({
+  namedInputs: src,
   forNestedGraph,
 }) =>
   pipe(

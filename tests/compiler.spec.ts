@@ -543,7 +543,7 @@ describe('Compiler', () => {
 
   test('A nested graph with a captured value', () =>
     pipe(
-      parseFileTest('@version("0.6"); static a = 1; { b = println({message: a}); };'),
+      parseFileTest('@version("0.6"); static a = 1; { b = println(a); };'),
       compileGraphTest(),
       through(_ =>
         expect(_).toStrictEqual(
@@ -565,9 +565,7 @@ describe('Compiler', () => {
                       agent: 'apply',
                       inputs: {
                         agent: 'println',
-                        args: {
-                          message: ':a',
-                        },
+                        args: ':a',
                       },
                       isResult: true,
                       graph: {},
@@ -589,7 +587,7 @@ describe('Compiler', () => {
         static a = 1; 
         { 
           b = {
-            println({message: a}); 
+            println(a); 
           };
         };
       `),
@@ -622,9 +620,7 @@ describe('Compiler', () => {
                             agent: 'apply',
                             inputs: {
                               agent: 'println',
-                              args: {
-                                message: ':a',
-                              },
+                              args: ':a',
                             },
                             isResult: true,
                             graph: {},
@@ -647,7 +643,7 @@ describe('Compiler', () => {
       parseFileTest(`
         a = { 
           b = {
-            println({message: c}); 
+            println(c); 
           };
         };
       `),
@@ -803,9 +799,7 @@ describe('Compiler', () => {
 
   test('A basic if-then-else', () =>
     pipe(
-      parseFileTest(
-        '@version("0.6"); static a = 1; if a > 1 then println({message: 1}) else println({message: 2});',
-      ),
+      parseFileTest('@version("0.6"); static a = 1; if a > 1 then println(1) else println(2);'),
       compileGraphTest(),
       through(_ =>
         expect(_).toStrictEqual(
@@ -852,9 +846,7 @@ describe('Compiler', () => {
                       agent: 'apply',
                       inputs: {
                         agent: 'println',
-                        args: {
-                          message: 1,
-                        },
+                        args: 1,
                       },
                       graph: {},
                     },
@@ -875,9 +867,7 @@ describe('Compiler', () => {
                       agent: 'apply',
                       inputs: {
                         agent: 'println',
-                        args: {
-                          message: 2,
-                        },
+                        args: 2,
                       },
                       graph: {},
                     },
@@ -912,9 +902,9 @@ describe('Compiler', () => {
            @version("0.6");
            static a = 1; 
            if a > 1 then {
-             println({message: 1});
+             println(1);
            } else {
-             println({message: 2});
+             println(2);
            };
         `),
       compileGraphTest(),
@@ -963,9 +953,7 @@ describe('Compiler', () => {
                       agent: 'apply',
                       inputs: {
                         agent: 'println',
-                        args: {
-                          message: 1,
-                        },
+                        args: 1,
                       },
                       graph: {},
                     },
@@ -986,9 +974,7 @@ describe('Compiler', () => {
                       agent: 'apply',
                       inputs: {
                         agent: 'println',
-                        args: {
-                          message: 2,
-                        },
+                        args: 2,
                       },
                       graph: {},
                     },
@@ -1055,10 +1041,10 @@ describe('Compiler', () => {
       parseFileTest(`
           @version("0.6");
           static name = "Tom";
-          println({ message: {
+          println({
             text1: "hello, \${name}",
             text2: "goodbye",
-          }});
+          });
         `),
       compileGraphTest(),
       through(_ =>
@@ -1082,10 +1068,8 @@ describe('Compiler', () => {
                 inputs: {
                   agent: 'println',
                   args: {
-                    message: {
-                      text1: ':__anon1__',
-                      text2: 'goodbye',
-                    },
+                    text1: ':__anon1__',
+                    text2: 'goodbye',
                   },
                 },
                 graph: {},
@@ -1450,52 +1434,76 @@ describe('Compiler', () => {
       parseFileTest(`
           @version('0.6');
           sum = loop({
-            init: {cnt: 0},
-            callback: (args) -> 
-              if args.cnt < 10 
-              then recur({return: {cnt: args.cnt + 1}}) 
-              else identity({return: args.cnt}),
+            init: 0,
+            callback: (cnt) -> 
+              if cnt < 10 
+              then recur(cnt + 1) 
+              else identity(cnt),
           });
       `),
       compileGraphTest(
         either.right({
           version: '0.6',
           nodes: {
-            __anon11__: {
+            __anon8__: {
               agent: 'defAgent',
               inputs: {
-                args: 'args',
+                args: 'cnt',
                 capture: {},
                 return: ['__anon0__'],
               },
               graph: {
                 nodes: {
-                  __anon3__: {
+                  __anon2__: {
                     agent: 'defAgent',
                     inputs: {
                       args: undefined,
                       capture: {
-                        args: ':args',
+                        cnt: ':cnt',
                       },
                       return: ['__anon1__'],
                     },
                     graph: {
                       nodes: {
-                        __anon2__: {
-                          agent: 'getObjectMemberAgent',
-                          inputs: {
-                            object: ':args',
-                            key: 'cnt',
-                          },
-                        },
                         __anon1__: {
                           isResult: true,
+                          graph: {},
                           agent: 'ltAgent',
                           inputs: {
-                            left: ':__anon2__',
+                            left: ':cnt',
                             right: 10,
                           },
+                        },
+                      },
+                    },
+                  },
+                  __anon5__: {
+                    agent: 'defAgent',
+                    inputs: {
+                      args: undefined,
+                      capture: {
+                        cnt: ':cnt',
+                      },
+                      return: ['__anon3__'],
+                    },
+                    graph: {
+                      nodes: {
+                        __anon4__: {
                           graph: {},
+                          agent: 'plusAgent',
+                          inputs: {
+                            left: ':cnt',
+                            right: 1,
+                          },
+                        },
+                        __anon3__: {
+                          isResult: true,
+                          graph: {},
+                          agent: 'apply',
+                          inputs: {
+                            agent: 'recur',
+                            args: ':__anon4__',
+                          },
                         },
                       },
                     },
@@ -1505,71 +1513,20 @@ describe('Compiler', () => {
                     inputs: {
                       args: undefined,
                       capture: {
-                        args: ':args',
+                        cnt: ':cnt',
                       },
-                      return: ['__anon4__'],
+                      return: ['__anon6__'],
                     },
                     graph: {
                       nodes: {
-                        __anon5__: {
-                          agent: 'getObjectMemberAgent',
-                          inputs: {
-                            object: ':args',
-                            key: 'cnt',
-                          },
-                        },
                         __anon6__: {
-                          agent: 'plusAgent',
-                          inputs: {
-                            left: ':__anon5__',
-                            right: 1,
-                          },
-                          graph: {},
-                        },
-                        __anon4__: {
                           isResult: true,
-                          agent: 'apply',
-                          inputs: {
-                            agent: 'recur',
-                            args: {
-                              return: {
-                                cnt: ':__anon6__',
-                              },
-                            },
-                          },
                           graph: {},
-                        },
-                      },
-                    },
-                  },
-                  __anon10__: {
-                    agent: 'defAgent',
-                    inputs: {
-                      args: undefined,
-                      capture: {
-                        args: ':args',
-                      },
-                      return: ['__anon8__'],
-                    },
-                    graph: {
-                      nodes: {
-                        __anon9__: {
-                          agent: 'getObjectMemberAgent',
-                          inputs: {
-                            object: ':args',
-                            key: 'cnt',
-                          },
-                        },
-                        __anon8__: {
-                          isResult: true,
                           agent: 'apply',
                           inputs: {
                             agent: 'identity',
-                            args: {
-                              return: ':__anon9__',
-                            },
+                            args: ':cnt',
                           },
-                          graph: {},
                         },
                       },
                     },
@@ -1580,11 +1537,11 @@ describe('Compiler', () => {
                     inputs: {
                       conditions: [
                         {
-                          if: ':__anon3__',
-                          then: ':__anon7__',
+                          if: ':__anon2__',
+                          then: ':__anon5__',
                         },
                         {
-                          else: ':__anon10__',
+                          else: ':__anon7__',
                         },
                       ],
                     },
@@ -1594,17 +1551,15 @@ describe('Compiler', () => {
             },
             sum: {
               isResult: true,
+              graph: {},
               agent: 'apply',
               inputs: {
                 agent: 'loop',
                 args: {
-                  init: {
-                    cnt: 0,
-                  },
-                  callback: ':__anon11__',
+                  init: 0,
+                  callback: ':__anon8__',
                 },
               },
-              graph: {},
             },
           },
         }),
@@ -1621,7 +1576,7 @@ describe('Compiler', () => {
             openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
 
           // Print the result
-          println({message: llm.text});
+          println(llm.text);
       `),
       compileGraphTest(),
       _ =>
@@ -1653,9 +1608,7 @@ describe('Compiler', () => {
                 agent: 'apply',
                 inputs: {
                   agent: 'println',
-                  args: {
-                    message: ':__anon1__',
-                  },
+                  args: ':__anon1__',
                 },
                 graph: {},
               },
@@ -1699,7 +1652,7 @@ describe('Compiler', () => {
           static a = 1;
           static b = {
             nodes: {
-              n: println({message: a})
+              n: println(a)
             }
           };
           c = @graph(b) nestedAgent({a: a});
@@ -1717,9 +1670,7 @@ describe('Compiler', () => {
                 agent: 'apply',
                 inputs: {
                   agent: 'println',
-                  args: {
-                    message: ':a',
-                  },
+                  args: ':a',
                 },
                 graph: {},
               },
@@ -1762,7 +1713,7 @@ describe('Compiler', () => {
     await pipe(
       parseFileTest(`
           @version('0.6');
-          eval({src: '@version("0.6"); static a = 1; static b = 1; a + b;'});
+          eval('@version("0.6"); static a = 1; static b = 1; a + b;');
       `),
       compileGraphTest(),
       runGraphTest(either.right({ __anon0__: 2 })),

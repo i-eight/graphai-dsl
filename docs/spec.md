@@ -529,153 +529,142 @@ if a < 5 then println({ message: 1}) else println({ message: 1});
 ## Loop
 
 ```
-loopAgent({
-  init: {cnt: 0},
-  callback: (args) ->
-    if args.cnt < 10
-    then recurAgent({return: {cnt: args.cnt + 1}})
-    else identityAgent({return: args.cnt}),
+@version('0.6');
+sum = loop({
+  init: 0,
+  callback: (cnt) ->
+    if cnt < 10
+    then recur(cnt + 1)
+    else identity(cnt),
 });
 
 --- JSON ---
 {
-  "nodes": {
-    "__anon12__": {
-      "agent": "defAgent",
-      "inputs": {
-        "args": "args",
-        "capture": {},
-        "return": [
-          "__anon1__"
-        ]
+  version: '0.6',
+  nodes: {
+    __anon8__: {
+      agent: 'defAgent',
+      inputs: {
+        args: 'cnt',
+        capture: {},
+        return: ['__anon0__'],
       },
-      "graph": {
-        "nodes": {
-          "__anon4__": {
-            "agent": "defAgent",
-            "inputs": {
-              "capture": {
-                "args": ":args"
+      graph: {
+        nodes: {
+          __anon2__: {
+            agent: 'defAgent',
+            inputs: {
+              args: undefined,
+              capture: {
+                cnt: ':cnt',
               },
-              "return": [
-                "__anon2__"
-              ]
+              return: ['__anon1__'],
             },
-            "graph": {
-              "nodes": {
-                "__anon3__": {
-                  "agent": "getObjectMemberAgent",
-                  "inputs": {
-                    "object": ":args",
-                    "key": "cnt"
-                  }
+            graph: {
+              nodes: {
+                __anon1__: {
+                  isResult: true,
+                  graph: {},
+                  agent: 'ltAgent',
+                  inputs: {
+                    left: ':cnt',
+                    right: 10,
+                  },
                 },
-                "__anon2__": {
-                  "isResult": true,
-                  "agent": "ltAgent",
-                  "inputs": {
-                    "left": ":__anon3__",
-                    "right": 10
-                  }
-                }
-              }
-            }
-          },
-          "__anon8__": {
-            "agent": "defAgent",
-            "inputs": {
-              "capture": {
-                "args": ":args"
               },
-              "return": [
-                "__anon5__"
-              ]
             },
-            "graph": {
-              "nodes": {
-                "__anon6__": {
-                  "agent": "getObjectMemberAgent",
-                  "inputs": {
-                    "object": ":args",
-                    "key": "cnt"
-                  }
-                },
-                "__anon7__": {
-                  "agent": "plusAgent",
-                  "inputs": {
-                    "left": ":__anon6__",
-                    "right": 1
-                  }
-                },
-                "__anon5__": {
-                  "isResult": true,
-                  "agent": "recurAgent",
-                  "inputs": {
-                    "return": {
-                      "cnt": ":__anon7__"
-                    }
-                  }
-                }
-              }
-            }
           },
-          "__anon11__": {
-            "agent": "defAgent",
-            "inputs": {
-              "capture": {
-                "args": ":args"
+          __anon5__: {
+            agent: 'defAgent',
+            inputs: {
+              args: undefined,
+              capture: {
+                cnt: ':cnt',
               },
-              "return": [
-                "__anon9__"
-              ]
+              return: ['__anon3__'],
             },
-            "graph": {
-              "nodes": {
-                "__anon10__": {
-                  "agent": "getObjectMemberAgent",
-                  "inputs": {
-                    "object": ":args",
-                    "key": "cnt"
-                  }
+            graph: {
+              nodes: {
+                __anon4__: {
+                  graph: {},
+                  agent: 'plusAgent',
+                  inputs: {
+                    left: ':cnt',
+                    right: 1,
+                  },
                 },
-                "__anon9__": {
-                  "isResult": true,
-                  "agent": "identityAgent",
-                  "inputs": {
-                    "return": ":__anon10__"
-                  }
-                }
-              }
-            }
+                __anon3__: {
+                  isResult: true,
+                  graph: {},
+                  agent: 'apply',
+                  inputs: {
+                    agent: 'recur',
+                    args: ':__anon4__',
+                  },
+                },
+              },
+            },
           },
-          "__anon1__": {
-            "isResult": true,
-            "agent": "caseAgent",
-            "inputs": {
-              "conditions": [
+          __anon7__: {
+            agent: 'defAgent',
+            inputs: {
+              args: undefined,
+              capture: {
+                cnt: ':cnt',
+              },
+              return: ['__anon6__'],
+            },
+            graph: {
+              nodes: {
+                __anon6__: {
+                  isResult: true,
+                  graph: {},
+                  agent: 'apply',
+                  inputs: {
+                    agent: 'identity',
+                    args: ':cnt',
+                  },
+                },
+              },
+            },
+          },
+          __anon0__: {
+            isResult: true,
+            agent: 'caseAgent',
+            inputs: {
+              conditions: [
                 {
-                  "if": ":__anon4__",
-                  "then": ":__anon8__"
+                  if: ':__anon2__',
+                  then: ':__anon5__',
                 },
                 {
-                  "else": ":__anon11__"
-                }
-              ]
-            }
-          }
-        }
-      }
-    },
-    "__anon0__": {
-      "isResult": true,
-      "agent": "loopAgent",
-      "inputs": {
-        "init": {
-          "cnt": 0
+                  else: ':__anon7__',
+                },
+              ],
+            },
+          },
         },
-        "callback": ":__anon12__"
-      }
-    }
-  }
+      },
+    },
+    sum: {
+      isResult: true,
+      graph: {},
+      agent: 'apply',
+      inputs: {
+        agent: 'loop',
+        args: {
+          init: 0,
+          callback: ':__anon8__',
+        },
+      },
+    },
+  },
 }
+```
+
+## eval string
+
+```
+@version('0.6');
+eval('@version("0.6"); static a = 1; static b = 1; a + b;');
 ```

@@ -1,7 +1,7 @@
 import { AgentFunction, AgentFunctionInfo } from 'graphai/lib/type';
 
-const println: AgentFunction<object, void, Readonly<{ message: string }>> = async context => {
-  console.log(context.namedInputs.message);
+const println: AgentFunction<object, void, unknown> = async context => {
+  console.log(context.namedInputs);
 };
 
 export const printlnInfo: AgentFunctionInfo = {

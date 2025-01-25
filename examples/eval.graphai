@@ -1,1 +1,2 @@
-println({ message: eval({src: 'static a = 1; static b = 1; a + b;'}) });
+@version("0.6");
+println(eval('@version("0.6"); static a = 1; static b = 1; a + b;'));
