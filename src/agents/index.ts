@@ -30,6 +30,7 @@ import { rightArrowRightArrowEqualAgentInfo } from './right-arrow-right-arrow-eq
 import { rightArrowRightArrowHyphenAgentInfo } from './right-arrow-right-arrow-hyphen-agent';
 import { hyphenRightArrowRightArrowAgentInfo } from './hyphen-right-arrow-right-arrow-agent';
 import { colonRightArrowAgentInfo } from './colon-right-arrow-agent';
+import { applyAgentInfo } from './apply-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -64,5 +65,6 @@ export const agents: AgentFunctionInfoDictionary = {
   loop: loopAgentInfo,
   recur: recurAgentInfo,
   eval: evalAgentInfo,
+  apply: applyAgentInfo,
   connectAgent: connectAgentInfo,
 };

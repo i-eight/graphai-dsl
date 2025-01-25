@@ -9,7 +9,7 @@ const evalAgent: AgentFunction<object, unknown, Readonly<{ src: string }>> = asy
   forNestedGraph,
 }) =>
   pipe(
-    compileFromString(src),
+    compileFromString(src, forNestedGraph?.agents ?? {}),
     either.match(
       e => Promise.reject(e),
       graph =>

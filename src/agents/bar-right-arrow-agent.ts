@@ -1,10 +1,18 @@
 import { AgentFunction, AgentFunctionInfo } from 'graphai/lib/type';
+import { applyAgentInfo } from './apply-agent';
 
 const barRightArrowAgent: AgentFunction<
   object,
   unknown,
   Readonly<{ left: unknown; right: (_: unknown) => Promise<unknown> }>
-> = async ({ namedInputs: { left, right } }) => right({ namedInputs: left });
+> = async ({ params, namedInputs: { left, right }, forNestedGraph, filterParams, debugInfo }) =>
+  applyAgentInfo.agent({
+    params,
+    namedInputs: { agent: right, args: left },
+    forNestedGraph,
+    filterParams,
+    debugInfo,
+  });
 
 export const barRightArrowAgentInfo: AgentFunctionInfo = {
   name: 'barRightArrowAgent',

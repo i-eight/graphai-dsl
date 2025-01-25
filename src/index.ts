@@ -5,6 +5,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { compileFromFile } from './lib/compiler';
 import { runFromJson } from './lib/run';
+import { agents } from './agents';
 
 type Argv = Readonly<{
   _: readonly string[];
@@ -41,12 +42,12 @@ const main = async () => {
   const argv = cmds.parse() as unknown as Argv;
 
   if (argv._[0] === 'compile') {
-    console.log(JSON.stringify(await compileFromFile(argv.file), null, 2));
+    console.log(JSON.stringify(await compileFromFile(argv.file, agents), null, 2));
   } else if (argv._[0] === 'run') {
     const json = argv.json
       ? JSON.parse(await fs.promises.readFile(argv.file, 'utf-8'))
-      : await compileFromFile(argv.file);
-    await runFromJson(json);
+      : await compileFromFile(argv.file, agents);
+    await runFromJson(json, agents);
   } else {
     cmds.showHelp();
   }

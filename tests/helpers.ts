@@ -18,6 +18,7 @@ import { file, object } from '../src/lib/dsl-parser';
 import { stream } from '../src/lib/stream';
 import { compiler } from '../src/lib';
 import { through } from '../src/lib/through';
+import { agents } from '../src/agents';
 
 export const printJson = (json: unknown): void => console.log(JSON.stringify(json, null, 2));
 
@@ -105,26 +106,35 @@ export const parseFileTest = (src: string): Either<ParserError, Graph> =>
   );
 
 export const compileGraphTest =
-  (result: Either<unknown, Json> | undefined = undefined) =>
-  (graph: Either<ParserError, Graph>): Either<unknown, Json> =>
+  (result: Either<CompileError, Json> | undefined = undefined) =>
+  (graph: Either<ParserError, Graph>): Either<CompileError | ParserError, Json> =>
     pipe(
       graph,
-      either.flatMap(_ => pipe(compiler.graphToJson(_), compiler.run)),
+      either.flatMap(_ => pipe(compiler.graphToJson(_), compiler.run(agents))),
       either.map(([{ json }]) => json),
-      through(_ => (result == null ? void 0 : expect(_).toStrictEqual(result))),
+      through(_ => (result == null ? _ : expect(_).toStrictEqual(result))),
     );
 
 export const runGraphTest =
-  (result: Either<unknown, unknown> | undefined = undefined) =>
+  (
+    result:
+      | Either<unknown, unknown>
+      | ((f: Either<unknown, unknown>) => void)
+      | undefined = undefined,
+  ) =>
   (json: Either<unknown, Json>): Promise<void> =>
-    pipe(
-      json,
-      either.match(
-        async e => expect(e).toStrictEqual(result),
-        async _ => {
-          await runFromJson(_)
-            .catch(e => expect(either.left(e)).toStrictEqual(result))
-            .then(r => expect(either.right(r)).toStrictEqual(result));
-        },
-      ),
+    pipe(json, async _ =>
+      typeof result === 'function'
+        ? result(_)
+        : pipe(
+            _,
+            either.match(
+              async e => expect(e).toStrictEqual(result),
+              async _ => {
+                await runFromJson(_, agents)
+                  .catch(e => expect(either.left(e)).toStrictEqual(result))
+                  .then(r => expect(either.right(r)).toStrictEqual(result));
+              },
+            ),
+          ),
     );

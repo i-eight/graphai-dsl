@@ -41,6 +41,7 @@ import { Option } from 'fp-ts/lib/Option';
 import { file } from './dsl-parser';
 import { stream } from './stream';
 import fs from 'fs';
+import { AgentFunctionInfo, AgentFunctionInfoDictionary } from 'graphai';
 
 export type Json = number | string | boolean | JsonArray | JsonObject | null | undefined;
 
@@ -51,7 +52,7 @@ export type JsonObject = Readonly<{
 }>;
 
 export type Stack = Readonly<{
-  identifiers: Readonly<Record<string, Identifier>>;
+  identifiers: Readonly<Record<string, Identifier | AgentFunctionInfo>>;
   parent?: Stack;
 }>;
 
@@ -101,8 +102,11 @@ namespace result {
 
 const newJsonObject = (): JsonObject => ({});
 
-const newStack = (parent: Stack | undefined = undefined): Stack => ({
-  identifiers: {},
+const newStack = (
+  identifiers: Readonly<Record<string, Identifier | AgentFunctionInfo>> = {},
+  parent: Stack | undefined = undefined,
+): Stack => ({
+  identifiers,
   parent,
 });
 
@@ -146,7 +150,10 @@ const updateCurrentNode = (node: Node): Result<Unit> =>
 const deleteCurrentNode = (): Result<Unit> =>
   se.modify<Context, CompileError>(s => ({ ...s, currentNode: undefined }));
 
-const findIdentifierRecur = (name: Identifier, stack: Stack): Option<Identifier> =>
+const findIdentifierRecur = (
+  name: Identifier,
+  stack: Stack,
+): Option<Identifier | AgentFunctionInfo> =>
   pipe(
     readonlyRecord.lookup(name.name, stack.identifiers),
     option.orElse(() => (stack.parent ? findIdentifierRecur(name, stack.parent) : option.none)),
@@ -155,7 +162,7 @@ const findIdentifierRecur = (name: Identifier, stack: Stack): Option<Identifier>
 const findIdentifier = (
   name: Identifier,
   stack: Stack,
-): 'InThisStack' | 'InParentStacks' | 'None' =>
+): 'InThisStack' | 'InParentStacks' | 'GlobalAgent' | 'None' =>
   pipe(
     readonlyRecord.lookup(name.name, stack.identifiers),
     option.match(
@@ -165,11 +172,11 @@ const findIdentifier = (
               findIdentifierRecur(name, stack.parent),
               option.match(
                 () => 'None',
-                () => 'InParentStacks',
+                _ => ((_ as Identifier).type === 'Identifier' ? 'InParentStacks' : 'GlobalAgent'),
               ),
             )
           : 'None',
-      () => 'InThisStack',
+      _ => ((_ as Identifier).type === 'Identifier' ? 'InThisStack' : 'GlobalAgent'),
     ),
   );
 
@@ -212,31 +219,37 @@ const addIsResult = (node: ComputedNode): ComputedNode =>
       }
     : node;
 
-export const compileFromFile = async (path: string): Promise<Json> =>
+export const compileFromFile = async (
+  path: string,
+  agents: AgentFunctionInfoDictionary,
+): Promise<Json> =>
   pipe(
     await fs.promises.readFile(path, 'utf-8'),
-    compileFromString,
+    _ => compileFromString(_, agents),
     either.match(
       e => Promise.reject(e),
       _ => Promise.resolve(_),
     ),
   );
 
-export const compileFromString = (source: string): Either<CompileError | ParserError, Json> =>
+export const compileFromString = (
+  source: string,
+  agents: AgentFunctionInfoDictionary,
+): Either<CompileError | ParserError, Json> =>
   pipe(
     file,
     parser.run(stream.create(source)),
-    either.flatMap(({ data }) => pipe(graphToJson(data), run)),
+    either.flatMap(({ data }) => pipe(graphToJson(data), run(agents))),
     either.map(([_]) => _.json),
   );
 
-export const run = (self: Result): Either<CompileError, [CompileData, Context]> =>
-  pipe(
+export const run =
+  (agents: AgentFunctionInfoDictionary) =>
+  (self: Result): Either<CompileError, [CompileData, Context]> =>
     self({
-      stack: newStack(),
+      stack: newStack(agents),
       nodeIndex: 0,
-    }),
-  );
+    });
 
 export const graphToJson = (
   graph: Graph,
@@ -350,7 +363,7 @@ export const computedNodeBodyExprToJson = (
     case 'ObjectMember':
       return objectMemberToJson(expr);
     case 'AgentCall':
-      return agentCallToJson(expr);
+      return applyAgentToJson(expr);
     case 'String':
       return computedNodeStringToJson(expr);
     default:
@@ -377,7 +390,7 @@ export const exprToJson = (expr: Expr): Result => {
     case 'ObjectMember':
       return objectMemberToJson(expr);
     case 'AgentCall':
-      return agentCallToJson(expr);
+      return applyAgentToJson(expr);
     case 'AgentDef':
       return agentDefToJson(expr);
     case 'Pipeline':
@@ -637,6 +650,47 @@ export const computedNodeParenToJson = (
     })),
   );
 
+export const applyAgentToJson = (agentCall: AgentCall): Result<CompileData<JsonObject>> =>
+  agentCallToJson({
+    type: 'AgentCall',
+    annotations: agentCall.annotations,
+    agent: {
+      type: 'Identifier',
+      annotations: [],
+      name: 'apply',
+      context: agentCall.context,
+    },
+    args: {
+      type: 'Object',
+      value: [
+        {
+          key: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'agent',
+            context: agentCall.agent.context,
+          },
+          value: agentCall.agent,
+        },
+        {
+          key: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'args',
+            context: agentCall.args?.context ?? agentCall.context,
+          },
+          value: agentCall.args ?? {
+            type: 'Object',
+            value: [],
+            context: agentCall.context,
+          },
+        },
+      ],
+      context: agentCall.context,
+    },
+    context: agentCall.context,
+  });
+
 export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
@@ -649,35 +703,46 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
     se.bind('agent', () => {
       switch (agentCall.agent.type) {
         case 'Identifier':
-          return pipe(
-            result.Do,
-            se.bind('ctx', () => result.get()),
-            se.let_('agent', () => agentCall.agent as Identifier),
-            se.flatMap(({ ctx: { stack }, agent }) =>
-              pipe(findIdentifier(agent, stack), _ =>
-                _ === 'InThisStack' || _ === 'InParentStacks'
-                  ? result.of<CompileData>({
-                      json: `:${agent.name}`,
-                      captures: {
-                        [agent.name]: agent,
-                      },
-                      nodes: {},
-                    })
-                  : result.of({
-                      json: agent.name,
-                      captures: {},
-                      nodes: {},
-                    }),
-              ),
-            ),
-          );
+          return identifierToJson(agentCall.agent);
+        // return pipe(
+        //   result.Do,
+        //   se.bind('ctx', () => result.get()),
+        //   se.let_('agent', () => agentCall.agent as Identifier),
+        //   se.flatMap(({ ctx: { stack }, agent }) =>
+        //     pipe(findIdentifier(agent, stack), _ =>
+        //       _ === 'InThisStack' || _ === 'InParentStacks'
+        //         ? result.of<CompileData>({
+        //             json: `:${agent.name}`,
+        //             captures: {
+        //               [agent.name]: agent,
+        //             },
+        //             nodes: {},
+        //           })
+        //         : _ === 'GlobalAgent'
+        //           ? result.of({
+        //               json: agent.name,
+        //               captures: {},
+        //               nodes: {},
+        //             })
+        //           : result.left<CompileData>({
+        //               type: 'CompileError',
+        //               items: [
+        //                 {
+        //                   message: `Identifier not found: ${agent.name}`,
+        //                   parserContext: agent.context,
+        //                 },
+        //               ],
+        //             }),
+        //     ),
+        //   ),
+        // );
         default:
           return pipe(
             result.Do,
             se.bind('call', () => {
               switch (agentCall.agent.type) {
                 case 'AgentCall':
-                  return agentCallToJson(agentCall.agent as AgentCall);
+                  return applyAgentToJson(agentCall.agent as AgentCall);
                 case 'ArrayAt':
                   return arrayAtToJson(agentCall.agent as ArrayAt);
                 case 'ObjectMember':
@@ -773,25 +838,25 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
     ),
   );
 
-export const annotatedAgentCallToJson = (agentCall: AgentCall): Result =>
-  pipe(
-    result.Do,
-    se.bind('annotations', () => annotationsToJson(agentCall.annotations)),
-    se.bind('agentCall', () => agentCallToJson(agentCall)),
-    se.map(({ annotations, agentCall }) =>
-      identity<CompileData>({
-        json: {
-          ...annotations.json,
-          ...agentCall.json,
-        },
-        captures: agentCall.captures,
-        nodes: {
-          ...annotations.nodes,
-          ...agentCall.nodes,
-        },
-      }),
-    ),
-  );
+// export const annotatedAgentCallToJson = (agentCall: AgentCall): Result =>
+//   pipe(
+//     result.Do,
+//     se.bind('annotations', () => annotationsToJson(agentCall.annotations)),
+//     se.bind('agentCall', () => agentCallToJson(agentCall)),
+//     se.map(({ annotations, agentCall }) =>
+//       identity<CompileData>({
+//         json: {
+//           ...annotations.json,
+//           ...agentCall.json,
+//         },
+//         captures: agentCall.captures,
+//         nodes: {
+//           ...annotations.nodes,
+//           ...agentCall.nodes,
+//         },
+//       }),
+//     ),
+//   );
 
 export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObject>> =>
   pipe(
@@ -1227,17 +1292,23 @@ export const identifierToJson = (identifier: Identifier): Result =>
                       },
                     ],
                   })
-                : _ === 'InParentStacks'
-                  ? result.of<CompileData>({
-                      json: `:${identifier.name}`,
-                      captures: { [identifier.name]: identifier },
-                      nodes: newJsonObject(),
-                    })
-                  : result.of({
-                      json: `:${identifier.name}`,
+                : _ === 'GlobalAgent'
+                  ? result.of({
+                      json: identifier.name,
                       captures: newCapures(),
                       nodes: newJsonObject(),
-                    }),
+                    })
+                  : _ === 'InParentStacks'
+                    ? result.of<CompileData>({
+                        json: `:${identifier.name}`,
+                        captures: { [identifier.name]: identifier },
+                        nodes: newJsonObject(),
+                      })
+                    : result.of({
+                        json: `:${identifier.name}`,
+                        captures: newCapures(),
+                        nodes: newJsonObject(),
+                      }),
             ),
           ),
     ),
