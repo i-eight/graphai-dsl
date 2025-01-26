@@ -1,20 +1,9 @@
 import { AgentFunction, AgentFunctionContext, AgentFunctionInfo, GraphAI } from 'graphai';
+import { isErrorResult } from './error';
 
 type NestedObject = Readonly<{
   [key: string]: NestedObject;
 }>;
-
-type OnError = Readonly<{
-  message: string;
-  error: object;
-}>;
-
-type ErrorResult = Readonly<{
-  onError: OnError;
-}>;
-
-const isErrorResult = (result: unknown): result is ErrorResult =>
-  typeof result === 'object' && result != null && 'onError' in result;
 
 const extractReturnValue = (result: NestedObject, returnKeys: ReadonlyArray<string>) =>
   returnKeys.reduce((r, k) => r[k], result);

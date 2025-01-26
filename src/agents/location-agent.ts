@@ -1,10 +1,13 @@
 import { AgentFunction, AgentFunctionInfo } from 'graphai';
 import geoip from 'geoip-lite';
-import fetch from 'node-fetch';
 import { option, task } from 'fp-ts';
 import { pipe } from 'fp-ts/lib/function';
 
-export type LocationFromIp = Readonly<{
+export type Request = Readonly<{
+  ip: string;
+}>;
+
+export type Response = Readonly<{
   longitude: number;
   latitude: number;
   country: string;
@@ -13,18 +16,12 @@ export type LocationFromIp = Readonly<{
   timezone: string;
 }>;
 
-const getLocationFromIpAgent: AgentFunction<object, LocationFromIp> = () =>
+const getLocationFromIpAgent: AgentFunction<object, Response> = ({ namedInputs: { ip } }) =>
   pipe(
-    () => fetch('https://ifconfig.me/ip'),
-    task.flatMap(res => () => res.text()),
-    task.flatMap(ip =>
-      pipe(
-        option.fromNullable(geoip.lookup(ip)),
-        option.match(
-          () => () => Promise.reject<geoip.Lookup>(new Error('No location found')),
-          _ => task.of(_),
-        ),
-      ),
+    option.fromNullable(geoip.lookup(ip)),
+    option.match(
+      () => () => Promise.reject<geoip.Lookup>(new Error('No location found')),
+      _ => task.of(_),
     ),
     task.map(
       _ =>
@@ -32,7 +29,7 @@ const getLocationFromIpAgent: AgentFunction<object, LocationFromIp> = () =>
           ..._,
           latitude: _.ll[0],
           longitude: _.ll[1],
-        }) satisfies LocationFromIp,
+        }) satisfies Response,
     ),
     run => run(),
   );

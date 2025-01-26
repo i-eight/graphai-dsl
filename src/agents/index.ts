@@ -31,6 +31,10 @@ import { rightArrowRightArrowHyphenAgentInfo } from './right-arrow-right-arrow-h
 import { hyphenRightArrowRightArrowAgentInfo } from './hyphen-right-arrow-right-arrow-agent';
 import { colonRightArrowAgentInfo } from './colon-right-arrow-agent';
 import { applyAgentInfo } from './apply-agent';
+import { hyphenHyphenRightArrowAgentInfo } from './hyphen-hyphen-right-arrow-agent';
+import { getWeatherFromOpenMeteoAgentInfo } from './open-meteo-agent';
+import { getMyIpAgentInfo } from './my-ip-agent';
+import { getLocationFromIpAgentInfo } from './location-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -51,7 +55,7 @@ export const agents: AgentFunctionInfoDictionary = {
   modAgent: modAgentInfo,
   powAgent: powAgentInfo,
   barRightArrowAgent: barRightArrowAgentInfo,
-  hyphenHyphenRightArrowAgentInfo: connectAgentInfo,
+  hyphenHyphenRightArrowAgent: hyphenHyphenRightArrowAgentInfo,
   rightArrowRightArrow: rightArrowRightArrowAgentInfo,
   rightArrowRightArrowEqualAgent: rightArrowRightArrowEqualAgentInfo,
   rightArrowRightArrowHyphenAgent: rightArrowRightArrowHyphenAgentInfo,
@@ -67,4 +71,7 @@ export const agents: AgentFunctionInfoDictionary = {
   eval: evalAgentInfo,
   apply: applyAgentInfo,
   connectAgent: connectAgentInfo,
+  getMyIpAgent: getMyIpAgentInfo,
+  getLocationFromIpAgent: getLocationFromIpAgentInfo,
+  getWeatherFromOpenMeteoAgent: getWeatherFromOpenMeteoAgentInfo,
 };

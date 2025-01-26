@@ -1,5 +1,11 @@
 import { pipe } from 'fp-ts/lib/function';
-import { compileGraphTest, parseFileTest, runGraphTest, toTupleFromCompileError } from './helpers';
+import {
+  compileGraphTest,
+  parseFileTest,
+  printJson,
+  runGraphTest,
+  toTupleFromCompileError,
+} from './helpers';
 import { either } from 'fp-ts';
 import { through } from '../src/lib/through';
 
@@ -1448,7 +1454,6 @@ describe('Compiler', () => {
                 array: [1, 2, 3],
                 index: 0,
               },
-              graph: {},
             },
           },
         }),
@@ -1479,13 +1484,24 @@ describe('Compiler', () => {
                   array: ':a',
                   index: 0,
                 },
-                graph: {},
               },
             },
           }),
         ),
       ),
       runGraphTest(either.right({ __anon0__: 2 })),
+    ));
+
+  test('array-at 3', () =>
+    pipe(
+      parseFileTest(`
+            @version('0.6');
+            f = () -> [2, 3, 4];
+            a = [1, f(), 5];
+            a[1][2];
+        `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon2__: 4 })),
     ));
 
   test('object-member 1', () =>
@@ -1580,6 +1596,65 @@ describe('Compiler', () => {
       `),
       compileGraphTest(),
       runGraphTest(either.right({ __anon3__: 2 })),
+    ));
+
+  test('object-member 5', async () =>
+    pipe(
+      parseFileTest(`
+          @version('0.6');
+          o = { a: { b: 1 } };
+          o.a.b;
+        `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon0__: 1 })),
+    ));
+
+  test('object-member 6', async () =>
+    pipe(
+      parseFileTest(`
+            @version('0.6');
+            f = () -> { b: 1 };
+            o = { a: f() };
+            o.a.b;
+          `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon2__: 1 })),
+    ));
+
+  test('object-member 7', async () =>
+    pipe(
+      parseFileTest(`
+              @version('0.6');
+              a = { b: 1 };
+              o = { a: a };
+              o.a.b;
+            `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon0__: 1 })),
+    ));
+
+  test('object-member 8', async () =>
+    pipe(
+      parseFileTest(`
+                @version('0.6');
+                a = [{ b: { c: 2} }];
+                o = { a: a[0] };
+                o.a.b.c;
+              `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon1__: 2 })),
+    ));
+
+  test('object-member 9', async () =>
+    pipe(
+      parseFileTest(`
+                  @version('0.6');
+                  s = 1;
+                  o = { a: "s = \${s}" };
+                  o.a;
+                `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon1__: 's = 1' })),
     ));
 
   test('loop', async () =>
@@ -1848,7 +1923,7 @@ describe('Compiler', () => {
             },
           }),
         ),
-      //runGraphTest(either.right({ c: { n: 1 } })),
+      //runGraphTest(either.right({})),
     ));
 
   test('curried function call 1', async () =>

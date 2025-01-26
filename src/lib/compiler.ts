@@ -29,6 +29,7 @@ import {
   Power,
   RawString,
   Relational,
+  StaticNode,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
 import { parser, ParserContext, ParserError } from './parser-combinator';
@@ -49,8 +50,10 @@ export type JsonObject = Readonly<{
   [Key in string]: Json;
 }>;
 
+export type StackItem = ComputedNode | StaticNode | AgentFunctionInfo | Identifier;
+export type StackItems = Readonly<Record<string, StackItem>>;
 export type Stack = Readonly<{
-  identifiers: Readonly<Record<string, Identifier | AgentFunctionInfo>>;
+  items: StackItems;
   parent?: Stack;
 }>;
 
@@ -100,11 +103,8 @@ namespace result {
 
 const newJsonObject = (): JsonObject => ({});
 
-const newStack = (
-  identifiers: Readonly<Record<string, Identifier | AgentFunctionInfo>> = {},
-  parent: Stack | undefined = undefined,
-): Stack => ({
-  identifiers,
+const newStack = (items: StackItems = {}, parent: Stack | undefined = undefined): Stack => ({
+  items,
   parent,
 });
 
@@ -122,20 +122,24 @@ const putGraphStack = (graph: Graph, agentArgs: ReadonlyArray<Identifier> = []):
     pipe(
       // Extract node's names in this graph
       graph.statements,
-      readonlyArray.reduce({}, (map, _) =>
-        _.name == null ? map : { ...map, [_.name.name]: _.name },
+      readonlyArray.reduce<Node, StackItems>({}, (map, _) =>
+        _.name == null ? map : { ...map, [_.name.name]: _ },
       ),
-      identifiers => ({
-        identifiers: {
-          ...identifiers,
-          ...pipe(
-            agentArgs,
-            readonlyArray.reduce({}, (obj, arg) => ({ ...obj, [arg.name]: arg })),
-          ),
-        },
-        parent: s.stack,
-      }),
-      stack => ({ ...s, stack }),
+      identifiers =>
+        identity<Stack>({
+          items: identity<StackItems>({
+            ...identifiers,
+            ...pipe(
+              agentArgs,
+              readonlyArray.reduce<Identifier, StackItems>({}, (obj, arg) => ({
+                ...obj,
+                [arg.name]: arg,
+              })),
+            ),
+          }),
+          parent: s.stack,
+        }),
+      stack => identity<Context>({ ...s, stack }),
     ),
   );
 
@@ -148,21 +152,23 @@ const updateCurrentNode = (node: Node): Result<Unit> =>
 const deleteCurrentNode = (): Result<Unit> =>
   se.modify<Context, CompileError>(s => ({ ...s, currentNode: undefined }));
 
-const findIdentifierRecur = (
-  name: Identifier,
-  stack: Stack,
-): Option<Identifier | AgentFunctionInfo> =>
+const findIdentifierRecur = (name: Identifier, stack: Stack): Option<StackItem> =>
   pipe(
-    readonlyRecord.lookup(name.name, stack.identifiers),
+    readonlyRecord.lookup(name.name, stack.items),
     option.orElse(() => (stack.parent ? findIdentifierRecur(name, stack.parent) : option.none)),
   );
+
+const isIdentifier = (item: StackItem): boolean => {
+  const a = item as ComputedNode | StaticNode | Identifier;
+  return a.type === 'Identifier' || a.type === 'StaticNode' || a.type === 'ComputedNode';
+};
 
 const findIdentifier = (
   name: Identifier,
   stack: Stack,
-): 'InThisStack' | 'InParentStacks' | 'GlobalAgent' | 'None' =>
+): 'InThisStack' | 'InParentStacks' | 'NativeAgent' | 'None' =>
   pipe(
-    readonlyRecord.lookup(name.name, stack.identifiers),
+    readonlyRecord.lookup(name.name, stack.items),
     option.match(
       () =>
         stack.parent
@@ -170,17 +176,17 @@ const findIdentifier = (
               findIdentifierRecur(name, stack.parent),
               option.match(
                 () => 'None',
-                _ => ((_ as Identifier).type === 'Identifier' ? 'InParentStacks' : 'GlobalAgent'),
+                _ => (isIdentifier(_) ? 'InParentStacks' : 'NativeAgent'),
               ),
             )
           : 'None',
-      _ => ((_ as Identifier).type === 'Identifier' ? 'InThisStack' : 'GlobalAgent'),
+      _ => (isIdentifier(_) ? 'InThisStack' : 'NativeAgent'),
     ),
   );
 
 type HasAnnotation = ComputedNodeBody & Readonly<{ annotations: ReadonlyArray<NodeAnnotation> }>;
 
-const isResultAnnotation = (value: boolean, context: ParserContext): NodeAnnotation => ({
+const newIsResultAnnotation = (value: boolean, context: ParserContext): NodeAnnotation => ({
   type: 'NodeAnnotation',
   name: {
     type: 'Identifier',
@@ -209,7 +215,7 @@ const addIsResult = (node: ComputedNode): ComputedNode => ({
           ? (node.body as HasAnnotation).annotations
           : identity<ReadonlyArray<NodeAnnotation>>([
               ...(node.body as HasAnnotation).annotations,
-              isResultAnnotation(true, node.body.context),
+              newIsResultAnnotation(true, node.body.context),
             ]),
     ),
   }),
@@ -462,7 +468,7 @@ export const annotationsToJson = (
                   readonlyRecord.reduce(string.Ord)(
                     identity<ReadonlyArray<CompileErrorItem>>([]),
                     (xs, value) =>
-                      readonlyRecord.has(value.name, stack.identifiers)
+                      readonlyRecord.has(value.name, stack.items)
                         ? xs
                         : [
                             ...xs,
@@ -530,7 +536,7 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
                   se.get<Context, CompileError>(),
                   se.flatMap(({ stack }) =>
                     pipe(
-                      stack.identifiers,
+                      stack.items,
                       readonlyRecord.lookup(value.name),
                       option.match(
                         // If the identifier is not found, tell the parent stack to capture it
@@ -578,6 +584,7 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
 export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<JsonObject>> =>
   pipe(
     se.right<Context, CompileError, Unit>(unit),
+    se.bind('ctx', () => se.get()),
     se.bind('annotations', () => annotationsToJson(ifThenElse.annotations)),
     se.bind('if_', () =>
       exprToJson({
@@ -607,14 +614,6 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
     ),
     se.bind('elseNode', () => getAnnonName()),
     se.map(({ annotations, if_, ifNode, then_, thenNode, else_, elseNode }) => ({
-      nodes: {
-        ...if_.nodes,
-        ...then_.nodes,
-        ...else_.nodes,
-        [ifNode]: if_.json,
-        [thenNode]: then_.json,
-        [elseNode]: else_.json,
-      },
       json: identity<JsonObject>({
         ...annotations.json,
         agent: 'caseAgent',
@@ -626,6 +625,14 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
         ...if_.captures,
         ...then_.captures,
         ...else_.captures,
+      },
+      nodes: {
+        ...if_.nodes,
+        ...then_.nodes,
+        ...else_.nodes,
+        [ifNode]: if_.json,
+        [thenNode]: then_.json,
+        [elseNode]: else_.json,
       },
     })),
   );
@@ -1163,48 +1170,114 @@ export const powerToJson = (power: Power): Result<CompileData<JsonObject>> =>
   });
 
 export const arrayAtToJson = (arrayAt: ArrayAt): Result<CompileData<JsonObject>> =>
-  agentCallToJson({
-    type: 'AgentCall',
-    annotations: arrayAt.annotations,
-    agent: {
-      type: 'Identifier',
-      annotations: [],
-      name: 'getArrayElementAgent',
-      context: arrayAt.context,
-    },
-    args: {
-      type: 'Object',
-      annotations: [],
-      value: [
-        {
-          key: {
-            type: 'Identifier',
-            annotations: [],
-            name: 'array',
-            context: arrayAt.array.context,
-          },
-          value: arrayAt.array,
+  pipe(
+    result.Do,
+    se.bind('annotations', () => annotationsToJson(arrayAt.annotations)),
+    se.bind('array', () =>
+      pipe(
+        exprToJson(arrayAt.array),
+        se.flatMap(_ =>
+          arrayAt.array.type === 'Identifier' || arrayAt.array.type === 'Array'
+            ? result.of(_)
+            : pipe(
+                getAnnonName(),
+                se.map(name => ({
+                  json: `:${name}`,
+                  captures: _.captures,
+                  nodes: { ..._.nodes, [name]: _.json },
+                })),
+              ),
+        ),
+      ),
+    ),
+    se.bind('index', () =>
+      pipe(
+        exprToJson(arrayAt.index),
+        se.flatMap(_ =>
+          arrayAt.index.type === 'Identifier' || arrayAt.index.type === 'Number'
+            ? result.of(_)
+            : pipe(
+                getAnnonName(),
+                se.map(name => ({
+                  json: `:${name}`,
+                  captures: _.captures,
+                  nodes: { ..._.nodes, [name]: _.json },
+                })),
+              ),
+        ),
+      ),
+    ),
+    se.map(({ annotations, array, index }) => ({
+      json: {
+        ...annotations.json,
+        agent: 'getArrayElementAgent',
+        inputs: {
+          array: array.json,
+          index: index.json,
         },
-        {
-          key: {
-            type: 'Identifier',
-            annotations: [],
-            name: 'index',
-            context: arrayAt.index.context,
-          },
-          value: arrayAt.index,
-        },
-      ],
-      context: arrayAt.context,
-    },
-    context: arrayAt.context,
-  });
+      },
+      captures: array.captures,
+      nodes: array.nodes,
+    })),
+  );
+// agentCallToJson({
+//   type: 'AgentCall',
+//   annotations: arrayAt.annotations,
+//   agent: {
+//     type: 'Identifier',
+//     annotations: [],
+//     name: 'getArrayElementAgent',
+//     context: arrayAt.context,
+//   },
+//   args: {
+//     type: 'Object',
+//     annotations: [],
+//     value: [
+//       {
+//         key: {
+//           type: 'Identifier',
+//           annotations: [],
+//           name: 'array',
+//           context: arrayAt.array.context,
+//         },
+//         value: arrayAt.array,
+//       },
+//       {
+//         key: {
+//           type: 'Identifier',
+//           annotations: [],
+//           name: 'index',
+//           context: arrayAt.index.context,
+//         },
+//         value: arrayAt.index,
+//       },
+//     ],
+//     context: arrayAt.context,
+//   },
+//   context: arrayAt.context,
+// });
 
 export const objectMemberToJson = (objectMember: ObjectMember): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
     se.bind('annotations', () => annotationsToJson(objectMember.annotations)),
-    se.bind('object', () => exprToJson(objectMember.object)),
+    se.bind('object', () =>
+      pipe(
+        exprToJson(objectMember.object),
+        se.flatMap(_ =>
+          objectMember.object.type === 'Identifier' || objectMember.object.type === 'Object'
+            ? result.of(_)
+            : pipe(
+                getAnnonName(),
+                se.map(name => ({
+                  json: `:${name}`,
+                  captures: _.captures,
+                  nodes: { ..._.nodes, [name]: _.json },
+                })),
+              ),
+        ),
+      ),
+    ),
     se.map(({ annotations, object }) => ({
       json: {
         ...annotations.json,
@@ -1247,7 +1320,7 @@ export const identifierToJson = (identifier: Identifier): Result =>
                       },
                     ],
                   })
-                : _ === 'GlobalAgent'
+                : _ === 'NativeAgent'
                   ? result.of({
                       json: identifier.name,
                       captures: newCapures(),
@@ -1372,11 +1445,35 @@ export const arrayToJson = (array: DSLArray): Result =>
         pipe(
           res,
           se.bind('value', () => exprToJson(expr)),
-          se.map(({ json, captures, nodes, value }) => ({
-            json: [...json, value.json],
-            captures: { ...captures, ...value.captures },
-            nodes: { ...nodes, ...value.nodes },
-          })),
+          se.let_(
+            'isRawString',
+            () => expr.type === 'String' && pipe(toRawString(expr), option.isSome),
+          ),
+          se.flatMap(({ json, captures, nodes, value, isRawString }) =>
+            expr.type === 'Identifier' ||
+            expr.type === 'Boolean' ||
+            expr.type === 'Number' ||
+            expr.type === 'Array' ||
+            expr.type === 'Object' ||
+            expr.type === 'Null' ||
+            expr.type === 'RawString' ||
+            isRawString
+              ? result.of<CompileData<JsonArray>>({
+                  json: [...json, value.json],
+                  captures: { ...captures, ...value.captures },
+                  nodes: { ...nodes, ...value.nodes },
+                })
+              : pipe(
+                  getAnnonName(),
+                  se.map(name =>
+                    identity<CompileData<JsonArray>>({
+                      json: [...json, `:${name}`],
+                      captures: { ...captures, ...value.captures },
+                      nodes: { ...nodes, ...value.nodes, [name]: value.json },
+                    }),
+                  ),
+                ),
+          ),
         ),
     ),
   );
@@ -1386,17 +1483,17 @@ export const objectPairToJson = (pair: DSLObjectPair): Result<CompileData<JsonOb
     result.Do,
     se.bind('value', () => exprToJson(pair.value)),
     se.let_(
-      'isRowString',
+      'isRawString',
       () => pair.value.type === 'String' && pipe(toRawString(pair.value), option.isSome),
     ),
-    se.flatMap(({ value, isRowString }) =>
+    se.flatMap(({ value, isRawString }) =>
       pair.value.type === 'Identifier' ||
       pair.value.type === 'Boolean' ||
       pair.value.type === 'Number' ||
       pair.value.type === 'Array' ||
       pair.value.type === 'Object' ||
       pair.value.type === 'Null' ||
-      isRowString
+      isRawString
         ? result.of({
             json: { [pair.key.name]: value.json },
             captures: value.captures,

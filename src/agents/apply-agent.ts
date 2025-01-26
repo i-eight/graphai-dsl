@@ -1,6 +1,8 @@
-import { option, readonlyRecord } from 'fp-ts';
-import { pipe } from 'fp-ts/lib/function';
+import { option, readonlyRecord, task } from 'fp-ts';
+import { apply, pipe } from 'fp-ts/lib/function';
 import { AgentFunction, AgentFunctionInfo } from 'graphai/lib/type';
+import { isErrorResult } from './error';
+import { unit } from '../lib/unit';
 
 const applyAgent: AgentFunction<
   object,

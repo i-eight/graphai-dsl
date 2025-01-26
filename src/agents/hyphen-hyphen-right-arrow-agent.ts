@@ -1,10 +1,24 @@
-import { AgentFunctionInfo } from 'graphai';
+import { AgentFunction, AgentFunctionInfo } from 'graphai';
 import { connectAgentInfo } from './connectAgent';
+
+type Request = Readonly<{
+  left: unknown;
+  right: string;
+}>;
+
+const hyphenHyphenRightArrowAgent: AgentFunction<object, unknown, Request> = async args =>
+  connectAgentInfo.agent({
+    ...args,
+    namedInputs: {
+      from: args.namedInputs.left,
+      to: args.namedInputs.right,
+    },
+  });
 
 export const hyphenHyphenRightArrowAgentInfo: AgentFunctionInfo = {
   name: 'hyphenHyphenRightArrowAgent',
-  agent: connectAgentInfo.agent,
-  mock: connectAgentInfo.agent,
+  agent: hyphenHyphenRightArrowAgent,
+  mock: hyphenHyphenRightArrowAgent,
 
   samples: [],
   description: 'this is agent',

@@ -40,8 +40,8 @@ const functionCalling =
         ],
       } satisfies OpenAIAgentParams,
       namedInputs: {
-        //messages: [{ role: 'system', content: 'Hello!' }],
-        prompt: String(from),
+        messages: [{ role: 'user', content: agentInfo.description }],
+        prompt: typeof from === 'string' ? from : JSON.stringify(from),
       } satisfies OpenAIAgentInputs,
       filterParams,
       debugInfo,
@@ -92,19 +92,13 @@ const connectAgent: AgentFunction<
   object,
   unknown,
   Readonly<{ from: unknown; to: string }>
-> = async ({ namedInputs: { from, to }, filterParams, debugInfo }) =>
+> = async ({ namedInputs: { from, to }, forNestedGraph, filterParams, debugInfo }) =>
   pipe(
     task.Do,
-    task.bind(
-      'module',
-      () => () =>
-        import('./index') as unknown as Promise<
-          Readonly<{ agents: Record<string, AgentFunctionInfo> }>
-        >,
-    ),
-    task.bind('agentInfo', ({ module }) =>
-      to in module.agents
-        ? task.of(module.agents[to])
+    task.bind('agents', () => task.of(forNestedGraph?.agents ?? {})),
+    task.bind('agentInfo', ({ agents }) =>
+      to in agents
+        ? task.of(agents[to])
         : () => Promise.reject(new Error(`Agent not found: ${to}`)),
     ),
     task.bind('args', ({ agentInfo }) => functionCalling(from, agentInfo, filterParams, debugInfo)),
