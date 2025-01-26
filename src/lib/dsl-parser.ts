@@ -865,7 +865,12 @@ export const logical: Parser<Term | TermLogical | Logical> = pipe(
 export const isTermPipeline = (term: Expr): term is TermPipeline =>
   isTermLogical(term) || term.type === 'Logical';
 
-export const termPipeline: Parser<Term | TermPipeline> = logical;
+export const termPipeline: Parser<Term | TermPipeline | IfThenElse | AgentDef> = pipe(
+  parser.unit,
+  parser.flatMap(() => ifThenElse as Parser<Term | TermPipeline | IfThenElse | AgentDef>),
+  parser.or<Term | TermPipeline | IfThenElse | AgentDef>(agentDef),
+  parser.or<Term | TermPipeline | IfThenElse | AgentDef>(logical),
+);
 
 export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipeline> =>
   pipe(
@@ -894,7 +899,7 @@ export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipe
       pipe(
         termPipeline,
         parser.flatMap(_ =>
-          isTermLogical(_)
+          isTermLogical(_) || _.type === 'IfThenElse' || _.type === 'AgentDef'
             ? parser.of(_)
             : parser.fail<TermPipeline>({
                 type: 'InvalidSyntaxError',

@@ -26,7 +26,7 @@ import {
 } from '../src/lib/dsl-parser';
 import { parser } from '../src/lib/parser-combinator';
 import { stream } from '../src/lib/stream';
-import { toTupleFromExpr } from './helpers';
+import { printJson, toTupleFromExpr } from './helpers';
 import { either } from 'fp-ts';
 import { Expr } from '../src/lib/dsl-syntax-tree';
 
@@ -704,6 +704,83 @@ describe('dsl-parser', () => {
                 ],
               },
             ],
+          ]),
+        ),
+    );
+  });
+
+  test('pipeline 5', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a + b |> (_) -> _ * 2')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right([
+            ['a', '+', 'b'],
+            '|>',
+            {
+              def: '_',
+              body: ['_', '*', 2],
+            },
+          ]),
+        ),
+    );
+  });
+
+  test('pipeline 6', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a + b |> (_) -> _ |> f')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right([
+            ['a', '+', 'b'],
+            '|>',
+            {
+              def: '_',
+              body: ['_', '|>', 'f'],
+            },
+          ]),
+        ),
+    );
+  });
+
+  test('pipeline 7', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a + b |> f1 |> (_) -> _ |> f2')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right([
+            [['a', '+', 'b'], '|>', 'f1'],
+            '|>',
+            {
+              def: '_',
+              body: ['_', '|>', 'f2'],
+            },
+          ]),
+        ),
+    );
+  });
+
+  test('pipeline 8', () => {
+    pipe(
+      pipeline,
+      parser.run(stream.create('a + b |> if flag then f1 else f2')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right([
+            ['a', '+', 'b'],
+            '|>',
+            {
+              if: 'flag',
+              then: 'f1',
+              else: 'f2',
+            },
           ]),
         ),
     );

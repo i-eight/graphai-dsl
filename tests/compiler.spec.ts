@@ -1420,6 +1420,17 @@ describe('Compiler', () => {
       runGraphTest(either.right({ __anon0__: 2 })),
     ));
 
+  test('operator 4', async () =>
+    await pipe(
+      parseFileTest(`
+          @version('0.6');
+          static a = 1;
+          a |> (_) -> _ + 1;
+        `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon0__: 2 })),
+    ));
+
   test('array-at 1', async () =>
     pipe(
       parseFileTest(`

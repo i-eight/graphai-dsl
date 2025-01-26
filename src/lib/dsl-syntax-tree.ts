@@ -288,7 +288,7 @@ export type Logical = Readonly<{
   context: Context;
 }>;
 
-export type TermPipeline = TermLogical | Logical;
+export type TermPipeline = TermLogical | Logical | IfThenElse | AgentDef;
 
 export type Pipeline = Readonly<{
   type: 'Pipeline';
