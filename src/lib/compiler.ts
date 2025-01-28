@@ -241,7 +241,7 @@ export const compileFromString = (
   pipe(
     file,
     parser.run(stream.create(source)),
-    either.flatMap(({ data }) => pipe(graphToJson(data), run(agents))),
+    either.flatMap(({ data }) => pipe(data, addEmbeddedAgentsToGraph, graphToJson, run(agents))),
     either.map(([_]) => _.json),
   );
 
@@ -252,6 +252,47 @@ export const run =
       stack: newStack(agents),
       nodeIndex: 0,
     });
+
+export const newComputedNode = (
+  params: Readonly<{ name: string; agent: string; args?: Expr; context: ParserContext }>,
+): ComputedNode => ({
+  type: 'ComputedNode',
+  name: {
+    type: 'Identifier',
+    annotations: [],
+    name: params.name,
+    context: params.context,
+  },
+  body: {
+    type: 'AgentCall',
+    annotations: [],
+    agent: {
+      type: 'Identifier',
+      annotations: [],
+      name: params.agent,
+      context: params.context,
+    },
+    context: params.context,
+  },
+  context: params.context,
+});
+
+export const addEmbeddedAgentsToGraph = (graph: Graph): Graph => ({
+  ...graph,
+  statements: [
+    newComputedNode({
+      name: 'Array',
+      agent: 'arrayAgent',
+      context: graph.context,
+    }),
+    newComputedNode({
+      name: 'Date',
+      agent: 'dateAgent',
+      context: graph.context,
+    }),
+    ...graph.statements,
+  ],
+});
 
 export const graphToJson = (
   graph: Graph,

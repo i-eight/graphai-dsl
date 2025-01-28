@@ -1,0 +1,20 @@
+@version('0.6');
+
+// 気温を表示する時間帯
+startTime = Date.now() - 3 * 60 * 60 * 1000;
+endTime = Date.now() + 3 * 60 * 60 * 1000;
+
+// 結果を時間帯によってフィルターするAgent
+filter = (res) -> 
+    Array.zip(res.hourly.time, res.hourly.temperature_2m) 
+    |> Array.filter((_) -> {
+        t = Date.fromISOString(_[0]) |> Date.getEpochTime;
+        startTime < t && t < endTime;
+    });
+
+// Agentの接続
+getMyIpAgent()                   // IPを取得
+|> getLocationFromIpAgent        // 緯度経度を取得
+--> getWeatherFromOpenMeteoAgent // 天気を取得(LLM Function Calling)
+|> filter                        // 前後３時間の気温を選別
+|> println;                      // コンソールに出力

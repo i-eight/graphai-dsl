@@ -143,17 +143,27 @@ export namespace parser {
 
   export const getStream: Parser<Stream> = create(stream => either.right({ stream, data: stream }));
 
-  export const context =
-    <A, B>(f: (a: A) => B) =>
-    (self: Parser<A>): Parser<B & Readonly<{ context: ParserContext }>> =>
+  export const mapWithContext =
+    <A, B>(f: (a: A, context: ParserContext) => B) =>
+    (self: Parser<A>): Parser<B> =>
       pipe(
         unit,
         bind('start', () => getStream),
         bind('a', () => self),
         bind('end', () => getStream),
-        map(({ start, a, end }) => ({
+        map(({ start, a, end }) =>
+          f(a, { source: start.source, start: start.position, end: end.position }),
+        ),
+      );
+
+  export const context =
+    <A, B>(f: (a: A) => B) =>
+    (self: Parser<A>): Parser<B & Readonly<{ context: ParserContext }>> =>
+      pipe(
+        self,
+        mapWithContext((a, context) => ({
           ...f(a),
-          context: { source: start.source, start: start.position, end: end.position },
+          context,
         })),
       );
 

@@ -55,11 +55,12 @@ import {
   TermPipeline,
   Pipeline,
 } from './dsl-syntax-tree';
-import { error, Parser, parser, ParserError } from './parser-combinator';
+import { error, Parser, parser, ParserContext, ParserError } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
 import os from 'os';
 import { Unit, unit } from './unit';
 import { Option } from 'fp-ts/lib/Option';
+import { loop, recur } from './loop';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -349,12 +350,76 @@ export const nodeAnnotations: Parser<ReadonlyArray<NodeAnnotation>> = pipe(
   parser.or(parser.of<ReadonlyArray<NodeAnnotation>>([])),
 );
 
+export const agentDefRecur = (
+  annotations: ReadonlyArray<NodeAnnotation>,
+  args: ReadonlyArray<Identifier>,
+  body: Expr | Graph,
+  context: ParserContext,
+): AgentDef =>
+  pipe(
+    loop(
+      {
+        index: readonlyArray.size(args) - 1,
+        result: option.none as Option<AgentDef>,
+      },
+      ({ index, result }) =>
+        index < 0
+          ? { index, result }
+          : pipe(
+              args,
+              readonlyArray.lookup(index),
+              option.match(
+                () => recur({ index, result }),
+                arg =>
+                  recur({
+                    index: index - 1,
+                    result: pipe(
+                      result,
+                      option.match(
+                        () =>
+                          option.of<AgentDef>({
+                            type: 'AgentDef',
+                            annotations,
+                            args: arg,
+                            body,
+                            context,
+                          }),
+                        _ =>
+                          option.of<AgentDef>({
+                            type: 'AgentDef',
+                            annotations: [],
+                            args: arg,
+                            body: _,
+                            context,
+                          }),
+                      ),
+                    ),
+                  }),
+              ),
+            ),
+    ).result,
+    option.getOrElse(() => ({
+      type: 'AgentDef',
+      annotations,
+      body,
+      context,
+    })),
+  );
+
 export const agentDef: Parser<AgentDef> = pipe(
   parser.unit,
   parser.bind('annotations', () => nodeAnnotations),
   parser.left(char('(')),
   parser.left(whitespaces),
-  parser.bind('args', () => pipe(identifier, parser.optional)),
+  parser.bind('args', () =>
+    pipe(
+      identifier,
+      parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+      parser.left(
+        pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
+      ),
+    ),
+  ),
   parser.left(whitespaces),
   parser.left(char(')')),
   parser.left(whitespaces),
@@ -377,12 +442,9 @@ export const agentDef: Parser<AgentDef> = pipe(
       parser.or<Graph | Expr>(expr),
     ),
   ),
-  parser.context(({ annotations, args, body }) => ({
-    type: 'AgentDef',
-    annotations,
-    args: option.toUndefined(args),
-    body,
-  })),
+  parser.mapWithContext(({ annotations, args, body }, context) =>
+    agentDefRecur(annotations, args, body, context),
+  ),
 );
 
 export const throwOr =
@@ -495,6 +557,47 @@ export const objectMemberFrom = (
 export const isAgentable = (term: Expr): term is Agentable =>
   term.type === 'Paren' || term.type === 'Identifier';
 
+export const agentCallRecur = (
+  annotations: ReadonlyArray<NodeAnnotation>,
+  agent: Agentable | Call,
+  args: ReadonlyArray<Expr>,
+  context: ParserContext,
+): AgentCall =>
+  pipe(
+    args,
+    readonlyArray.reduce(option.none as Option<AgentCall>, (m, arg) =>
+      pipe(
+        m,
+        option.match(
+          () =>
+            option.of<AgentCall>({
+              type: 'AgentCall',
+              annotations,
+              agent,
+              args: arg,
+              context,
+            }),
+          _ =>
+            option.of<AgentCall>({
+              type: 'AgentCall',
+              annotations: [],
+              agent: _,
+              args: arg,
+              context,
+            }),
+        ),
+      ),
+    ),
+    option.getOrElse(() =>
+      identity<AgentCall>({
+        type: 'AgentCall',
+        annotations,
+        agent,
+        context,
+      }),
+    ),
+  );
+
 export const agentCallFrom = (
   annotations: ReadonlyArray<NodeAnnotation>,
   term: Term | Call,
@@ -503,7 +606,15 @@ export const agentCallFrom = (
     parser.unit,
     parser.left(char('(')),
     parser.left(whitespaces),
-    parser.bind('args', () => pipe(expr, parser.optional)),
+    parser.bind('args', () =>
+      pipe(
+        expr,
+        parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+        parser.left(
+          pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
+        ),
+      ),
+    ),
     parser.left(whitespaces),
     parser.left(char(')')),
     parser.bind('agent', () =>
@@ -514,12 +625,9 @@ export const agentCallFrom = (
             message: `Agent call cannot be used for ${term.type}.`,
           }),
     ),
-    parser.context(({ args, agent }) => ({
-      type: 'AgentCall',
-      annotations,
-      agent,
-      args: option.toUndefined(args),
-    })),
+    parser.mapWithContext(({ agent, args }, context) =>
+      agentCallRecur(annotations, agent, args, context),
+    ),
   );
 
 export const callFrom = (

@@ -35,6 +35,8 @@ import { hyphenHyphenRightArrowAgentInfo } from './hyphen-hyphen-right-arrow-age
 import { getWeatherFromOpenMeteoAgentInfo } from './open-meteo-agent';
 import { getMyIpAgentInfo } from './my-ip-agent';
 import { getLocationFromIpAgentInfo } from './location-agent';
+import { arrayAgentInfo } from './array-agent';
+import { dateAgentInfo } from './date-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -70,6 +72,8 @@ export const agents: AgentFunctionInfoDictionary = {
   recur: recurAgentInfo,
   eval: evalAgentInfo,
   apply: applyAgentInfo,
+  arrayAgent: arrayAgentInfo,
+  dateAgent: dateAgentInfo,
   connectAgent: connectAgentInfo,
   getMyIpAgent: getMyIpAgentInfo,
   getLocationFromIpAgent: getLocationFromIpAgentInfo,

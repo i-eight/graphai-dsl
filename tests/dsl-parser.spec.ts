@@ -452,12 +452,30 @@ describe('dsl-parser', () => {
         ),
     ));
 
-  test('agent-def', () => {
+  test('agent-def 1', () => {
     pipe(
       agentDef,
       parser.run(stream.create('(args) -> args.a')),
       either.map(_ => [_.data.args?.name, toTupleFromExpr(_.data.body as Expr)]),
       _ => expect(_).toStrictEqual(either.right(['args', { object: 'args', member: 'a' }])),
+    );
+  });
+
+  test('agent-def 2', () => {
+    pipe(
+      agentDef,
+      parser.run(stream.create('(a, b) -> a + b')),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ =>
+        expect(_).toStrictEqual(
+          either.right({
+            def: 'a',
+            body: {
+              def: 'b',
+              body: ['a', '+', 'b'],
+            },
+          }),
+        ),
     );
   });
 

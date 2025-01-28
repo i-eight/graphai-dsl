@@ -1937,6 +1937,28 @@ describe('Compiler', () => {
       runGraphTest(either.right({ v: 3 })),
     ));
 
+  test('curried function call 2', async () =>
+    pipe(
+      parseFileTest(`
+            @version('0.6');
+            f = (a, b) -> a + b;
+            v = f(1, 2);
+        `),
+      compileGraphTest(),
+      runGraphTest(either.right({ v: 3 })),
+    ));
+
+  test('curried function call 3', async () =>
+    pipe(
+      parseFileTest(`
+              @version('0.6');
+              f = (a, b, c) -> a + b + c;
+              v = 1 |> f |> (g) -> 2 |> g |> (h) -> 3 |> h;
+          `),
+      compileGraphTest(),
+      runGraphTest(either.right({ v: 6 })),
+    ));
+
   test('eval string 1', async () =>
     await pipe(
       parseFileTest(`
