@@ -1,11 +1,8 @@
-import { AgentFunction, AgentFunctionContext, AgentFunctionInfo, DefaultInputData } from 'graphai';
+import { AgentFunction, AgentFunctionInfo, DefaultInputData } from 'graphai';
 
-type LoopAgentInputs = Readonly<{
-  init: Readonly<Record<string, unknown>>;
-  callback: (
-    _: Pick<AgentFunctionContext, 'namedInputs'>,
-  ) => Promise<Readonly<Record<string, unknown>>>;
-}>;
+type LoopCallback = AgentFunction<object, unknown, unknown>;
+type LoopRunCallback = AgentFunction<object, unknown, LoopCallback>;
+type Loop = AgentFunction<object, LoopRunCallback, unknown>;
 
 type Recur = Readonly<{
   type: '__recur__';
@@ -16,21 +13,23 @@ type Recur = Readonly<{
 const isRecur = (result: unknown): result is Recur =>
   typeof result === 'object' && result != null && 'type' in result && result.type === '__recur__';
 
-const loopAgent: AgentFunction<object, unknown, LoopAgentInputs> = async ({ namedInputs }) => {
-  type State = Readonly<{
-    next?: boolean;
-    return: DefaultInputData;
-  }>;
-  let state: State = {
-    next: true,
-    return: namedInputs.init,
+const loopAgent: Loop =
+  async ({ namedInputs: init }) =>
+  async ({ namedInputs: callback, params, filterParams, debugInfo }) => {
+    type State = Readonly<{
+      next?: boolean;
+      return: unknown;
+    }>;
+    let state: State = {
+      next: true,
+      return: init,
+    };
+    while (state.next === true) {
+      const r = await callback({ namedInputs: state.return, params, filterParams, debugInfo });
+      state = isRecur(r) ? r : { next: false, return: r };
+    }
+    return state.return;
   };
-  while (state.next === true) {
-    const r = await namedInputs.callback({ namedInputs: state.return });
-    state = isRecur(r) ? r : { next: false, return: r };
-  }
-  return state.return;
-};
 
 export const loopAgentInfo: AgentFunctionInfo = {
   name: 'loopAgent',

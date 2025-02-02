@@ -1,5 +1,5 @@
 import { AgentFunction, AgentFunctionInfo } from 'graphai';
-import { connectAgentInfo } from './connectAgent';
+import { connectAgentInfo } from './connect-agent';
 
 type Request = Readonly<{
   left: unknown;

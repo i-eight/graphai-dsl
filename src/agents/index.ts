@@ -23,7 +23,7 @@ import { concatStringAgentInfo } from './concat-string-agent';
 import { getArrayElementAgentInfo } from './get-array-element';
 import { getObjectMemberAgentInfo } from './object-member-agent';
 import { evalAgentInfo } from './eval-agent';
-import { connectAgentInfo } from './connectAgent';
+import { connectAgentInfo } from './connect-agent';
 import { barRightArrowAgentInfo } from './bar-right-arrow-agent';
 import { rightArrowRightArrowAgentInfo } from './right-arrow-right-arrow-agent';
 import { rightArrowRightArrowEqualAgentInfo } from './right-arrow-right-arrow-equal-agent';
@@ -37,6 +37,14 @@ import { getMyIpAgentInfo } from './my-ip-agent';
 import { getLocationFromIpAgentInfo } from './location-agent';
 import { arrayAgentInfo } from './array-agent';
 import { dateAgentInfo } from './date-agent';
+import {
+  closeGithubIssueAgentInfo,
+  createGithubIssueAgentInfo,
+  editGithubIssueAgentInfo,
+  getGithubIssuesAgentInfo,
+} from './github-agent';
+import { getProcessEnvAgentInfo } from './process-agent';
+import { getAgentInfoAgentInfo } from './agent-info-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -72,10 +80,16 @@ export const agents: AgentFunctionInfoDictionary = {
   recur: recurAgentInfo,
   eval: evalAgentInfo,
   apply: applyAgentInfo,
+  getAgentInfo: getAgentInfoAgentInfo,
   arrayAgent: arrayAgentInfo,
   dateAgent: dateAgentInfo,
+  getProcessEnvAgent: getProcessEnvAgentInfo,
   connectAgent: connectAgentInfo,
   getMyIpAgent: getMyIpAgentInfo,
   getLocationFromIpAgent: getLocationFromIpAgentInfo,
   getWeatherFromOpenMeteoAgent: getWeatherFromOpenMeteoAgentInfo,
+  getGithubIssuesAgent: getGithubIssuesAgentInfo,
+  createGithubIssueAgent: createGithubIssueAgentInfo,
+  editGithubIssueAgent: editGithubIssueAgentInfo,
+  closeGithubIssueAgent: closeGithubIssueAgentInfo,
 };

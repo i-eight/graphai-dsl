@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { openAIAgent } from '@graphai/agents';
-import { option, task } from 'fp-ts';
+import { option, readonlyArray, task } from 'fp-ts';
 import { pipe } from 'fp-ts/lib/function';
 import { Task } from 'fp-ts/lib/Task';
 import { AgentFunction, AgentFunctionContext, AgentFunctionInfo } from 'graphai';
@@ -16,11 +16,12 @@ type OpenAIAgentInputs = Readonly<{
   messages?: ReadonlyArray<OpenAI.ChatCompletionMessageParam>;
   prompt: string;
 }>;
+type ToAgent = string | AgentFunctionInfo;
 
 const functionCalling =
   (
     from: unknown,
-    agentInfo: AgentFunctionInfo,
+    agentInfos: ReadonlyArray<AgentFunctionInfo>,
     filterParams: FilterParams,
     debugInfo: DebugInfo,
   ): Task<OpenAIAgentReturn> =>
@@ -28,19 +29,20 @@ const functionCalling =
     openAIAgent.agent({
       params: {
         model: 'gpt-4o',
-        tools: [
-          {
+        tools: pipe(
+          agentInfos,
+          readonlyArray.map(_ => ({
             type: 'function',
             function: {
-              name: agentInfo.name,
-              description: agentInfo.description,
-              parameters: agentInfo.inputs,
+              name: _.name,
+              description: _.description,
+              parameters: _.inputs,
             },
-          },
-        ],
+          })),
+        ),
       } satisfies OpenAIAgentParams,
       namedInputs: {
-        messages: [{ role: 'user', content: agentInfo.description }],
+        messages: [{ role: 'user', content: ' Select the optimal function for the input data.' }],
         prompt: typeof from === 'string' ? from : JSON.stringify(from),
       } satisfies OpenAIAgentInputs,
       filterParams,
@@ -91,17 +93,58 @@ const executeAgent = (
 const connectAgent: AgentFunction<
   object,
   unknown,
-  Readonly<{ from: unknown; to: string }>
+  Readonly<{ from: unknown; to: ToAgent | ReadonlyArray<ToAgent> }>
 > = async ({ namedInputs: { from, to }, forNestedGraph, filterParams, debugInfo }) =>
   pipe(
     task.Do,
     task.bind('agents', () => task.of(forNestedGraph?.agents ?? {})),
-    task.bind('agentInfo', ({ agents }) =>
-      to in agents
-        ? task.of(agents[to])
-        : () => Promise.reject(new Error(`Agent not found: ${to}`)),
+    task.bind('toAgents', () => task.of<ReadonlyArray<ToAgent>>(Array.isArray(to) ? to : [to])),
+    task.bind('agentInfos', ({ agents, toAgents }) =>
+      pipe(
+        toAgents,
+        readonlyArray.reduce(task.of<ReadonlyArray<AgentFunctionInfo>>([]), (fres, toAgent) =>
+          typeof toAgent === 'string'
+            ? pipe(
+                option.fromNullable(agents[toAgent]),
+                option.match(
+                  () => () => Promise.reject(new Error(`Agent not found: ${toAgent}`)),
+                  _ =>
+                    pipe(
+                      fres,
+                      task.map(res => [...res, _]),
+                    ),
+                ),
+              )
+            : pipe(
+                fres,
+                task.map(res => [...res, toAgent]),
+              ),
+        ),
+      ),
     ),
-    task.bind('args', ({ agentInfo }) => functionCalling(from, agentInfo, filterParams, debugInfo)),
+    task.bind('args', ({ agentInfos }) =>
+      functionCalling(from, agentInfos, filterParams, debugInfo),
+    ),
+    task.bind('agentInfo', ({ agentInfos, args }) =>
+      pipe(
+        option.fromNullable(args.choices[0].message?.tool_calls?.[0]?.function?.name),
+        option.match(
+          () => () =>
+            Promise.reject(
+              new Error('No function name found in the results of the function calling'),
+            ),
+          name =>
+            pipe(
+              agentInfos,
+              readonlyArray.findFirst(_ => _.name === name),
+              option.match(
+                () => () => Promise.reject(new Error(`Agent not found: ${name}`)),
+                task.of,
+              ),
+            ),
+        ),
+      ),
+    ),
     task.flatMap(({ agentInfo, args }) => executeAgent(agentInfo, args, filterParams, debugInfo)),
     run => run(),
   );

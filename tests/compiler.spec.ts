@@ -5,6 +5,7 @@ import {
   printJson,
   runGraphTest,
   toTupleFromCompileError,
+  toTupleFromExpr,
 } from './helpers';
 import { either } from 'fp-ts';
 import { through } from '../src/lib/through';
@@ -676,7 +677,7 @@ describe('Compiler', () => {
       ),
     ));
 
-  test('A nested graph with a captured value', () =>
+  test('A nested graph with a captured value 1', () =>
     pipe(
       parseFileTest('@version("0.6"); static a = 1; { b = println(a); };'),
       compileGraphTest(),
@@ -930,6 +931,23 @@ describe('Compiler', () => {
             },
           }),
         ),
+    ));
+
+  test('Nested agent-def', () =>
+    pipe(
+      parseFileTest(`
+          @version('0.6'); 
+          f = (a) -> {
+            x = 1;
+            (b) -> {
+              y = 2;
+              (c) -> a + b + c + x + y;
+            };
+          };
+          f(10, 20, 30);
+        `),
+      compileGraphTest(),
+      runGraphTest(either.right({ __anon6__: 63 })),
     ));
 
   test('A basic if-then-else', () =>
@@ -1661,137 +1679,13 @@ describe('Compiler', () => {
     pipe(
       parseFileTest(`
           @version('0.6');
-          sum = loop({
-            init: 0,
-            callback: (cnt) -> 
+          sum = loop(0, (cnt) -> 
               if cnt < 10 
               then recur(cnt + 1) 
-              else identity(cnt),
-          });
+              else cnt,
+          );
       `),
-      compileGraphTest(
-        either.right({
-          version: '0.6',
-          nodes: {
-            __anon8__: {
-              agent: 'defAgent',
-              inputs: {
-                args: 'cnt',
-                capture: {},
-                return: ['__anon0__'],
-              },
-              graph: {
-                nodes: {
-                  __anon2__: {
-                    agent: 'defAgent',
-                    inputs: {
-                      args: undefined,
-                      capture: {
-                        cnt: ':cnt',
-                      },
-                      return: ['__anon1__'],
-                    },
-                    graph: {
-                      nodes: {
-                        __anon1__: {
-                          isResult: true,
-                          graph: {},
-                          agent: 'ltAgent',
-                          inputs: {
-                            left: ':cnt',
-                            right: 10,
-                          },
-                        },
-                      },
-                    },
-                  },
-                  __anon5__: {
-                    agent: 'defAgent',
-                    inputs: {
-                      args: undefined,
-                      capture: {
-                        cnt: ':cnt',
-                      },
-                      return: ['__anon3__'],
-                    },
-                    graph: {
-                      nodes: {
-                        __anon4__: {
-                          graph: {},
-                          agent: 'plusAgent',
-                          inputs: {
-                            left: ':cnt',
-                            right: 1,
-                          },
-                        },
-                        __anon3__: {
-                          isResult: true,
-                          graph: {},
-                          agent: 'apply',
-                          inputs: {
-                            agent: 'recur',
-                            args: ':__anon4__',
-                          },
-                        },
-                      },
-                    },
-                  },
-                  __anon7__: {
-                    agent: 'defAgent',
-                    inputs: {
-                      args: undefined,
-                      capture: {
-                        cnt: ':cnt',
-                      },
-                      return: ['__anon6__'],
-                    },
-                    graph: {
-                      nodes: {
-                        __anon6__: {
-                          isResult: true,
-                          graph: {},
-                          agent: 'apply',
-                          inputs: {
-                            agent: 'identity',
-                            args: ':cnt',
-                          },
-                        },
-                      },
-                    },
-                  },
-                  __anon0__: {
-                    isResult: true,
-                    agent: 'caseAgent',
-                    inputs: {
-                      conditions: [
-                        {
-                          if: ':__anon2__',
-                          then: ':__anon5__',
-                        },
-                        {
-                          else: ':__anon7__',
-                        },
-                      ],
-                    },
-                  },
-                },
-              },
-            },
-            sum: {
-              isResult: true,
-              graph: {},
-              agent: 'apply',
-              inputs: {
-                agent: 'loop',
-                args: {
-                  init: 0,
-                  callback: ':__anon8__',
-                },
-              },
-            },
-          },
-        }),
-      ),
+      compileGraphTest(),
       runGraphTest(either.right({ sum: 10 })),
     ));
 

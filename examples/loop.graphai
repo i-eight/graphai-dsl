@@ -1,10 +1,8 @@
 @version('0.6');
-sum = loop({
-  init: 0,
-  callback: (cnt) -> 
+sum = loop(0, (cnt) -> 
     if cnt < 10 
     then recur(cnt + 1) 
-    else identity(cnt),
-});
+    else cnt,
+);
 
 println(sum);

@@ -543,18 +543,9 @@ export const annotationsToJson = (
     ),
   );
 
-/**
- * nestedGraph:
- *   isResult: true
- *   console:
- *     after: true
- *   agent: 'nestedAgent'
- *   inputs: { ...}
- *   graph: { ... }
- */
 export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonObject>> =>
   pipe(
-    se.right<Context, CompileError, Unit>(unit),
+    result.of<Unit>(unit),
     // Convert the annotations to the node's parameters
     se.bind('annotations', () => annotationsToJson(graph.annotations)),
     // Convert the nested graph to a JSON
@@ -565,7 +556,7 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
       pipe(
         jsonGraph.captures,
         readonlyRecord.reduce(string.Ord)(
-          se.right<Context, CompileError, Readonly<{ inputs: JsonObject; captures: Captures }>>({
+          result.of({
             inputs: newJsonObject(),
             captures: newCapures(),
           }),
@@ -574,13 +565,15 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
               fobj,
               se.flatMap(({ inputs, captures }) =>
                 pipe(
-                  se.get<Context, CompileError>(),
+                  result.get(),
                   se.flatMap(({ stack }) =>
                     pipe(
                       stack.items,
                       readonlyRecord.lookup(value.name),
                       option.match(
-                        // If the identifier is not found, tell the parent stack to capture it
+                        // If the identifier is not found in this stack,
+                        // tell the parent stack to capture it
+                        // and tell the child graph to be able to use it through the inputs
                         () =>
                           stack.parent == null
                             ? result.left({
@@ -596,6 +589,9 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
                                 inputs: { ...inputs, [value.name]: `:${value.name}` },
                                 captures: { ...captures, [value.name]: value },
                               }),
+                        // If the identifier is found in this stack,
+                        // You don't need to ask the parent stack to capture it
+                        // and tell the child graph to use it through the inputs
                         _ =>
                           se.right({
                             inputs: { ...inputs, [value.name]: `:${value.name}` },
@@ -881,7 +877,30 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
         readonlyRecord.filter(value => value.name !== agentDef.args?.name),
       ),
     ),
-    se.map(({ annotations, graph, captures }) => ({
+    se.bind('captures2', ({ graph }) =>
+      pipe(
+        result.Do,
+        se.bind('ctx', () => result.get()),
+        se.map(({ ctx }) =>
+          pipe(
+            graph.captures,
+            readonlyRecord.filter(v =>
+              pipe(
+                ctx.stack.items,
+                readonlyRecord.lookup(v.name),
+                option.match(
+                  () => v.name !== agentDef.args?.name,
+                  // if the identifier is found in the stack,
+                  // don't tell the parent stack to capture it
+                  () => false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+    se.map(({ annotations, graph, captures, captures2 }) => ({
       json: {
         ...annotations.json,
         agent: 'defAgent',
@@ -895,7 +914,7 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
         },
         graph: graph.json,
       },
-      captures,
+      captures: captures2,
       nodes: graph.nodes,
     })),
   );
