@@ -16,7 +16,7 @@ getIssues = {
         repo: 'graphai-tasks',
         accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
     }) 
-    |> (issues) -> issues |> Array.map(formatIssue),
+    |> Array.map(formatIssue),
 
     description: getIssuesInfo.description,
     
