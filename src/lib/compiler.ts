@@ -412,11 +412,54 @@ const objectToNodes = (s: Statements, name: Identifier): Statements =>
     })),
   );
 
+const isAbsoluteImport = (path: string): boolean => path.startsWith('/');
+const isRelativeImport = (path: string): boolean => path.startsWith('.');
+const isPackageImport = (path: string): boolean =>
+  !isAbsoluteImport(path) && !isRelativeImport(path);
+
+const pathExists = (path: string): boolean => {
+  try {
+    fs.accessSync(path, fs.constants.F_OK);
+    return true;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) {
+    return false;
+  }
+};
+
+const getPackageFilePath = (
+  importPath: string,
+  currentDir: string,
+  parserContext: ParserContext,
+): Result<string> =>
+  pipe(
+    result.of(nodePath.resolve(currentDir)),
+    se.flatMap(path =>
+      pipe(
+        fs.readdirSync(path),
+        readonlyArray.exists(_ => _ === 'node_modules'),
+        _ =>
+          _
+            ? pipe(nodePath.resolve(path, 'node_modules', importPath), path2 =>
+                pathExists(path2)
+                  ? result.of(path2)
+                  : getPackageFilePath(importPath, nodePath.resolve(path, '..'), parserContext),
+              )
+            : path === '/'
+              ? result.left<string>({
+                  type: 'CompileError',
+                  items: [{ message: 'node_modules not found', parserContext }],
+                })
+              : getPackageFilePath(importPath, nodePath.resolve(path, '..'), parserContext),
+      ),
+    ),
+  );
+
 export const importToStatements = (import_: Import, currentDir: string): Result<Statements> =>
   pipe(
-    result.of<string>(
-      import_.path.startsWith('/') ? import_.path : nodePath.resolve(currentDir, import_.path),
-    ),
+    isPackageImport(import_.path)
+      ? getPackageFilePath(import_.path, currentDir, import_.context)
+      : result.of(nodePath.resolve(currentDir, import_.path)),
     se.flatMap(path =>
       pipe(
         result.get(),

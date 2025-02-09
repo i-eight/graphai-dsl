@@ -2,5 +2,9 @@
 
 import './import-1-module-1.graphai' as module1;
 import './import-1-module-2.graphai';
+import './import-1-dir-1/import-1-dir-2/import-1-dir-3/import-1-module-3.graphai';
 
-double(module1.a + module1.b + module1.c);
+{
+    x: double(module1.a + module1.b + module1.c),
+    y: message,
+};

@@ -1944,7 +1944,7 @@ describe('Compiler', () => {
     pipe(
       parseFileTest(`${__dirname}/cases/compiler/import-1.graphai`),
       compileFileTest(),
-      runFileTest(either.right({ __anon10__: 18 })),
+      runFileTest(either.right({ __anon15__: { x: 18, y: 'This is import-1-package' } })),
     ));
 
   test('native import 1', async () =>

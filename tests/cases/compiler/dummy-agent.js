@@ -13,4 +13,5 @@ const dummyAgentInfo = {
   license: 'MIT',
 };
 
+// eslint-disable-next-line no-undef
 module.exports.dummyAgentInfo = dummyAgentInfo;

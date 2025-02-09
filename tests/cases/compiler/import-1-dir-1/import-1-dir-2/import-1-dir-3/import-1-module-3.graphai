@@ -1,0 +1,3 @@
+import 'import-1-package/graphai/index.graphai' as p;
+
+public message = p.message;
