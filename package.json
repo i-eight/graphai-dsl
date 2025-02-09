@@ -2,10 +2,15 @@
   "name": "graphai-dsl",
   "version": "0.1.0",
   "bin": {
-    "graphai-dsl": "bin/graphai-dsl.js"
+    "graphai-dsl": "dist/graphai-dsl"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "type:check": "tsc --noEmit && eslint"
+    "build": "vite build",
+    "type:check": "tsc --noEmit && eslint",
+    "postbuild": "chmod +x dist/graphai-dsl"
   },
   "dependencies": {
     "@graphai/agents": "^0.2.3",
@@ -32,6 +37,7 @@
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.19.1"
+    "typescript-eslint": "^8.19.1",
+    "vite": "^6.0.11"
   }
 }

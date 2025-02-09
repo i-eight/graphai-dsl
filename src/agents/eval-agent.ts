@@ -9,7 +9,7 @@ const evalAgent: AgentFunction<object, unknown, string> = async ({
   forNestedGraph,
 }) =>
   pipe(
-    compileFromString(src, forNestedGraph?.agents ?? {}),
+    compileFromString(src, '', forNestedGraph?.agents ?? {}),
     either.match(
       e => Promise.reject(e),
       graph =>

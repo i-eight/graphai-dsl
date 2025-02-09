@@ -1,5 +1,4 @@
 import fs from 'fs';
-import process from 'process';
 import dotenv from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';

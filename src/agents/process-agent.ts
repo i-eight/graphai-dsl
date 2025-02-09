@@ -1,9 +1,8 @@
 import { AgentFunction } from 'graphai';
-import * as proc from 'process';
 
 type Response = Readonly<NodeJS.ProcessEnv>;
 
-const getProcessEnvAgent: AgentFunction<object, Response> = async () => proc.env;
+const getProcessEnvAgent: AgentFunction<object, Response> = async () => process.env;
 
 export const getProcessEnvAgentInfo = {
   name: 'getProcessEnvAgent',

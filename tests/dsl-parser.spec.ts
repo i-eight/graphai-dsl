@@ -1149,7 +1149,7 @@ describe('dsl-parser', () => {
 
   test('file 1', () => {
     pipe(
-      file,
+      file(''),
       parser.run(
         stream.create(`
           static node1 = 123;
@@ -1163,59 +1163,62 @@ describe('dsl-parser', () => {
       either.map(_ => toTupleFromExpr(_.data)),
       _ =>
         expect(_).toStrictEqual(
-          either.right([
-            {
-              staticNode: 'node1',
-              value: 123,
-            },
-            {
-              computedNode: 'node2',
-              body: {
-                annotations: [
-                  {
-                    annotation: 'isResult',
-                    value: true,
-                  },
-                  {
-                    annotation: 'console',
-                    value: {
-                      after: true,
+          either.right({
+            imports: [],
+            graph: [
+              {
+                staticNode: 'node1',
+                value: 123,
+              },
+              {
+                computedNode: 'node2',
+                body: {
+                  annotations: [
+                    {
+                      annotation: 'isResult',
+                      value: true,
                     },
+                    {
+                      annotation: 'console',
+                      value: {
+                        after: true,
+                      },
+                    },
+                  ],
+                  agent: 'agent',
+                  args: {
+                    inputs: ['hoge'],
                   },
-                ],
-                agent: 'agent',
-                args: {
-                  inputs: ['hoge'],
                 },
               },
-            },
-            {
-              anonNode: {
-                annotations: [],
-                nested: [
-                  {
-                    computedNode: 'node4',
-                    body: {
-                      annotations: [],
-                      agent: 'agent1',
-                      args: {
-                        inputs: ['hoge'],
+              {
+                anonNode: {
+                  annotations: [],
+                  nested: [
+                    {
+                      computedNode: 'node4',
+                      body: {
+                        annotations: [],
+                        agent: 'agent1',
+                        args: {
+                          inputs: ['hoge'],
+                        },
                       },
                     },
-                  },
-                  {
-                    anonNode: {
-                      annotations: [],
-                      agent: 'agent2',
-                      args: {
-                        inputs: 'node1',
+                    {
+                      anonNode: {
+                        annotations: [],
+                        agent: 'agent2',
+                        args: {
+                          inputs: 'node1',
+                        },
                       },
                     },
-                  },
-                ],
+                  ],
+                },
               },
-            },
-          ]),
+            ],
+          }),
         ),
     );
   });

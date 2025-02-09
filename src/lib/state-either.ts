@@ -16,6 +16,14 @@ export namespace stateEither {
     (_s: S) =>
       either.left(e);
 
+  export const fromEither =
+    <S, E, A>(e: either.Either<E, A>): StateEither<S, E, A> =>
+    (s: S) =>
+      pipe(
+        e,
+        either.map(a => [a, s]),
+      );
+
   export const map =
     <S, E, A, B>(f: (a: A) => B) =>
     (self: StateEither<S, E, A>): StateEither<S, E, B> =>

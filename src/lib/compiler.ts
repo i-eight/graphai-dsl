@@ -17,6 +17,7 @@ import {
   Graph,
   Identifier,
   IfThenElse,
+  Import,
   Logical,
   MulDivMod,
   NestedGraph,
@@ -29,10 +30,12 @@ import {
   Power,
   RawString,
   Relational,
+  Statements,
   StaticNode,
+  File,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
-import { parser, ParserContext, ParserError } from './parser-combinator';
+import { parser, ParserContext, ParserData, ParserError } from './parser-combinator';
 import { StateEither, stateEither as se } from './state-either';
 import { unit, Unit } from './unit';
 import { Either } from 'fp-ts/lib/Either';
@@ -41,6 +44,8 @@ import { file } from './dsl-parser';
 import { stream } from './stream';
 import fs from 'fs';
 import { AgentFunctionInfo, AgentFunctionInfoDictionary } from 'graphai';
+import nodePath from 'path';
+import { ReadonlyRecord } from 'fp-ts/lib/ReadonlyRecord';
 
 export type Json = number | string | boolean | JsonArray | JsonObject | null | undefined;
 
@@ -60,6 +65,7 @@ export type Stack = Readonly<{
 export type Context = Readonly<{
   stack: Stack;
   nodeIndex: number;
+  imports: ReadonlyRecord<string, Statements>;
   currentNode?: Node;
 }>;
 
@@ -70,11 +76,13 @@ export type CompileErrorItem = Readonly<{
   parserContext: ParserContext;
 }>;
 
-export type CompileError = Readonly<{
-  type: 'CompileError';
-  items: ReadonlyArray<CompileErrorItem>;
-  cause?: CompileError;
-}>;
+export type CompileError =
+  | ParserError
+  | Readonly<{
+      type: 'CompileError';
+      items: ReadonlyArray<CompileErrorItem>;
+      cause?: CompileError;
+    }>;
 
 export type CompileData<A = Json> = Readonly<{
   // A JSON representation of the DSL
@@ -94,9 +102,13 @@ export type Result<A = CompileData> = StateEither<Context, CompileError, A>;
 
 namespace result {
   export const of = <A>(a: A): Result<A> => se.right<Context, CompileError, A>(a);
+  export const fromEither = <A>(e: Either<CompileError, A>): Result<A> =>
+    se.fromEither<Context, CompileError, A>(e);
   export const Do = of<Unit>(unit);
   export const left = <A>(e: CompileError): Result<A> => se.left<Context, CompileError, A>(e);
   export const get = (): Result<Context> => se.get<Context, CompileError>();
+  export const put = (context: Context) => se.put<Context, CompileError>(context);
+  export const modify = (f: (context: Context) => Context) => se.modify<Context, CompileError>(f);
   export const debug = <A>(f: (a: A) => string) =>
     se.tap<Context, CompileError, A, void>(a => of(console.log(f(a))));
 }
@@ -118,29 +130,53 @@ const getAnnonName = (): Result<string> =>
   );
 
 const putGraphStack = (graph: Graph, agentArgs: ReadonlyArray<Identifier> = []): Result<Unit> =>
-  se.modify<Context, CompileError>(s =>
-    pipe(
-      // Extract node's names in this graph
-      graph.statements,
-      readonlyArray.reduce<Node, StackItems>({}, (map, _) =>
-        _.name == null ? map : { ...map, [_.name.name]: _ },
-      ),
-      identifiers =>
-        identity<Stack>({
-          items: identity<StackItems>({
-            ...identifiers,
-            ...pipe(
-              agentArgs,
-              readonlyArray.reduce<Identifier, StackItems>({}, (obj, arg) => ({
-                ...obj,
-                [arg.name]: arg,
-              })),
+  pipe(
+    result.get(),
+    se.flatMap(s =>
+      pipe(
+        // Extract node's names in this graph
+        result.of(graph.statements),
+        se.flatMap(
+          readonlyArray.reduce(result.of<StackItems>({}), (fmap, _) =>
+            pipe(
+              fmap,
+              se.flatMap(map =>
+                _.name == null
+                  ? result.of(map)
+                  : readonlyRecord.has(_.name.name, map)
+                    ? result.left({
+                        type: 'CompileError',
+                        items: [
+                          {
+                            message: `Identifier '${_.name.name}' is already defined`,
+                            parserContext: _.name.context,
+                          },
+                        ],
+                      })
+                    : result.of({ ...map, [_.name.name]: _ }),
+              ),
             ),
+          ),
+        ),
+        se.map(identifiers =>
+          identity<Stack>({
+            items: identity<StackItems>({
+              ...identifiers,
+              ...pipe(
+                agentArgs,
+                readonlyArray.reduce<Identifier, StackItems>({}, (obj, arg) => ({
+                  ...obj,
+                  [arg.name]: arg,
+                })),
+              ),
+            }),
+            parent: s.stack,
           }),
-          parent: s.stack,
-        }),
-      stack => identity<Context>({ ...s, stack }),
+        ),
+        se.map(stack => identity<Context>({ ...s, stack })),
+      ),
     ),
+    se.flatMap(result.put),
   );
 
 const popStack = (): Result<Unit> =>
@@ -184,50 +220,13 @@ const findIdentifier = (
     ),
   );
 
-type HasAnnotation = ComputedNodeBody & Readonly<{ annotations: ReadonlyArray<NodeAnnotation> }>;
-
-const newIsResultAnnotation = (value: boolean, context: ParserContext): NodeAnnotation => ({
-  type: 'NodeAnnotation',
-  name: {
-    type: 'Identifier',
-    annotations: [],
-    name: 'isResult',
-    context,
-  },
-  value: {
-    type: 'Boolean',
-    annotations: [],
-    value,
-    context,
-  },
-  context,
-});
-
-const addIsResult = (node: ComputedNode): ComputedNode => ({
-  ...node,
-  body: identity<HasAnnotation>({
-    ...node.body,
-    annotations: pipe(
-      node.body.annotations,
-      readonlyArray.exists(_ => _.name.name === 'isResult'),
-      _ =>
-        _
-          ? (node.body as HasAnnotation).annotations
-          : identity<ReadonlyArray<NodeAnnotation>>([
-              ...(node.body as HasAnnotation).annotations,
-              newIsResultAnnotation(true, node.body.context),
-            ]),
-    ),
-  }),
-});
-
 export const compileFromFile = async (
   path: string,
   agents: AgentFunctionInfoDictionary,
 ): Promise<Json> =>
   pipe(
     await fs.promises.readFile(path, 'utf-8'),
-    _ => compileFromString(_, agents),
+    _ => compileFromString(_, path, agents),
     either.match(
       e => Promise.reject(e),
       _ => Promise.resolve(_),
@@ -236,12 +235,13 @@ export const compileFromFile = async (
 
 export const compileFromString = (
   source: string,
+  path: string,
   agents: AgentFunctionInfoDictionary,
-): Either<CompileError | ParserError, Json> =>
+): Either<CompileError, Json> =>
   pipe(
-    file,
+    file(path),
     parser.run(stream.create(source)),
-    either.flatMap(({ data }) => pipe(data, addEmbeddedAgentsToGraph, graphToJson, run(agents))),
+    either.flatMap(({ data }) => pipe(data, addEmbeddedAgentsToGraph, fileToJson, run(agents))),
     either.map(([_]) => _.json),
   );
 
@@ -251,12 +251,26 @@ export const run =
     self({
       stack: newStack(agents),
       nodeIndex: 0,
+      imports: {},
     });
 
 export const newComputedNode = (
-  params: Readonly<{ name: string; agent: string; args?: Expr; context: ParserContext }>,
+  params: Readonly<{
+    name: string;
+    modifier: 'public' | 'private';
+    agent: string;
+    args?: Expr;
+    context: ParserContext;
+  }>,
 ): ComputedNode => ({
   type: 'ComputedNode',
+  modifiers: [
+    {
+      type: 'Modifier',
+      value: params.modifier,
+      context: params.context,
+    },
+  ],
   name: {
     type: 'Identifier',
     annotations: [],
@@ -277,22 +291,179 @@ export const newComputedNode = (
   context: params.context,
 });
 
-export const addEmbeddedAgentsToGraph = (graph: Graph): Graph => ({
-  ...graph,
-  statements: [
-    newComputedNode({
-      name: 'Array',
-      agent: 'arrayAgent',
-      context: graph.context,
-    }),
-    newComputedNode({
-      name: 'Date',
-      agent: 'dateAgent',
-      context: graph.context,
-    }),
-    ...graph.statements,
-  ],
+export const addEmbeddedAgentsToGraph = (file: File): File => ({
+  ...file,
+  graph: {
+    ...file.graph,
+    statements: [
+      newComputedNode({
+        name: 'Array',
+        modifier: 'public',
+        agent: 'arrayAgent',
+        context: file.graph.context,
+      }),
+      newComputedNode({
+        name: 'Date',
+        modifier: 'public',
+        agent: 'dateAgent',
+        context: file.graph.context,
+      }),
+      ...file.graph.statements,
+    ],
+  },
 });
+
+export const fileToJson = (file: File): Result =>
+  pipe(
+    result.Do,
+    se.flatMap(() => importsToStatements(file.imports ?? [], nodePath.dirname(file.path))),
+    se.flatMap(statements =>
+      graphToJson({
+        ...file.graph,
+        statements: [...statements, ...file.graph.statements],
+      }),
+    ),
+  );
+
+const importFromPath = (path: string): Result<Statements> =>
+  pipe(
+    fs.readFileSync(path, 'utf-8'),
+    src =>
+      pipe(file(path), parser.run(stream.create(src)), _ => result.fromEither<ParserData<File>>(_)),
+    se.let_('file_', _ => _.data),
+    se.let_('ss1', ({ file_ }) => file_.graph.statements),
+    se.tap(({ ss1 }) =>
+      result.modify(_ =>
+        pipe(_.imports, readonlyRecord.upsertAt(path, ss1), imports => ({ ..._, imports })),
+      ),
+    ),
+    se.bind('ss2', ({ file_ }) => importsToStatements(file_.imports ?? [], nodePath.dirname(path))),
+    se.map(({ ss1, ss2 }) => [...ss2, ...ss1] as Statements),
+  );
+
+const statementsToPublicPairs = (s: Statements): ReadonlyArray<DSLObjectPair> =>
+  pipe(
+    s,
+    readonlyArray.flatMap(n =>
+      n.name == null
+        ? []
+        : pipe(
+              n.modifiers,
+              readonlyArray.exists(m => m.value === 'public'),
+            )
+          ? [
+              {
+                key: n.name,
+                value: n.name,
+              },
+            ]
+          : [],
+    ),
+  );
+
+const importsToObject = (s: Statements, context: ParserContext): NestedGraph => ({
+  type: 'NestedGraph',
+  annotations: [],
+  graph: {
+    type: 'Graph',
+    statements: [
+      ...s,
+      {
+        type: 'ComputedNode',
+        modifiers: [],
+        body: {
+          type: 'Object',
+          annotations: [],
+          value: statementsToPublicPairs(s),
+          context,
+        },
+        context,
+      },
+    ],
+    context,
+  },
+  context,
+});
+
+const exportAsObject = (s: Statements, name: Identifier): Node => ({
+  type: 'ComputedNode',
+  modifiers: [],
+  name,
+  body: importsToObject(s, name.context),
+  context: name.context,
+});
+
+const objectToNodes = (s: Statements, name: Identifier): Statements =>
+  pipe(
+    statementsToPublicPairs(s),
+    readonlyArray.map(pair => ({
+      type: 'ComputedNode',
+      modifiers: [],
+      name: pair.key,
+      body: {
+        type: 'ObjectMember',
+        annotations: [],
+        object: name,
+        key: pair.key,
+        context: name.context,
+      },
+      context: name.context,
+    })),
+  );
+
+export const importToStatements = (import_: Import, currentDir: string): Result<Statements> =>
+  pipe(
+    result.of<string>(nodePath.resolve(currentDir, import_.path)),
+    se.flatMap(path =>
+      pipe(
+        result.get(),
+        se.map(_ => pipe(_.imports, readonlyRecord.lookup(path))),
+        se.flatMap(option.match(() => importFromPath(path), se.right)),
+      ),
+    ),
+    se.flatMap(s =>
+      pipe(
+        option.fromNullable(import_.as),
+        option.match(
+          () =>
+            pipe(
+              getAnnonName(),
+              se.map(name =>
+                identity<Identifier>({
+                  type: 'Identifier',
+                  annotations: [],
+                  name,
+                  context: import_.context,
+                }),
+              ),
+              se.map(name => [exportAsObject(s, name), ...objectToNodes(s, name)]),
+            ),
+          name => result.of([exportAsObject(s, name)]),
+        ),
+      ),
+    ),
+  );
+
+export const importsToStatements = (
+  imports: ReadonlyArray<Import>,
+  currentDir: string,
+): Result<Statements> =>
+  pipe(
+    result.Do,
+    se.flatMap(() =>
+      pipe(
+        imports,
+        readonlyArray.reduce(result.of<Statements>([]), (fss, import_) =>
+          pipe(
+            result.Do,
+            se.bind('ss1', () => fss),
+            se.bind('ss2', () => importToStatements(import_, currentDir)),
+            se.map(({ ss1, ss2 }) => [...ss1, ...ss2]),
+          ),
+        ),
+      ),
+    ),
+  );
 
 export const graphToJson = (
   graph: Graph,
@@ -319,10 +490,7 @@ export const graphToJson = (
               'isLastNode',
               ({ index }) => node_.type === 'ComputedNode' && index === graph.statements.length - 1,
             ),
-            se.let_('node', ({ isLastNode }) =>
-              isLastNode ? addIsResult(node_ as ComputedNode) : node_,
-            ),
-            // Create a node's name if it's not defined
+            se.let_('node', () => node_),
             se.bind('name', ({ node }) =>
               node.name == null
                 ? getAnnonName()
@@ -332,8 +500,17 @@ export const graphToJson = (
             se.tap(({ node }) => updateCurrentNode(node)),
             se.bind('jsonNode', ({ node }) => nodeToJson(node)),
             se.tap(() => deleteCurrentNode()),
-            se.map(({ index, json, captures, name, jsonNode }) => ({
-              json: { ...json, ...jsonNode.nodes, [name]: jsonNode.json },
+            se.map(({ index, json, captures, name, jsonNode, isLastNode }) => ({
+              json: {
+                ...json,
+                ...jsonNode.nodes,
+                [name]: isLastNode
+                  ? {
+                      ...(jsonNode.json as JsonObject),
+                      isResult: true,
+                    }
+                  : jsonNode.json,
+              },
               captures: { ...captures, ...jsonNode.captures },
               lastNodeName: name,
               index: index + 1,
@@ -383,6 +560,8 @@ export const computedNodeBodyExprToJson = (expr: Expr): Result<CompileData<JsonO
       return ifThenElseToJson(expr);
     case 'Paren':
       return computedNodeParenToJson(expr);
+    case 'NestedGraph':
+      return nestedGraphToJson(expr);
     case 'AgentDef':
       return agentDefToJson(expr);
     case 'Pipeline':
@@ -431,6 +610,8 @@ export const exprToJson = (expr: Expr): Result => {
       return ifThenElseToJson(expr);
     case 'Paren':
       return parenToJson(expr);
+    case 'NestedGraph':
+      return nestedGraphToJson(expr);
     case 'ArrayAt':
       return arrayAtToJson(expr);
     case 'ObjectMember':
@@ -606,15 +787,26 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
         ),
       ),
     ),
-    se.map(({ annotations, jsonGraph, inputsCaptures: { inputs, captures } }) => ({
+    se.bind('name', () => getAnnonName()),
+    se.map(({ annotations, jsonGraph, inputsCaptures: { inputs, captures }, name }) => ({
       json: {
-        ...annotations.json,
-        agent: 'nestedAgent',
-        inputs,
-        graph: jsonGraph.json,
+        agent: 'getObjectMemberAgent',
+        inputs: {
+          object: `:${name}`,
+          key: jsonGraph.lastNodeName,
+        },
       },
       captures,
-      nodes: annotations.nodes,
+      nodes: {
+        ...annotations.nodes,
+        [name]: {
+          ...annotations.json,
+          isResult: false,
+          agent: 'nestedAgent',
+          inputs,
+          graph: jsonGraph.json,
+        },
+      },
     })),
   );
 
@@ -862,6 +1054,7 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
               statements: [
                 {
                   type: 'ComputedNode',
+                  modifiers: [],
                   body: agentDef.body,
                   context: agentDef.body.context,
                 },
@@ -1280,42 +1473,6 @@ export const arrayAtToJson = (arrayAt: ArrayAt): Result<CompileData<JsonObject>>
       nodes: array.nodes,
     })),
   );
-// agentCallToJson({
-//   type: 'AgentCall',
-//   annotations: arrayAt.annotations,
-//   agent: {
-//     type: 'Identifier',
-//     annotations: [],
-//     name: 'getArrayElementAgent',
-//     context: arrayAt.context,
-//   },
-//   args: {
-//     type: 'Object',
-//     annotations: [],
-//     value: [
-//       {
-//         key: {
-//           type: 'Identifier',
-//           annotations: [],
-//           name: 'array',
-//           context: arrayAt.array.context,
-//         },
-//         value: arrayAt.array,
-//       },
-//       {
-//         key: {
-//           type: 'Identifier',
-//           annotations: [],
-//           name: 'index',
-//           context: arrayAt.index.context,
-//         },
-//         value: arrayAt.index,
-//       },
-//     ],
-//     context: arrayAt.context,
-//   },
-//   context: arrayAt.context,
-// });
 
 export const objectMemberToJson = (objectMember: ObjectMember): Result<CompileData<JsonObject>> =>
   pipe(

@@ -1,0 +1,9 @@
+public textChat = (callback) -> loop(null, () -> {
+    userInput = @params({message: "You:", required: true}) textInputAgent();
+    if userInput.text == '/bye'
+    then null
+    else {
+        callback(userInput.text);
+        recur(null);
+    };
+});

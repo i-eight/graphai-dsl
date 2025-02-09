@@ -1,117 +1,12 @@
 @version('0.6');
+import './github.graphai';
+import './text-chat.graphai';
 
-formatIssue = (issue) -> { 
-    number: issue.number, 
-    state: issue.state,
-    title: issue.title,
-    body: issue.body,
-};
-
-getIssuesInfo = getAgentInfo(getGithubIssuesAgent);
-
-getIssues = {
-    name: 'getIssues',
-    agent: () -> getIssuesInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-    }) 
-    |> Array.map(formatIssue),
-
-    description: getIssuesInfo.description,
-    
-    inputs: {
-        type: 'object',
-        properties: {},
-    },
-    
-    output: getIssuesInfo.output,
-};
-
-createIssueInfo = getAgentInfo(createGithubIssueAgent);
-
-createIssue = {
-    name: 'createIssue',
-    agent: (namedInputs) -> createIssueInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-        title: namedInputs.title,
-    })
-    |> formatIssue,
-
-    description: createIssueInfo.description,
-
-    inputs: {
-        type: 'object',
-        properties: {
-            title: { type: 'string' },
-        }
-    },
-
-    output: createIssueInfo.output,
-};
-
-editIssueInfo = getAgentInfo(editGithubIssueAgent);
-
-editIssue = {
-    name: 'editIssue',
-    agent: (namedInputs) -> editIssueInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-        issueNumber: namedInputs.issueNumber,
-        body: namedInputs.body,
-    })
-    |> formatIssue,
-    
-    description: editIssueInfo.description,
-    
-    inputs: {
-        type: 'object',
-        properties: {
-            issueNumber: { type: 'number' },
-            body: { type: 'string' },
-        }
-    },
-    
-    output: editIssueInfo.output,
-};
-
-closeIssueInfo = getAgentInfo(closeGithubIssueAgent);
-
-closeIssue = {
-    name: 'closeIssue',
-    agent: (namedInputs) -> closeIssueInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-        issueNumber: namedInputs.issueNumber,
-    })
-    |> formatIssue,
-
-    description: closeIssueInfo.description,
-
-    inputs: {
-        type: 'object',
-        properties: {
-            issueNumber: { type: 'number' },
-        },
-    },
-
-    output: closeIssueInfo.output,
-};
-
-loop(null, () -> {
-    userInput = @params({message: "You:", required: true}) textInputAgent();
-    
-    if userInput.text == '/bye'
-    then null
-    else {
-        userInput.text 
-        --> [getIssues, createIssue, editIssue, closeIssue] 
-        |> println;
-
-        recur(null);
-    };
-});
+textChat((userInput) ->
+    userInput --> [
+        getIssues, 
+        createIssue, 
+        editIssue, 
+        closeIssue
+    ] |> println
+);

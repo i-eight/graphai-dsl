@@ -1,9 +1,10 @@
 import { pipe } from 'fp-ts/lib/function';
 import {
-  compileGraphTest,
+  compileFileTest,
   parseFileTest,
+  parseSourceTest,
   printJson,
-  runGraphTest,
+  runFileTest,
   toTupleFromCompileError,
   toTupleFromExpr,
 } from './helpers';
@@ -12,7 +13,7 @@ import { through } from '../src/lib/through';
 
 describe('Compiler', () => {
   test('static-node: number', () =>
-    pipe(parseFileTest('static a = 1;'), compileGraphTest(), _ =>
+    pipe(parseSourceTest('static a = 1;'), compileFileTest(), _ =>
       expect(_).toStrictEqual(
         either.right({
           nodes: {
@@ -25,7 +26,7 @@ describe('Compiler', () => {
     ));
 
   test('static-node: boolean', () => {
-    pipe(parseFileTest('static a = true;'), compileGraphTest(), _ =>
+    pipe(parseSourceTest('static a = true;'), compileFileTest(), _ =>
       expect(_).toStrictEqual(
         either.right({
           nodes: {
@@ -40,8 +41,8 @@ describe('Compiler', () => {
 
   test('computed-node 1', () => {
     pipe(
-      parseFileTest('@version("0.6"); a = identity({x: 1});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = identity({x: 1});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -62,14 +63,14 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { x: 1 } })),
+      runFileTest(either.right({ a: { x: 1 } })),
     );
   });
 
   test('computed-node number', () => {
     pipe(
-      parseFileTest('@version("0.6"); a = 1;'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = 1;'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -88,14 +89,14 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: 1 })),
+      runFileTest(either.right({ a: 1 })),
     );
   });
 
   test('computed-node boolean', () => {
     pipe(
-      parseFileTest('@version("0.6"); a = true;'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = true;'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -114,14 +115,14 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: true })),
+      runFileTest(either.right({ a: true })),
     );
   });
 
   test('computed-node array', () => {
     pipe(
-      parseFileTest('@version("0.6"); a = [1, 2, 3];'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = [1, 2, 3];'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -140,14 +141,14 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: [1, 2, 3] })),
+      runFileTest(either.right({ a: [1, 2, 3] })),
     );
   });
 
   test('computed-node object', () => {
     pipe(
-      parseFileTest('@version("0.6"); a = {a: 1, b: "b", c: [3.0], d: false};'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = {a: 1, b: "b", c: [3.0], d: false};'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -171,14 +172,14 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { a: 1, b: 'b', c: [3.0], d: false } })),
+      runFileTest(either.right({ a: { a: 1, b: 'b', c: [3.0], d: false } })),
     );
   });
 
   test('computed-node null', () => {
     pipe(
-      parseFileTest('@version("0.6"); a = null;'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = null;'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -197,14 +198,14 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: null })),
+      runFileTest(either.right({ a: null })),
     );
   });
 
   test('Use an identify', () =>
     pipe(
-      parseFileTest('@version("0.6"); static a = 1; b = identity({x: a});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); static a = 1; b = identity({x: a});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -228,13 +229,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ b: { x: 1 } })),
+      runFileTest(either.right({ b: { x: 1 } })),
     ));
 
   test('Use an identify before defined', () =>
     pipe(
-      parseFileTest('static a = 1; b = identity({x: b});'),
-      compileGraphTest(),
+      parseSourceTest('static a = 1; b = identity({x: b});'),
+      compileFileTest(),
       either.orElse(toTupleFromCompileError),
       _ =>
         expect(_).toStrictEqual(
@@ -244,16 +245,16 @@ describe('Compiler', () => {
 
   test('Use an undefined identify', () =>
     pipe(
-      parseFileTest('static a = 1; b = identity({x: c});'),
-      compileGraphTest(),
+      parseSourceTest('static a = 1; b = identity({x: c});'),
+      compileFileTest(),
       either.orElse(toTupleFromCompileError),
       _ => expect(_).toStrictEqual(either.left(['CompileError', 'Identifier not found: c'])),
     ));
 
   test('Anonymous node', () =>
     pipe(
-      parseFileTest('@version("0.6"); identity({x: 1});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); identity({x: 1});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -274,13 +275,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: { x: 1 } })),
+      runFileTest(either.right({ __anon0__: { x: 1 } })),
     ));
 
   test('Nested anonymous node', () =>
     pipe(
-      parseFileTest('@version("0.6"); a = identity(identity({x: 1}));'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = identity(identity({x: 1}));'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -307,13 +308,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { x: 1 } })),
+      runFileTest(either.right({ a: { x: 1 } })),
     ));
 
   test('An nonymous node in an object', () =>
     pipe(
-      parseFileTest('@version("0.6"); a = identity({x: identity({y: 1})});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = identity({x: identity({y: 1})});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -344,13 +345,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { x: { y: 1 } } })),
+      runFileTest(either.right({ a: { x: { y: 1 } } })),
     ));
 
   test('Multiple nonymous nodes in an object', () =>
     pipe(
-      parseFileTest('@version("0.6"); a = identity({a: identity({y: 1}), b: identity({x: 2})});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = identity({a: identity({y: 1}), b: identity({x: 2})});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -392,13 +393,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { a: { y: 1 }, b: { x: 2 } } })),
+      runFileTest(either.right({ a: { a: { y: 1 }, b: { x: 2 } } })),
     ));
 
   test('An agent with an annotation', () =>
     pipe(
-      parseFileTest('@version("0.6"); a = @isResult(true) identity({x: 1});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); a = @isResult(true) identity({x: 1});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -419,15 +420,15 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { x: 1 } })),
+      runFileTest(either.right({ a: { x: 1 } })),
     ));
 
   test('An agent with multiple annotations', () =>
     pipe(
-      parseFileTest(
+      parseSourceTest(
         '@version("0.6"); a = @isResult(true) @console({after: true}) identity({x: 1});',
       ),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -451,13 +452,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ a: { x: 1 } })),
+      runFileTest(either.right({ a: { x: 1 } })),
     ));
 
   test('An anonymous agent with multiple annotations', () =>
     pipe(
-      parseFileTest('@version("0.6"); @isResult(true) @console({after: true}) identity({x: 1});'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); @isResult(true) @console({after: true}) identity({x: 1});'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -481,13 +482,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: { x: 1 } })),
+      runFileTest(either.right({ __anon0__: { x: 1 } })),
     ));
 
   test('1 + 1', async () =>
     pipe(
-      parseFileTest('@version("0.6"); 1 + 1;'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); 1 + 1;'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -506,13 +507,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 2 })),
+      runFileTest(either.right({ __anon0__: 2 })),
     ));
 
   test('a + b', () =>
     pipe(
-      parseFileTest('@version("0.6"); static a = 1; static b = 2; a + b;'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); static a = 1; static b = 2; a + b;'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -537,13 +538,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 3 })),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('agent1() + agent2()', () =>
     pipe(
-      parseFileTest('@version("0.6"); identity(1) + identity(2);'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); identity(1) + identity(2);'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -578,15 +579,15 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 3 })),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('A nested graph 1', () =>
-    pipe(parseFileTest('a = { static b = 1; };'), compileGraphTest(), _ =>
+    pipe(parseSourceTest('a = { static b = 1; };'), compileFileTest(), _ =>
       expect(_).toStrictEqual(
         either.right({
           nodes: {
-            a: {
+            __anon0__: {
               agent: 'nestedAgent',
               inputs: {},
               graph: {
@@ -595,6 +596,14 @@ describe('Compiler', () => {
                     value: 1,
                   },
                 },
+              },
+              isResult: false,
+            },
+            a: {
+              agent: 'getObjectMemberAgent',
+              inputs: {
+                key: 'b',
+                object: ':__anon0__',
               },
               isResult: true,
             },
@@ -605,7 +614,7 @@ describe('Compiler', () => {
 
   test('A nested graph 2', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version("0.6");
         foo = {
             static x = 1;
@@ -613,7 +622,7 @@ describe('Compiler', () => {
             x + y;
         };
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -621,6 +630,14 @@ describe('Compiler', () => {
             nodes: {
               foo: {
                 isResult: true,
+                agent: 'getObjectMemberAgent',
+                inputs: {
+                  key: '__anon0__',
+                  object: ':__anon1__',
+                },
+              },
+              __anon1__: {
+                isResult: false,
                 agent: 'nestedAgent',
                 inputs: {},
                 graph: {
@@ -647,11 +664,11 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ foo: { __anon0__: 3 } })),
+      runFileTest(either.right({ foo: 3 })),
     ));
 
   test('A nested graph with a captured value in static node', () =>
-    pipe(parseFileTest('static a = 1; { static b = a; };'), compileGraphTest(), _ =>
+    pipe(parseSourceTest('static a = 1; { static b = a; };'), compileFileTest(), _ =>
       expect(_).toStrictEqual(
         either.right({
           nodes: {
@@ -659,11 +676,19 @@ describe('Compiler', () => {
               value: 1,
             },
             __anon0__: {
+              agent: 'getObjectMemberAgent',
+              inputs: {
+                key: 'b',
+                object: ':__anon1__',
+              },
+              isResult: true,
+            },
+            __anon1__: {
               agent: 'nestedAgent',
               inputs: {
                 a: ':a',
               },
-              isResult: true,
+              isResult: false,
               graph: {
                 nodes: {
                   b: {
@@ -679,8 +704,8 @@ describe('Compiler', () => {
 
   test('A nested graph with a captured value 1', () =>
     pipe(
-      parseFileTest('@version("0.6"); static a = 1; { b = println(a); };'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); static a = 1; { b = println(a); };'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -690,11 +715,19 @@ describe('Compiler', () => {
                 value: 1,
               },
               __anon0__: {
+                agent: 'getObjectMemberAgent',
+                inputs: {
+                  key: 'b',
+                  object: ':__anon1__',
+                },
+                isResult: true,
+              },
+              __anon1__: {
                 agent: 'nestedAgent',
                 inputs: {
                   a: ':a',
                 },
-                isResult: true,
+                isResult: false,
                 graph: {
                   nodes: {
                     b: {
@@ -713,21 +746,21 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: {} })),
+      runFileTest(either.right({})),
     ));
 
   test('A deep nested graph with a captured value', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version("0.6");
         static a = 1; 
         { 
           b = {
-            println(a); 
+            a + 2; 
           };
         };
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -736,62 +769,106 @@ describe('Compiler', () => {
               a: {
                 value: 1,
               },
-              __anon0__: {
+              __anon3__: {
+                isResult: false,
                 agent: 'nestedAgent',
                 inputs: {
                   a: ':a',
                 },
-                isResult: true,
                 graph: {
                   nodes: {
-                    b: {
+                    __anon2__: {
+                      isResult: false,
                       agent: 'nestedAgent',
                       inputs: {
                         a: ':a',
                       },
-                      isResult: true,
                       graph: {
                         nodes: {
                           __anon1__: {
-                            agent: 'apply',
-                            inputs: {
-                              agent: 'println',
-                              args: ':a',
-                            },
                             isResult: true,
                             graph: {},
+                            agent: 'plusAgent',
+                            inputs: {
+                              left: ':a',
+                              right: 2,
+                            },
                           },
                         },
                       },
                     },
+                    b: {
+                      isResult: true,
+                      agent: 'getObjectMemberAgent',
+                      inputs: {
+                        object: ':__anon2__',
+                        key: '__anon1__',
+                      },
+                    },
                   },
+                },
+              },
+              __anon0__: {
+                isResult: true,
+                agent: 'getObjectMemberAgent',
+                inputs: {
+                  object: ':__anon3__',
+                  key: 'b',
                 },
               },
             },
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: { b: {} } })),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('A deep nested graph with a undefined captured value', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         a = { 
           b = {
             println(c); 
           };
         };
       `),
-      compileGraphTest(),
+      compileFileTest(),
       either.orElse(toTupleFromCompileError),
       _ => expect(_).toStrictEqual(either.left(['CompileError', 'Identifier not found: c'])),
     ));
 
+  test('A deep nested graph in an array', () =>
+    pipe(
+      parseSourceTest(`
+          @version("0.6");
+          a = [
+            1,
+            { x = 1; y = 2; x + y; },
+            2,
+          ];
+        `),
+      compileFileTest(),
+      runFileTest(either.right({ a: [1, 3, 2] })),
+    ));
+
+  test('A deep nested graph in an object', () =>
+    pipe(
+      parseSourceTest(`
+            @version("0.6");
+            {
+              a: 1,
+              b: { x = 1; y = 2; x + y; },
+              c: 2,
+            };
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: { a: 1, b: 3, c: 2 } })),
+    ));
+
   test('agent-def', () =>
     pipe(
-      parseFileTest(`@version('0.6'); (args) -> args.a + args.b + args.c;`),
-      compileGraphTest(),
+      parseSourceTest(`@version('0.6'); (args) -> args.a + args.b + args.c;`),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -852,13 +929,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(_ => expect(either.isRight(_)).toStrictEqual(true)),
+      runFileTest(_ => expect(either.isRight(_)).toStrictEqual(true)),
     ));
 
   test('Captured agent-def', () =>
     pipe(
-      parseFileTest(`@version('0.6'); static x = 1; (args) -> args.a + args.b + args.c + x;`),
-      compileGraphTest(),
+      parseSourceTest(`@version('0.6'); static x = 1; (args) -> args.a + args.b + args.c + x;`),
+      compileFileTest(),
       _ =>
         expect(_).toStrictEqual(
           either.right({
@@ -935,7 +1012,7 @@ describe('Compiler', () => {
 
   test('Nested agent-def', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6'); 
           f = (a) -> {
             x = 1;
@@ -946,14 +1023,14 @@ describe('Compiler', () => {
           };
           f(10, 20, 30);
         `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon6__: 63 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon6__: 63 })),
     ));
 
   test('A basic if-then-else', () =>
     pipe(
-      parseFileTest('@version("0.6"); static a = 1; if a > 1 then println(1) else println(2);'),
-      compileGraphTest(),
+      parseSourceTest('@version("0.6"); static a = 1; if a > 1 then println(1) else println(2);'),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1046,12 +1123,12 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({})),
+      runFileTest(either.right({})),
     ));
 
   test('if-then-else with nested graphs', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
            @version("0.6");
            static a = 1; 
            if a > 1 then {
@@ -1060,7 +1137,7 @@ describe('Compiler', () => {
              println(2);
            };
         `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1153,15 +1230,15 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({})),
+      runFileTest(either.right({})),
     ));
 
   test('string 1', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           static a = "hello";
         `),
-      compileGraphTest(),
+      compileFileTest(),
       _ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1176,8 +1253,8 @@ describe('Compiler', () => {
 
   test('string 2', () =>
     pipe(
-      parseFileTest(`@version('0.6'); static name = "Tom"; "hello, \${name}";`),
-      compileGraphTest(),
+      parseSourceTest(`@version('0.6'); static name = "Tom"; "hello, \${name}";`),
+      compileFileTest(),
       // printJson,
       through(_ =>
         expect(_).toStrictEqual(
@@ -1199,12 +1276,12 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 'hello, Tom' })),
+      runFileTest(either.right({ __anon0__: 'hello, Tom' })),
     ));
 
   test('string 3', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version("0.6");
           static name = "Tom";
           println({
@@ -1212,7 +1289,7 @@ describe('Compiler', () => {
             text2: "goodbye",
           });
         `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1244,13 +1321,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({})),
+      runFileTest(either.right({})),
     ));
 
   test('paren 1', () =>
     pipe(
-      parseFileTest(`@version('0.6'); (1 + 2);`),
-      compileGraphTest(),
+      parseSourceTest(`@version('0.6'); (1 + 2);`),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1269,13 +1346,13 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 3 })),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('paren 2', () =>
     pipe(
-      parseFileTest(`@version('0.6'); (1 * (2 + 3 / (4 - 2)));`),
-      compileGraphTest(),
+      parseSourceTest(`@version('0.6'); (1 * (2 + 3 / (4 - 2)));`),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1318,12 +1395,12 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 3.5 })),
+      runFileTest(either.right({ __anon0__: 3.5 })),
     ));
 
   test('operator 1', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version('0.6');
         static a = 1;
         static b = 2;
@@ -1331,7 +1408,7 @@ describe('Compiler', () => {
         static d = 3;
         a + b > 10 || c * d < 10 && a + d == c;
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1418,50 +1495,50 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: false })),
+      runFileTest(either.right({ __anon0__: false })),
     ));
 
   test('operator 2', async () =>
     await pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version('0.6');
         static a = 1;
         f = (_) -> _ + 1;
         a |> f;
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon1__: 2 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon1__: 2 })),
     ));
 
   test('operator 3', async () =>
     await pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version('0.6');
         static a = 1;
         a |> ((_) -> _ + 1);
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon0__: 2 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 2 })),
     ));
 
   test('operator 4', async () =>
     await pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           static a = 1;
           a |> (_) -> _ + 1;
         `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon0__: 2 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 2 })),
     ));
 
   test('array-at 1', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version("0.6");
         [1, 2, 3][0];
       `),
-      compileGraphTest(
+      compileFileTest(
         either.right({
           version: '0.6',
           nodes: {
@@ -1476,17 +1553,17 @@ describe('Compiler', () => {
           },
         }),
       ),
-      runGraphTest(either.right({ __anon0__: 1 })),
+      runFileTest(either.right({ __anon0__: 1 })),
     ));
 
   test('array-at 2', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           static a = [2, 3, 4];
           a[0];
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1507,28 +1584,28 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 2 })),
+      runFileTest(either.right({ __anon0__: 2 })),
     ));
 
   test('array-at 3', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
             @version('0.6');
             f = () -> [2, 3, 4];
             a = [1, f(), 5];
             a[1][2];
         `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon2__: 4 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon2__: 4 })),
     ));
 
   test('object-member 1', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           {a: 1, b: 2, c: 3}.a;
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1550,17 +1627,17 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 1 })),
+      runFileTest(either.right({ __anon0__: 1 })),
     ));
 
   test('object-member 2', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           static obj = {a: 1, b: 2, c: 3};
           obj.a;
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1585,12 +1662,12 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: 1 })),
+      runFileTest(either.right({ __anon0__: 1 })),
     ));
 
   test('object-member 3', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version('0.6');
         obj = identity({
           a: 1,
@@ -1598,13 +1675,13 @@ describe('Compiler', () => {
         });
         obj.a |> obj.f |> obj.f;
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon2__: 3 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon2__: 3 })),
     ));
 
   test('object-member 4', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
         @version('0.6');
         obj = identity({
           a: 1,
@@ -1612,72 +1689,72 @@ describe('Compiler', () => {
         });
         obj.f({x: obj.a});
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon3__: 2 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon3__: 2 })),
     ));
 
   test('object-member 5', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           o = { a: { b: 1 } };
           o.a.b;
         `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon0__: 1 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 1 })),
     ));
 
   test('object-member 6', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
             @version('0.6');
             f = () -> { b: 1 };
             o = { a: f() };
             o.a.b;
           `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon2__: 1 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon2__: 1 })),
     ));
 
   test('object-member 7', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
               @version('0.6');
               a = { b: 1 };
               o = { a: a };
               o.a.b;
             `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon0__: 1 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 1 })),
     ));
 
   test('object-member 8', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
                 @version('0.6');
                 a = [{ b: { c: 2} }];
                 o = { a: a[0] };
                 o.a.b.c;
               `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon1__: 2 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon1__: 2 })),
     ));
 
   test('object-member 9', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
                   @version('0.6');
                   s = 1;
                   o = { a: "s = \${s}" };
                   o.a;
                 `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon1__: 's = 1' })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon1__: 's = 1' })),
     ));
 
   test('loop', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           sum = loop(0, (cnt) -> 
               if cnt < 10 
@@ -1685,13 +1762,13 @@ describe('Compiler', () => {
               else cnt,
           );
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ sum: 10 })),
+      compileFileTest(),
+      runFileTest(either.right({ sum: 10 })),
     ));
 
   test('tutrial hello world sample', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           // LLM
           llm = 
             @params({model: 'gpt-4o'}) 
@@ -1700,7 +1777,7 @@ describe('Compiler', () => {
           // Print the result
           println(llm.text);
       `),
-      compileGraphTest(),
+      compileFileTest(),
       _ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1741,11 +1818,11 @@ describe('Compiler', () => {
 
   test('compare strings', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
            @version('0.6');
           'a' == 'a';
       `),
-      compileGraphTest(),
+      compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1764,12 +1841,12 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runGraphTest(either.right({ __anon0__: true })),
+      runFileTest(either.right({ __anon0__: true })),
     ));
 
   test('nestedAgent 1', () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           static a = 1;
           static b = {
@@ -1779,7 +1856,7 @@ describe('Compiler', () => {
           };
           c = @graph(b) nestedAgent({a: a});
       `),
-      compileGraphTest(),
+      compileFileTest(),
       _ =>
         expect(_).toStrictEqual(
           either.right({
@@ -1817,49 +1894,69 @@ describe('Compiler', () => {
             },
           }),
         ),
-      //runGraphTest(either.right({})),
+      //runFileTest(either.right({})),
     ));
 
   test('curried function call 1', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
           @version('0.6');
           f = (a) -> (b) -> a.value + b.value;
           v = f({value: 1})({value: 2});
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ v: 3 })),
+      compileFileTest(),
+      runFileTest(either.right({ v: 3 })),
     ));
 
   test('curried function call 2', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
             @version('0.6');
             f = (a, b) -> a + b;
             v = f(1, 2);
         `),
-      compileGraphTest(),
-      runGraphTest(either.right({ v: 3 })),
+      compileFileTest(),
+      runFileTest(either.right({ v: 3 })),
     ));
 
   test('curried function call 3', async () =>
     pipe(
-      parseFileTest(`
+      parseSourceTest(`
               @version('0.6');
               f = (a, b, c) -> a + b + c;
               v = 1 |> f |> (g) -> 2 |> g |> (h) -> 3 |> h;
           `),
-      compileGraphTest(),
-      runGraphTest(either.right({ v: 6 })),
+      compileFileTest(),
+      runFileTest(either.right({ v: 6 })),
     ));
 
   test('eval string 1', async () =>
-    await pipe(
-      parseFileTest(`
+    pipe(
+      parseSourceTest(`
           @version('0.6');
           eval('@version("0.6"); static a = 1; static b = 1; a + b;');
       `),
-      compileGraphTest(),
-      runGraphTest(either.right({ __anon0__: 2 })),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 2 })),
+    ));
+
+  test('import 1', async () =>
+    pipe(
+      parseFileTest(`${__dirname}/cases/compiler/import-1.graphai`),
+      compileFileTest(),
+      through(_ => printJson(_)),
+      runFileTest(either.right({ __anon10__: 18 })),
+    ));
+
+  test('Duplicated identifier 1', async () =>
+    pipe(
+      parseSourceTest(`
+        a = 1;
+        a = 2;
+      `),
+      compileFileTest(),
+      either.orElse(toTupleFromCompileError),
+      _ =>
+        expect(_).toStrictEqual(either.left(['CompileError', `Identifier 'a' is already defined`])),
     ));
 });

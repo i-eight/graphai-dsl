@@ -26,6 +26,7 @@ import {
   DSLObject,
   DSLString,
   Expr,
+  File,
   Graph,
   Identifier,
   IfThenElse,
@@ -54,6 +55,8 @@ import {
   Statements,
   TermPipeline,
   Pipeline,
+  Import,
+  Modifier,
 } from './dsl-syntax-tree';
 import { error, Parser, parser, ParserContext, ParserError } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
@@ -477,6 +480,7 @@ export const term: Parser<Term> = pipe(
   parser.or<Term>(array),
   parser.or<Term>(object),
   parser.orElse<Term>(() => paren),
+  parser.orElse<Term>(() => nestedGraph),
   parser.or<Term>(identifier),
 );
 
@@ -494,7 +498,10 @@ export const isCall = (term: Expr): term is Call =>
   term.type === 'ArrayAt' || term.type === 'ObjectMember' || term.type === 'AgentCall';
 
 export const isArrayable = (term: Expr): term is Arrayable =>
-  term.type === 'Array' || term.type === 'Paren' || term.type === 'Identifier';
+  term.type === 'Array' ||
+  term.type === 'Paren' ||
+  term.type === 'NestedGraph' ||
+  term.type === 'Identifier';
 
 export const arrayAtFrom = (
   annotations: ReadonlyArray<NodeAnnotation>,
@@ -526,7 +533,10 @@ export const arrayAtFrom = (
   );
 
 export const isObjectable = (term: Expr): term is Objectable =>
-  term.type === 'Object' || term.type === 'Paren' || term.type === 'Identifier';
+  term.type === 'Object' ||
+  term.type === 'Paren' ||
+  term.type === 'NestedGraph' ||
+  term.type === 'Identifier';
 
 export const objectMemberFrom = (
   annotations: ReadonlyArray<NodeAnnotation>,
@@ -555,7 +565,7 @@ export const objectMemberFrom = (
   );
 
 export const isAgentable = (term: Expr): term is Agentable =>
-  term.type === 'Paren' || term.type === 'Identifier';
+  term.type === 'Paren' || term.type === 'NestedGraph' || term.type === 'Identifier';
 
 export const agentCallRecur = (
   annotations: ReadonlyArray<NodeAnnotation>,
@@ -651,7 +661,11 @@ export const call: Parser<Term | Call> = pipe(
 );
 
 export const isTermPower = (term: Expr): term is TermPower =>
-  term.type === 'Number' || term.type === 'Identifier' || term.type === 'Paren' || isCall(term);
+  term.type === 'Number' ||
+  term.type === 'Identifier' ||
+  term.type === 'Paren' ||
+  term.type === 'NestedGraph' ||
+  isCall(term);
 
 export const termPower: Parser<Term | TermPower> = call;
 
@@ -1077,9 +1091,29 @@ export const expr: Parser<Expr> = pipe(
   parser.or<Expr>(operator),
 );
 
+export const modifier: Parser<Modifier> = pipe(
+  text('public'),
+  parser.or(text('private')),
+  parser.context(_ => ({ type: 'Modifier', value: _ === 'public' ? 'public' : 'private' })),
+);
+
 export const staticNode: Parser<StaticNode> = pipe(
-  text('static'),
-  parser.right(whitespaces),
+  parser.unit,
+  parser.bind('modifiers', () =>
+    pipe(
+      modifier,
+      parser.left(whitespaces1),
+      parser.optional,
+      parser.map(
+        option.match(
+          () => [],
+          _ => [_],
+        ),
+      ),
+    ),
+  ),
+  parser.left(text('static')),
+  parser.left(whitespaces1),
   parser.bind('name', () => identifier),
   parser.left(whitespaces),
   parser.left(char('=')),
@@ -1087,7 +1121,12 @@ export const staticNode: Parser<StaticNode> = pipe(
   parser.bind('value', () => expr),
   parser.left(whitespaces),
   parser.left(char(';')),
-  parser.context(({ name, value }) => ({ type: 'StaticNode', name, value })),
+  parser.context(({ name, modifiers, value }) => ({
+    type: 'StaticNode',
+    modifiers,
+    name,
+    value,
+  })),
 );
 
 export const nestedGraph: Parser<NestedGraph> = pipe(
@@ -1121,6 +1160,19 @@ export const computedNodeBody: Parser<ComputedNodeBody> = pipe(
 
 export const computedNode: Parser<ComputedNode> = pipe(
   parser.unit,
+  parser.bind('modifiers', () =>
+    pipe(
+      modifier,
+      parser.left(whitespaces1),
+      parser.optional,
+      parser.map(
+        option.match(
+          () => [],
+          _ => [_],
+        ),
+      ),
+    ),
+  ),
   parser.bind('name', () =>
     pipe(
       identifier,
@@ -1133,12 +1185,12 @@ export const computedNode: Parser<ComputedNode> = pipe(
   parser.bind('body', () => computedNodeBody),
   parser.left(whitespaces),
   parser.left(char(';')),
-  parser.context(({ name, body }) =>
+  parser.context(({ name, modifiers, body }) =>
     pipe(
       name,
       option.match(
-        () => ({ type: 'ComputedNode', body }),
-        name => ({ type: 'ComputedNode', name, body }),
+        () => ({ type: 'ComputedNode', modifiers, body }),
+        name => ({ type: 'ComputedNode', modifiers, name, body }),
       ),
     ),
   ),
@@ -1198,18 +1250,54 @@ export const version: Parser<string> = pipe(
   ),
 );
 
-export const file: Parser<Graph> = pipe(
-  whitespaces,
-  parser.right(pipe(version, parser.optional)),
-  parser.left(whitespaces),
-  parser.flatMap(version =>
-    graph(
-      pipe(
-        whitespaces,
-        parser.left(eos),
-        parser.map(() => unit),
+export const import_: Parser<Import> = pipe(
+  text('import'),
+  parser.right(whitespaces1),
+  parser.bind('path', () =>
+    pipe(
+      string,
+      parser.flatMap(_ =>
+        _.value.length === 1 && typeof _.value[0] === 'string'
+          ? parser.of<string>(_.value[0])
+          : parser.fail<string>({
+              type: 'UnexpectedParserError',
+              message: 'Import path must be a string',
+            }),
       ),
-      version,
     ),
   ),
+  parser.bind('name', () =>
+    pipe(
+      whitespaces1,
+      parser.right(text('as')),
+      parser.right(whitespaces1),
+      parser.right(identifier),
+      parser.optional,
+    ),
+  ),
+  parser.left(whitespaces),
+  parser.left(char(';')),
+  parser.context(({ path, name }) => ({ type: 'Import', path, as: option.toUndefined(name) })),
 );
+
+export const imports: Parser<ReadonlyArray<Import>> = pipe(import_, parser.sepBy(whitespaces));
+
+export const file = (path: string): Parser<File> =>
+  pipe(
+    whitespaces,
+    parser.bind('version', () => pipe(version, parser.optional)),
+    parser.left(whitespaces),
+    parser.bind('imports', () => imports),
+    parser.left(whitespaces),
+    parser.bind('graph', ({ version }) =>
+      graph(
+        pipe(
+          whitespaces,
+          parser.left(eos),
+          parser.map(() => unit),
+        ),
+        version,
+      ),
+    ),
+    parser.context(({ imports, graph }) => ({ type: 'File', path, imports, graph })),
+  );

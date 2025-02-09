@@ -1,11 +1,24 @@
 import { ParserContext as Context } from './parser-combinator';
 
-export type File = Graph;
+export type File = Readonly<{
+  type: 'File';
+  path: string;
+  imports?: ReadonlyArray<Import>;
+  graph: Graph;
+  context: Context;
+}>;
 
 export type Graph = Readonly<{
   type: 'Graph';
   version?: string;
   statements: Statements;
+  context: Context;
+}>;
+
+export type Import = Readonly<{
+  type: 'Import';
+  path: string;
+  as?: Identifier;
   context: Context;
 }>;
 
@@ -20,27 +33,25 @@ export type NestedGraph = Readonly<{
 
 export type Node = StaticNode | ComputedNode;
 
+export type Modifier = {
+  type: 'Modifier';
+  value: 'public' | 'private';
+  context: Context;
+};
+
 export type StaticNode = Readonly<{
   type: 'StaticNode';
+  modifiers: ReadonlyArray<Modifier>;
   name: Identifier;
   value: Expr;
   context: Context;
 }>;
 
-export type ComputedNodeBodyExpr =
-  | ComputedNodeBodyParen
-  | IfThenElse
-  | AgentDef
-  | BinaryTerm
-  | ArrayAt
-  | ObjectMember
-  | AgentCall
-  | DSLString;
-
-export type ComputedNodeBody = NestedGraph | Expr;
+export type ComputedNodeBody = Expr;
 
 export type ComputedNode = Readonly<{
   type: 'ComputedNode';
+  modifiers: ReadonlyArray<Modifier>;
   name?: Identifier;
   body: ComputedNodeBody;
   context: Context;
@@ -49,6 +60,7 @@ export type ComputedNode = Readonly<{
 export type Expr =
   | IfThenElse
   | Paren
+  | NestedGraph
   | Identifier
   | Literal
   | ArrayAt
@@ -70,13 +82,6 @@ export type Paren = Readonly<{
   type: 'Paren';
   annotations: ReadonlyArray<NodeAnnotation>;
   expr: Expr;
-  context: Context;
-}>;
-
-export type ComputedNodeBodyParen = Readonly<{
-  type: 'ComputedNodeBodyParen';
-  annotations: ReadonlyArray<NodeAnnotation>;
-  expr: ComputedNodeBody;
   context: Context;
 }>;
 
@@ -191,6 +196,7 @@ export type Term =
   | DSLObject
   | DSLNull
   | Paren
+  | NestedGraph
   | Identifier;
 
 export type Arrayable = DSLArray | Paren | Identifier;
