@@ -57,6 +57,7 @@ import {
   Pipeline,
   Import,
   Modifier,
+  NativeImport,
 } from './dsl-syntax-tree';
 import { error, Parser, parser, ParserContext, ParserError } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
@@ -1250,9 +1251,23 @@ export const version: Parser<string> = pipe(
   ),
 );
 
-export const import_: Parser<Import> = pipe(
-  text('import'),
-  parser.right(whitespaces1),
+export const import_: Parser<Import | NativeImport> = pipe(
+  parser.unit,
+  parser.bind('isNative', () =>
+    pipe(
+      text('native'),
+      parser.left(whitespaces1),
+      parser.optional,
+      parser.map(
+        option.match(
+          () => false,
+          () => true,
+        ),
+      ),
+    ),
+  ),
+  parser.left(text('import')),
+  parser.left(whitespaces1),
   parser.bind('path', () =>
     pipe(
       string,
@@ -1277,10 +1292,36 @@ export const import_: Parser<Import> = pipe(
   ),
   parser.left(whitespaces),
   parser.left(char(';')),
-  parser.context(({ path, name }) => ({ type: 'Import', path, as: option.toUndefined(name) })),
+  parser.tap(({ isNative, name }) =>
+    isNative === true
+      ? pipe(
+          name,
+          option.match(
+            () =>
+              parser.fail({
+                type: 'UnexpectedParserError',
+                message: 'Native import must have an alias',
+              }),
+            () => parser.of(unit),
+          ),
+        )
+      : parser.of(unit),
+  ),
+  parser.context(({ isNative, path, name }) =>
+    isNative === true
+      ? identity<Omit<NativeImport, 'context'>>({
+          type: 'NativeImport',
+          path,
+          as: option.toUndefined(name) as Identifier,
+        })
+      : identity<Omit<Import, 'context'>>({ type: 'Import', path, as: option.toUndefined(name) }),
+  ),
 );
 
-export const imports: Parser<ReadonlyArray<Import>> = pipe(import_, parser.sepBy(whitespaces));
+export const imports: Parser<ReadonlyArray<Import | NativeImport>> = pipe(
+  import_,
+  parser.sepBy(whitespaces),
+);
 
 export const file = (path: string): Parser<File> =>
   pipe(

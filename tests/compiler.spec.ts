@@ -1944,8 +1944,14 @@ describe('Compiler', () => {
     pipe(
       parseFileTest(`${__dirname}/cases/compiler/import-1.graphai`),
       compileFileTest(),
-      through(_ => printJson(_)),
       runFileTest(either.right({ __anon10__: 18 })),
+    ));
+
+  test('native import 1', async () =>
+    pipe(
+      parseFileTest(`${__dirname}/cases/compiler/native-import-1.graphai`),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('Duplicated identifier 1', async () =>

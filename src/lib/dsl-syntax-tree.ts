@@ -3,7 +3,7 @@ import { ParserContext as Context } from './parser-combinator';
 export type File = Readonly<{
   type: 'File';
   path: string;
-  imports?: ReadonlyArray<Import>;
+  imports?: ReadonlyArray<Import | NativeImport>;
   graph: Graph;
   context: Context;
 }>;
@@ -19,6 +19,13 @@ export type Import = Readonly<{
   type: 'Import';
   path: string;
   as?: Identifier;
+  context: Context;
+}>;
+
+export type NativeImport = Readonly<{
+  type: 'NativeImport';
+  path: string;
+  as: Identifier;
   context: Context;
 }>;
 

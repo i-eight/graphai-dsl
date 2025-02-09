@@ -45,6 +45,7 @@ import {
 } from './github-agent';
 import { getProcessEnvAgentInfo } from './process-agent';
 import { getAgentInfoAgentInfo } from './agent-info-agent';
+import { nativeImportAgentInfo } from './native-import-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -74,6 +75,7 @@ export const agents: AgentFunctionInfoDictionary = {
   concatStringAgent: concatStringAgentInfo,
   getArrayElementAgent: getArrayElementAgentInfo,
   getObjectMemberAgent: getObjectMemberAgentInfo,
+  nativeImportAgent: nativeImportAgentInfo,
   defAgent: defAgentInfo,
   caseAgent: caseAgentInfo,
   loop: loopAgentInfo,

@@ -33,6 +33,7 @@ import {
   Statements,
   StaticNode,
   File,
+  NativeImport,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
 import { parser, ParserContext, ParserData, ParserError } from './parser-combinator';
@@ -413,7 +414,9 @@ const objectToNodes = (s: Statements, name: Identifier): Statements =>
 
 export const importToStatements = (import_: Import, currentDir: string): Result<Statements> =>
   pipe(
-    result.of<string>(nodePath.resolve(currentDir, import_.path)),
+    result.of<string>(
+      import_.path.startsWith('/') ? import_.path : nodePath.resolve(currentDir, import_.path),
+    ),
     se.flatMap(path =>
       pipe(
         result.get(),
@@ -444,8 +447,58 @@ export const importToStatements = (import_: Import, currentDir: string): Result<
     ),
   );
 
+export const nativeImportToStatements = (
+  import_: NativeImport,
+  currentDir: string,
+): Result<Statements> =>
+  pipe(
+    result.of<string>(
+      import_.path.startsWith('/') ? import_.path : nodePath.resolve(currentDir, import_.path),
+    ),
+    se.map(path => [
+      identity<Node>({
+        type: 'ComputedNode',
+        modifiers: [],
+        name: import_.as,
+        body: {
+          type: 'AgentCall',
+          annotations: [],
+          agent: {
+            type: 'Identifier',
+            annotations: [],
+            name: 'nativeImportAgent',
+            context: import_.context,
+          },
+          args: {
+            type: 'Object',
+            annotations: [],
+            value: [
+              {
+                key: {
+                  type: 'Identifier',
+                  annotations: [],
+                  name: 'path',
+                  context: import_.context,
+                },
+                value: {
+                  type: 'String',
+                  annotations: [],
+                  value: [path],
+                  context: import_.context,
+                },
+              },
+            ],
+            context: import_.context,
+          },
+          context: import_.context,
+        },
+        context: import_.context,
+      }),
+    ]),
+  );
+
 export const importsToStatements = (
-  imports: ReadonlyArray<Import>,
+  imports: ReadonlyArray<Import | NativeImport>,
   currentDir: string,
 ): Result<Statements> =>
   pipe(
@@ -457,7 +510,11 @@ export const importsToStatements = (
           pipe(
             result.Do,
             se.bind('ss1', () => fss),
-            se.bind('ss2', () => importToStatements(import_, currentDir)),
+            se.bind('ss2', () =>
+              import_.type === 'Import'
+                ? importToStatements(import_, currentDir)
+                : nativeImportToStatements(import_, currentDir),
+            ),
             se.map(({ ss1, ss2 }) => [...ss1, ...ss2]),
           ),
         ),
