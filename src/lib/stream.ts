@@ -4,8 +4,13 @@ import { Option } from 'fp-ts/lib/Option';
 import os from 'os';
 
 export type Stream = Readonly<{
-  source: string;
+  source: Source;
   position: Position;
+}>;
+
+export type Source = Readonly<{
+  path: string;
+  data: string;
 }>;
 
 export type Position = Readonly<{
@@ -14,16 +19,23 @@ export type Position = Readonly<{
   column: number;
 }>;
 
+export namespace source {
+  export const of = (path: string, data: string): Source => ({ path, data });
+  export const fromData = (data: string): Source => ({ path: '', data });
+}
+
 export namespace stream {
-  export const create = (source: string): Stream => ({
+  export const create = (source: Source): Stream => ({
     source,
     position: { index: 0, row: 1, column: 1 },
   });
 
+  export const fromData = (data: string): Stream => create(source.fromData(data));
+
   const updateRowCol = ({
     source,
     position,
-  }: Readonly<{ source: string; position: Position }>): Stream =>
+  }: Readonly<{ source: Source; position: Position }>): Stream =>
     pipe(isEOL(source, position.index - 1), _ => ({
       source,
       position: {
@@ -33,10 +45,10 @@ export namespace stream {
       },
     }));
 
-  export const isEOL = (source: string, index: number): boolean => source[index] === os.EOL;
+  export const isEOL = (source: Source, index: number): boolean => source.data[index] === os.EOL;
 
   export const head = (self: Stream): Option<string> =>
-    option.fromNullable(self.source[self.position.index]);
+    option.fromNullable(self.source.data[self.position.index]);
 
   export const tail = ({ source, position }: Stream): Stream =>
     updateRowCol({

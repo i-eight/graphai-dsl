@@ -26,14 +26,14 @@ describe('char-parser', () => {
   test('eos', () => {
     pipe(
       eos,
-      parser.run(stream.create('')),
+      parser.run(stream.fromData('')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right(unit)),
     );
 
     pipe(
       eos,
-      parser.run(stream.create('a')),
+      parser.run(stream.fromData('a')),
       either.mapLeft(_ => (_.type === 'UnexpectedParserError' ? _.message : '')),
       _ => expect(_).toStrictEqual(either.left('Expect end of stream')),
     );
@@ -42,14 +42,14 @@ describe('char-parser', () => {
   test('matchedChar', () => {
     pipe(
       matchedChar(c => c === 'a', 'a'),
-      parser.run(stream.create('a')),
+      parser.run(stream.fromData('a')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('a')),
     );
 
     pipe(
       matchedChar(c => c === 'a', 'a'),
-      parser.run(stream.create('b')),
+      parser.run(stream.fromData('b')),
       either.mapLeft(_ =>
         _.type === 'UnexpectedParserError' ? { expect: _.expect, actual: _.actual } : {},
       ),
@@ -58,7 +58,7 @@ describe('char-parser', () => {
 
     pipe(
       matchedChar(c => c === 'a', 'a'),
-      parser.run(stream.create('')),
+      parser.run(stream.fromData('')),
       either.mapLeft(_ => (_.type === 'UnexpectedParserError' ? _.message : '')),
       _ =>
         expect(_).toStrictEqual(
@@ -70,14 +70,14 @@ describe('char-parser', () => {
   test('char', () => {
     pipe(
       char('a'),
-      parser.run(stream.create('a')),
+      parser.run(stream.fromData('a')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('a')),
     );
 
     pipe(
       char('a'),
-      parser.run(stream.create('b')),
+      parser.run(stream.fromData('b')),
       either.mapLeft(_ =>
         _.type === 'UnexpectedParserError' ? { expect: _.expect, actual: _.actual } : {},
       ),
@@ -86,7 +86,7 @@ describe('char-parser', () => {
 
     pipe(
       char('a'),
-      parser.run(stream.create('')),
+      parser.run(stream.fromData('')),
       either.mapLeft(_ => (_.type === 'UnexpectedParserError' ? _.message : '')),
       _ =>
         expect(_).toStrictEqual(
@@ -98,29 +98,28 @@ describe('char-parser', () => {
   test('text', () => {
     pipe(
       text('hoge'),
-      parser.run(stream.create('hoge')),
+      parser.run(stream.fromData('hoge')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('hoge')),
     );
 
-    pipe(text('hoge'), parser.or(text('fuga')), parser.run(stream.create('fuga')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: { source: 'fuga', position: { index: 4, row: 1, column: 5 } },
-          data: 'fuga',
-        }),
-      ),
+    pipe(
+      text('hoge'),
+      parser.or(text('fuga')),
+      parser.run(stream.fromData('fuga')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right('fuga')),
     );
 
     pipe(
       text('hoge'),
-      parser.run(stream.create('hoga')),
+      parser.run(stream.fromData('hoga')),
       either.map(_ => _.data),
       _ =>
         expect(_).toStrictEqual(
           either.left({
             type: 'UnexpectedParserError',
-            expect: 'e',
+            expect: 'hoge',
             actual: 'a',
             position: {
               index: 3,
@@ -133,91 +132,46 @@ describe('char-parser', () => {
   });
 
   test('space', () => {
-    pipe(space, parser.run(stream.create(' ')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: ' ',
-            position: {
-              index: 1,
-              row: 1,
-              column: 2,
-            },
-          },
-          data: ' ',
-        }),
-      ),
+    pipe(
+      space,
+      parser.run(stream.fromData(' ')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right(' ')),
     );
 
-    pipe(space, parser.run(stream.create('\t')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: '\t',
-            position: {
-              index: 1,
-              row: 1,
-              column: 2,
-            },
-          },
-          data: '\t',
-        }),
-      ),
+    pipe(
+      space,
+      parser.run(stream.fromData('\t')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right('\t')),
     );
   });
 
   test('spaces', () => {
-    pipe(spaces, parser.run(stream.create(' \t ')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: ' \t ',
-            position: {
-              index: 3,
-              row: 1,
-              column: 4,
-            },
-          },
-          data: ' \t ',
-        }),
-      ),
+    pipe(
+      spaces,
+      parser.run(stream.fromData(' \t ')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right(' \t ')),
     );
 
-    pipe(spaces, parser.run(stream.create('')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: '',
-            position: {
-              index: 0,
-              row: 1,
-              column: 1,
-            },
-          },
-          data: '',
-        }),
-      ),
+    pipe(
+      spaces,
+      parser.run(stream.fromData('')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right('')),
     );
   });
 
   test('spaces1', () => {
-    pipe(spaces1, parser.run(stream.create(' \t ')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: ' \t ',
-            position: {
-              index: 3,
-              row: 1,
-              column: 4,
-            },
-          },
-          data: ' \t ',
-        }),
-      ),
+    pipe(
+      spaces1,
+      parser.run(stream.fromData(' \t ')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right(' \t ')),
     );
 
-    pipe(spaces1, parser.run(stream.create('a')), _ =>
+    pipe(spaces1, parser.run(stream.fromData('a')), _ =>
       expect(_).toStrictEqual(
         either.left({
           type: 'UnexpectedParserError',
@@ -235,58 +189,31 @@ describe('char-parser', () => {
 
   test('whitespaces', () => {
     const source = ` ${os.EOL} `;
-    pipe(whitespaces, parser.run(stream.create(source)), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source,
-            position: {
-              index: 3,
-              row: 2,
-              column: 2,
-            },
-          },
-          data: source,
-        }),
-      ),
+    pipe(
+      whitespaces,
+      parser.run(stream.fromData(source)),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right(source)),
     );
 
-    pipe(whitespaces, parser.run(stream.create('')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: '',
-            position: {
-              index: 0,
-              row: 1,
-              column: 1,
-            },
-          },
-          data: '',
-        }),
-      ),
+    pipe(
+      whitespaces,
+      parser.run(stream.fromData('')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right('')),
     );
   });
 
   test('whitespaces1', () => {
     const source = ` ${os.EOL} `;
-    pipe(whitespaces1, parser.run(stream.create(source)), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source,
-            position: {
-              index: 3,
-              row: 2,
-              column: 2,
-            },
-          },
-          data: source,
-        }),
-      ),
+    pipe(
+      whitespaces1,
+      parser.run(stream.fromData(source)),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right(source)),
     );
 
-    pipe(whitespaces1, parser.run(stream.create('a')), _ =>
+    pipe(whitespaces1, parser.run(stream.fromData('a')), _ =>
       expect(_).toStrictEqual(
         either.left({
           type: 'UnexpectedParserError',
@@ -301,7 +228,7 @@ describe('char-parser', () => {
       ),
     );
 
-    pipe(whitespaces1, parser.run(stream.create('')), _ =>
+    pipe(whitespaces1, parser.run(stream.fromData('')), _ =>
       expect(_).toStrictEqual(
         either.left({
           type: 'UnexpectedParserError',
@@ -317,41 +244,23 @@ describe('char-parser', () => {
   });
 
   test('anyChar', () => {
-    pipe(anyChar, parser.run(stream.create('a')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: 'a',
-            position: {
-              index: 1,
-              row: 1,
-              column: 2,
-            },
-          },
-          data: 'a',
-        }),
-      ),
+    pipe(
+      anyChar,
+      parser.run(stream.fromData('a')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right('a')),
     );
   });
 
   test('oneOf', () => {
-    pipe(oneOf('abcd'), parser.run(stream.create('b')), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          stream: {
-            source: 'b',
-            position: {
-              index: 1,
-              row: 1,
-              column: 2,
-            },
-          },
-          data: 'b',
-        }),
-      ),
+    pipe(
+      oneOf('abcd'),
+      parser.run(stream.fromData('b')),
+      either.map(_ => _.data),
+      _ => expect(_).toStrictEqual(either.right('b')),
     );
 
-    pipe(oneOf('abcd'), parser.run(stream.create('x')), _ =>
+    pipe(oneOf('abcd'), parser.run(stream.fromData('x')), _ =>
       expect(_).toStrictEqual(
         either.left({
           type: 'UnexpectedParserError',
@@ -368,7 +277,7 @@ describe('char-parser', () => {
   });
 
   test('noneOf', () => {
-    pipe(noneOf('abcd'), parser.run(stream.create('x')), _ =>
+    pipe(noneOf('abcd'), parser.run(stream.fromData('x')), _ =>
       either.right({
         stream: {
           source: 'x',
@@ -382,7 +291,7 @@ describe('char-parser', () => {
       }),
     );
 
-    pipe(noneOf('abcd'), parser.run(stream.create('c')), _ =>
+    pipe(noneOf('abcd'), parser.run(stream.fromData('c')), _ =>
       either.left({
         type: 'UnexpectedParserError',
         expect: 'none of abcd',
@@ -399,12 +308,12 @@ describe('char-parser', () => {
   test('digit', () => {
     pipe(
       digit,
-      parser.run(stream.create('1')),
+      parser.run(stream.fromData('1')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('1')),
     );
 
-    pipe(digit, parser.run(stream.create('a')), _ =>
+    pipe(digit, parser.run(stream.fromData('a')), _ =>
       either.left({
         type: 'UnexpectedParserError',
         expect: 'digit',
@@ -421,19 +330,19 @@ describe('char-parser', () => {
   test('alphabet', () => {
     pipe(
       alphabet,
-      parser.run(stream.create('a')),
+      parser.run(stream.fromData('a')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('a')),
     );
 
     pipe(
       alphabet,
-      parser.run(stream.create('Z')),
+      parser.run(stream.fromData('Z')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('Z')),
     );
 
-    pipe(alphabet, parser.run(stream.create('1')), _ =>
+    pipe(alphabet, parser.run(stream.fromData('1')), _ =>
       either.left({
         type: 'UnexpectedParserError',
         expect: 'alphabet',
@@ -450,33 +359,33 @@ describe('char-parser', () => {
   test('alphaNum', () => {
     pipe(
       alphaNum,
-      parser.run(stream.create('a')),
+      parser.run(stream.fromData('a')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('a')),
     );
 
     pipe(
       alphabet,
-      parser.run(stream.create('Z')),
+      parser.run(stream.fromData('Z')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('Z')),
     );
 
     pipe(
       alphaNum,
-      parser.run(stream.create('0')),
+      parser.run(stream.fromData('0')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('0')),
     );
 
     pipe(
       alphaNum,
-      parser.run(stream.create('9')),
+      parser.run(stream.fromData('9')),
       either.map(_ => _.data),
       _ => expect(_).toStrictEqual(either.right('9')),
     );
 
-    pipe(alphaNum, parser.run(stream.create('-')), _ =>
+    pipe(alphaNum, parser.run(stream.fromData('-')), _ =>
       either.left({
         type: 'UnexpectedParserError',
         expect: 'alphabet or digit',

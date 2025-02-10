@@ -10,6 +10,7 @@ import {
   File,
   Import,
   Statements,
+  NativeImport,
 } from '../src/lib/dsl-syntax-tree';
 import { CompileError, Json } from '../src/lib/compiler';
 import { either, readonlyArray } from 'fp-ts';
@@ -17,7 +18,7 @@ import { Either } from 'fp-ts/lib/Either';
 import { runFromJson } from '../src/lib/run';
 import { parser, ParserError } from '../src/lib/parser-combinator';
 import { file } from '../src/lib/dsl-parser';
-import { stream } from '../src/lib/stream';
+import { source, stream } from '../src/lib/stream';
 import { compiler } from '../src/lib';
 import { through } from '../src/lib/through';
 import { agents } from '../src/agents';
@@ -30,6 +31,7 @@ export const toTupleFromExpr = (
     | Expr
     | File
     | Import
+    | NativeImport
     | Graph
     | Statements
     | NestedGraph
@@ -112,8 +114,13 @@ export const toTupleFromExpr = (
         return _.statements.map(toTupleFromExpr);
       case 'Import':
         return { import: _.path, as: _.as?.name };
+      case 'NativeImport':
+        return { import: _.path, as: _.as.name };
       case 'File':
-        return { imports: _.imports?.map(toTupleFromExpr), graph: toTupleFromExpr(_.graph) };
+        return {
+          imports: _.imports?.map(toTupleFromExpr),
+          graph: toTupleFromExpr(_.graph),
+        };
     }
   }
 };
@@ -129,7 +136,7 @@ export const parseFileTest = (path: string): Either<ParserError, File> =>
 export const parseSourceTest = (src: string, path: string = ''): Either<ParserError, File> =>
   pipe(
     file(path),
-    parser.run(stream.create(src)),
+    parser.run(stream.create(source.of(path, src))),
     either.map(_ => _.data),
   );
 

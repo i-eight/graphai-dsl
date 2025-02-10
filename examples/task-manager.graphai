@@ -1,6 +1,6 @@
 @version('0.6');
-import './github.graphai';
-import './text-chat.graphai';
+import '../lib/github.graphai';
+import '../lib/text-chat.graphai';
 
 textChat((userInput) ->
     userInput --> [

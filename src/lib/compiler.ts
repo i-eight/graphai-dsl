@@ -42,7 +42,7 @@ import { unit, Unit } from './unit';
 import { Either } from 'fp-ts/lib/Either';
 import { Option } from 'fp-ts/lib/Option';
 import { file } from './dsl-parser';
-import { stream } from './stream';
+import { source, Source, stream } from './stream';
 import fs from 'fs';
 import { AgentFunctionInfo, AgentFunctionInfoDictionary } from 'graphai';
 import nodePath from 'path';
@@ -227,7 +227,7 @@ export const compileFromFile = async (
 ): Promise<Json> =>
   pipe(
     await fs.promises.readFile(path, 'utf-8'),
-    _ => compileFromString(_, path, agents),
+    _ => compileFromString(source.of(path, _), agents),
     either.match(
       e => Promise.reject(e),
       _ => Promise.resolve(_),
@@ -235,13 +235,12 @@ export const compileFromFile = async (
   );
 
 export const compileFromString = (
-  source: string,
-  path: string,
+  src: Source,
   agents: AgentFunctionInfoDictionary,
 ): Either<CompileError, Json> =>
   pipe(
-    file(path),
-    parser.run(stream.create(source)),
+    file(src.path),
+    parser.run(stream.create(src)),
     either.flatMap(({ data }) => pipe(data, addEmbeddedAgentsToGraph, fileToJson, run(agents))),
     either.map(([_]) => _.json),
   );
@@ -329,8 +328,10 @@ export const fileToJson = (file: File): Result =>
 const importFromPath = (path: string): Result<Statements> =>
   pipe(
     fs.readFileSync(path, 'utf-8'),
-    src =>
-      pipe(file(path), parser.run(stream.create(src)), _ => result.fromEither<ParserData<File>>(_)),
+    data =>
+      pipe(file(path), parser.run(stream.create(source.of(path, data))), _ =>
+        result.fromEither<ParserData<File>>(_),
+      ),
     se.let_('file_', _ => _.data),
     se.let_('ss1', ({ file_ }) => file_.graph.statements),
     se.tap(({ ss1 }) =>

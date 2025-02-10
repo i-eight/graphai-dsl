@@ -6,7 +6,7 @@ import os from 'os';
 import { unit, Unit } from './unit';
 
 export const eos: Parser<Unit> = parser.create(s =>
-  s.position.index < s.source.length
+  s.position.index < s.source.data.length
     ? either.left({
         type: 'UnexpectedParserError',
         message: 'Expect end of stream',
@@ -49,6 +49,13 @@ export const text = (expect: string, index: number = 0): Parser<string> =>
         parser.bind('x', () => char(expect[index])),
         parser.bind('xs', () => text(expect, index + 1)),
         parser.map(({ x, xs }) => x + xs),
+        parser.orElse(e =>
+          parser.fail({
+            type: 'UnexpectedParserError',
+            expect,
+            actual: e.type === 'UnexpectedParserError' ? e.actual : '?',
+          }),
+        ),
       );
 
 export const space: Parser<string> = matchedChar(c => c === ' ' || c === '\t', 'space');

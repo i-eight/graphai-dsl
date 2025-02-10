@@ -3,13 +3,14 @@ import { compileFromString } from '../lib/compiler';
 import { GraphAI, GraphData } from 'graphai';
 import { pipe } from 'fp-ts/lib/function';
 import { either, task } from 'fp-ts';
+import { source } from '../lib/stream';
 
 const evalAgent: AgentFunction<object, unknown, string> = async ({
   namedInputs: src,
   forNestedGraph,
 }) =>
   pipe(
-    compileFromString(src, '', forNestedGraph?.agents ?? {}),
+    compileFromString(source.fromData(src), forNestedGraph?.agents ?? {}),
     either.match(
       e => Promise.reject(e),
       graph =>

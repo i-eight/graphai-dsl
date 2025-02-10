@@ -1,5 +1,5 @@
 import { Either } from 'fp-ts/lib/Either';
-import { Position, Stream } from './stream';
+import { Position, Source, Stream } from './stream';
 import { either, option } from 'fp-ts';
 import { pipe } from 'fp-ts/lib/function';
 import { Option } from 'fp-ts/lib/Option';
@@ -42,7 +42,7 @@ export type Parser<A> = Readonly<{
 }>;
 
 export type ParserContext = Readonly<{
-  source: string;
+  source: Source;
   start: Position;
   end: Position;
 }>;
@@ -122,7 +122,15 @@ export namespace parser {
         pipe(
           self,
           run(s),
-          either.orElse(e => pipe(f(e), run(s))),
+          either.orElse(e1 =>
+            pipe(
+              f(e1),
+              run(s),
+              either.orElse(e2 =>
+                e1.position.index > e2.position.index ? either.left(e1) : either.left(e2),
+              ),
+            ),
+          ),
         ),
       );
 

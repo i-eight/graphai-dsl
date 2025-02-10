@@ -1,11 +1,12 @@
 {
-  "name": "graphai-dsl",
+  "name": "@i-eight/graphai-dsl",
   "version": "0.1.0",
   "bin": {
     "graphai-dsl": "dist/graphai-dsl"
   },
   "files": [
-    "dist"
+    "dist",
+    "lib"
   ],
   "scripts": {
     "build": "vite build",
