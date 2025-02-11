@@ -1,4 +1,4 @@
-import { pipe } from 'fp-ts/lib/function';
+import { apply, pipe } from 'fp-ts/lib/function';
 import {
   NestedGraph,
   ComputedNode,
@@ -12,17 +12,19 @@ import {
   Statements,
   NativeImport,
 } from '../src/lib/dsl-syntax-tree';
-import { CompileError, Json } from '../src/lib/compiler';
-import { either, readonlyArray } from 'fp-ts';
+import { Json } from '../src/lib/compiler';
+import { either, readonlyArray, task, taskEither } from 'fp-ts';
 import { Either } from 'fp-ts/lib/Either';
 import { runFromJson } from '../src/lib/run';
-import { parser, ParserError } from '../src/lib/parser-combinator';
+import { DSLError, ParserError } from '../src/lib/error';
 import { file } from '../src/lib/dsl-parser';
 import { source, stream } from '../src/lib/stream';
 import { compiler } from '../src/lib';
 import { through } from '../src/lib/through';
 import { agents } from '../src/agents';
 import fs from 'fs';
+import { unit } from '../src/lib/unit';
+import { parser } from '../src/lib/parser-combinator';
 
 export const printJson = (json: unknown): void => console.log(JSON.stringify(json, null, 2));
 
@@ -126,7 +128,7 @@ export const toTupleFromExpr = (
 };
 
 export const toTupleFromCompileError = (
-  _: CompileError,
+  _: DSLError,
 ): Either<[string, string | undefined], unknown> =>
   either.left([_.type, _.type === 'CompileError' ? _.items[0].message : _.message]);
 
@@ -141,8 +143,8 @@ export const parseSourceTest = (src: string, path: string = ''): Either<ParserEr
   );
 
 export const compileFileTest =
-  (result: Either<CompileError, Json> | undefined = undefined) =>
-  (file: Either<ParserError, File>): Either<CompileError | ParserError, Json> =>
+  (result: Either<DSLError, Json> | undefined = undefined) =>
+  (file: Either<ParserError, File>): Either<DSLError | ParserError, Json> =>
     pipe(
       file,
       either.flatMap(_ => pipe(_, compiler.fileToJson, compiler.run(agents))),
@@ -165,11 +167,16 @@ export const runFileTest =
             _,
             either.match(
               async e => expect(e).toStrictEqual(result),
-              async _ => {
-                await runFromJson(_, agents)
-                  .catch(e => expect(either.left(e)).toStrictEqual(result))
-                  .then(r => expect(either.right(r)).toStrictEqual(result));
-              },
+              async _ =>
+                pipe(
+                  runFromJson(_, agents),
+                  taskEither.map(r => expect(either.right(r)).toStrictEqual(result)),
+                  taskEither.orElse(e =>
+                    taskEither.of(expect(either.left(e)).toStrictEqual(result)),
+                  ),
+                  task.map(_ => void 0),
+                  apply(unit),
+                ),
             ),
           ),
     );

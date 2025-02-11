@@ -1,10 +1,9 @@
-import fs from 'fs';
 import dotenv from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { compileFromFile } from './lib/compiler';
-import { runFromJson } from './lib/run';
-import { agents } from './agents';
+import { runFromFile, compileFromFile } from './lib/run';
+import { apply, pipe } from 'fp-ts/lib/function';
+import { unit } from './lib/unit';
 
 type Argv = Readonly<{
   _: readonly string[];
@@ -41,12 +40,9 @@ const main = async () => {
   const argv = cmds.parse() as unknown as Argv;
 
   if (argv._[0] === 'compile') {
-    console.log(JSON.stringify(await compileFromFile(argv.file, agents), null, 2));
+    compileFromFile(argv.file);
   } else if (argv._[0] === 'run') {
-    const json = argv.json
-      ? JSON.parse(await fs.promises.readFile(argv.file, 'utf-8'))
-      : await compileFromFile(argv.file, agents);
-    await runFromJson(json, agents);
+    pipe(runFromFile(argv.file, { json: argv.json }), apply(unit));
   } else {
     cmds.showHelp();
   }

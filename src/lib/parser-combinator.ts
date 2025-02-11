@@ -6,33 +6,11 @@ import { Option } from 'fp-ts/lib/Option';
 import { Unit } from './unit';
 import { loop, Recur, recur } from './loop';
 
+import { BaseError, ParserError } from './error';
+
 export type ParserData<A> = Readonly<{
   stream: Stream;
   data: A;
-}>;
-
-export type BaseError = UnexpectedError | NotImplementedError | InvalidSyntaxError;
-
-export type ParserError = BaseError & Readonly<{ position: Position }>;
-
-export type UnexpectedError = Readonly<{
-  type: 'UnexpectedParserError';
-  expect?: string;
-  actual?: string;
-  message?: string;
-  cause?: ParserError;
-}>;
-
-export type NotImplementedError = Readonly<{
-  type: 'NotImplementedError';
-  message: string;
-  cause?: ParserError;
-}>;
-
-export type InvalidSyntaxError = Readonly<{
-  type: 'InvalidSyntaxError';
-  message: string;
-  cause?: ParserError;
 }>;
 
 export type ParserResult<A> = Either<ParserError, ParserData<A>>;
@@ -47,11 +25,6 @@ export type ParserContext = Readonly<{
   end: Position;
 }>;
 
-export namespace error {
-  export const getActual = (self: ParserError): string =>
-    self.type === 'UnexpectedParserError' ? (self.actual ?? '?') : '?';
-}
-
 export namespace parser {
   export const create = <A>(parse: (stream: Stream) => ParserResult<A>): Parser<A> => ({
     parse,
@@ -60,7 +33,9 @@ export namespace parser {
   export const of = <A>(data: A): Parser<A> => create(s => either.right({ stream: s, data }));
 
   export const fail = <A>(error: BaseError): Parser<A> =>
-    create(s => either.left({ ...error, position: s.position } as ParserError));
+    create(s =>
+      either.left({ source: s.source, position: s.position, ...error } satisfies ParserError),
+    );
 
   export const run =
     <A>(stream: Stream) =>
@@ -186,6 +161,7 @@ export namespace parser {
             either.left({
               type: 'UnexpectedParserError',
               message: `Expect not followed by ${a}`,
+              source: s.source,
               position: s.position,
             }),
         ),

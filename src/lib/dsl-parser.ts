@@ -59,12 +59,13 @@ import {
   Modifier,
   NativeImport,
 } from './dsl-syntax-tree';
-import { error, Parser, parser, ParserContext, ParserError } from './parser-combinator';
+import { Parser, parser, ParserContext } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
 import os from 'os';
 import { Unit, unit } from './unit';
 import { Option } from 'fp-ts/lib/Option';
 import { loop, recur } from './loop';
+import * as error from './error';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -452,7 +453,7 @@ export const agentDef: Parser<AgentDef> = pipe(
 );
 
 export const throwOr =
-  <A>(errors: ReadonlyArray<ParserError['type']>, p: Parser<A> | (() => Parser<A>)) =>
+  <A>(errors: ReadonlyArray<error.ParserError['type']>, p: Parser<A> | (() => Parser<A>)) =>
   (self: Parser<A>): Parser<A> =>
     pipe(
       self,
@@ -1199,7 +1200,7 @@ export const computedNode: Parser<ComputedNode> = pipe(
 
 export const statement: Parser<Node> = pipe(staticNode, parser.or<Node>(computedNode));
 
-type GraphResult = [Statements, ParserError | 'next' | 'stop'];
+type GraphResult = [Statements, error.ParserError | 'next' | 'stop'];
 export const graph = (end: Parser<Unit>, version: Option<string>): Parser<Graph> =>
   pipe(
     parser.repeat<GraphResult>([[], 'next'], ([xs, flag]) =>

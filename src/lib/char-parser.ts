@@ -10,6 +10,7 @@ export const eos: Parser<Unit> = parser.create(s =>
     ? either.left({
         type: 'UnexpectedParserError',
         message: 'Expect end of stream',
+        source: s.source,
         position: s.position,
       })
     : either.right({ stream: s, data: unit }),
@@ -24,6 +25,7 @@ export const matchedChar = (f: (c: string) => boolean, expect: string): Parser<s
           either.left({
             type: 'UnexpectedParserError',
             message: `Expect ${expect} but failed to get a next char in the stream`,
+            source: s.source,
             position: s.position,
           }),
         c =>
@@ -33,6 +35,7 @@ export const matchedChar = (f: (c: string) => boolean, expect: string): Parser<s
                 type: 'UnexpectedParserError',
                 expect,
                 actual: c,
+                source: s.source,
                 position: s.position,
               }),
       ),

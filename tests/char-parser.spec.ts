@@ -121,6 +121,10 @@ describe('char-parser', () => {
             type: 'UnexpectedParserError',
             expect: 'hoge',
             actual: 'a',
+            source: {
+              data: 'hoga',
+              path: '',
+            },
             position: {
               index: 3,
               row: 1,
@@ -177,6 +181,10 @@ describe('char-parser', () => {
           type: 'UnexpectedParserError',
           actual: 'a',
           expect: 'space',
+          source: {
+            data: 'a',
+            path: '',
+          },
           position: {
             index: 0,
             row: 1,
@@ -219,6 +227,10 @@ describe('char-parser', () => {
           type: 'UnexpectedParserError',
           expect: 'whitespace',
           actual: 'a',
+          source: {
+            data: 'a',
+            path: '',
+          },
           position: {
             index: 0,
             row: 1,
@@ -233,6 +245,10 @@ describe('char-parser', () => {
         either.left({
           type: 'UnexpectedParserError',
           message: 'Expect whitespace but failed to get a next char in the stream',
+          source: {
+            data: '',
+            path: '',
+          },
           position: {
             index: 0,
             row: 1,
@@ -266,6 +282,10 @@ describe('char-parser', () => {
           type: 'UnexpectedParserError',
           expect: 'one of abcd',
           actual: 'x',
+          source: {
+            data: 'x',
+            path: '',
+          },
           position: {
             index: 0,
             row: 1,

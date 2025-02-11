@@ -148,6 +148,7 @@ describe('dsl-parser', () => {
             type: 'UnexpectedParserError',
             expect: 'number',
             actual: '?',
+            source: { data: '', path: '' },
             position: { index: 0, row: 1, column: 1 },
           }),
         ),

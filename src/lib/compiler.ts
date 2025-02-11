@@ -36,7 +36,7 @@ import {
   NativeImport,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
-import { parser, ParserContext, ParserData, ParserError } from './parser-combinator';
+import { parser, ParserContext, ParserData } from './parser-combinator';
 import { StateEither, stateEither as se } from './state-either';
 import { unit, Unit } from './unit';
 import { Either } from 'fp-ts/lib/Either';
@@ -47,6 +47,8 @@ import fs from 'fs';
 import { AgentFunctionInfo, AgentFunctionInfoDictionary } from 'graphai';
 import nodePath from 'path';
 import { ReadonlyRecord } from 'fp-ts/lib/ReadonlyRecord';
+import { DSLError, CompileErrorItem } from './error';
+import { readFile } from './file';
 
 export type Json = number | string | boolean | JsonArray | JsonObject | null | undefined;
 
@@ -72,19 +74,6 @@ export type Context = Readonly<{
 
 export type Captures = Readonly<Record<string, Identifier>>;
 
-export type CompileErrorItem = Readonly<{
-  message: string;
-  parserContext: ParserContext;
-}>;
-
-export type CompileError =
-  | ParserError
-  | Readonly<{
-      type: 'CompileError';
-      items: ReadonlyArray<CompileErrorItem>;
-      cause?: CompileError;
-    }>;
-
 export type CompileData<A = Json> = Readonly<{
   // A JSON representation of the DSL
   json: A;
@@ -99,19 +88,19 @@ export type State = Readonly<{
   nodeIndex: number;
 }>;
 
-export type Result<A = CompileData> = StateEither<Context, CompileError, A>;
+export type Result<A = CompileData> = StateEither<Context, DSLError, A>;
 
 namespace result {
-  export const of = <A>(a: A): Result<A> => se.right<Context, CompileError, A>(a);
-  export const fromEither = <A>(e: Either<CompileError, A>): Result<A> =>
-    se.fromEither<Context, CompileError, A>(e);
+  export const of = <A>(a: A): Result<A> => se.right<Context, DSLError, A>(a);
+  export const fromEither = <A>(e: Either<DSLError, A>): Result<A> =>
+    se.fromEither<Context, DSLError, A>(e);
   export const Do = of<Unit>(unit);
-  export const left = <A>(e: CompileError): Result<A> => se.left<Context, CompileError, A>(e);
-  export const get = (): Result<Context> => se.get<Context, CompileError>();
-  export const put = (context: Context) => se.put<Context, CompileError>(context);
-  export const modify = (f: (context: Context) => Context) => se.modify<Context, CompileError>(f);
+  export const left = <A>(e: DSLError): Result<A> => se.left<Context, DSLError, A>(e);
+  export const get = (): Result<Context> => se.get<Context, DSLError>();
+  export const put = (context: Context) => se.put<Context, DSLError>(context);
+  export const modify = (f: (context: Context) => Context) => se.modify<Context, DSLError>(f);
   export const debug = <A>(f: (a: A) => string) =>
-    se.tap<Context, CompileError, A, void>(a => of(console.log(f(a))));
+    se.tap<Context, DSLError, A, void>(a => of(console.log(f(a))));
 }
 
 const newJsonObject = (): JsonObject => ({});
@@ -125,7 +114,7 @@ const newCapures = (): Captures => ({});
 
 const getAnnonName = (): Result<string> =>
   pipe(
-    se.get<Context, CompileError>(),
+    se.get<Context, DSLError>(),
     se.tap(() => se.modify(s => ({ ...s, nodeIndex: s.nodeIndex + 1 }))),
     se.map(({ nodeIndex }) => `__anon${nodeIndex}__`),
   );
@@ -181,13 +170,13 @@ const putGraphStack = (graph: Graph, agentArgs: ReadonlyArray<Identifier> = []):
   );
 
 const popStack = (): Result<Unit> =>
-  se.modify<Context, CompileError>(s => ({ ...s, stack: s.stack.parent ?? newStack() }));
+  se.modify<Context, DSLError>(s => ({ ...s, stack: s.stack.parent ?? newStack() }));
 
 const updateCurrentNode = (node: Node): Result<Unit> =>
-  se.modify<Context, CompileError>(s => ({ ...s, currentNode: node }));
+  se.modify<Context, DSLError>(s => ({ ...s, currentNode: node }));
 
 const deleteCurrentNode = (): Result<Unit> =>
-  se.modify<Context, CompileError>(s => ({ ...s, currentNode: undefined }));
+  se.modify<Context, DSLError>(s => ({ ...s, currentNode: undefined }));
 
 const findIdentifierRecur = (name: Identifier, stack: Stack): Option<StackItem> =>
   pipe(
@@ -221,23 +210,19 @@ const findIdentifier = (
     ),
   );
 
-export const compileFromFile = async (
+export const compileFromFile = (
   path: string,
   agents: AgentFunctionInfoDictionary,
-): Promise<Json> =>
+): Either<DSLError, Json> =>
   pipe(
-    await fs.promises.readFile(path, 'utf-8'),
-    _ => compileFromString(source.of(path, _), agents),
-    either.match(
-      e => Promise.reject(e),
-      _ => Promise.resolve(_),
-    ),
+    readFile(path),
+    either.flatMap(_ => compileFromString(source.of(path, _), agents)),
   );
 
 export const compileFromString = (
   src: Source,
   agents: AgentFunctionInfoDictionary,
-): Either<CompileError, Json> =>
+): Either<DSLError, Json> =>
   pipe(
     file(src.path),
     parser.run(stream.create(src)),
@@ -247,7 +232,7 @@ export const compileFromString = (
 
 export const run =
   (agents: AgentFunctionInfoDictionary) =>
-  (self: Result): Either<CompileError, [CompileData, Context]> =>
+  (self: Result): Either<DSLError, [CompileData, Context]> =>
     self({
       stack: newStack(agents),
       nodeIndex: 0,
@@ -595,7 +580,7 @@ export const graphToJson = (
             se.bind('name', ({ node }) =>
               node.name == null
                 ? getAnnonName()
-                : se.right<Context, CompileError, string>(node.name.name),
+                : se.right<Context, DSLError, string>(node.name.name),
             ),
             // Convert the node to a JSON
             se.tap(({ node }) => updateCurrentNode(node)),
@@ -767,7 +752,7 @@ export const annotationsToJson = (
     readonlyArray.reduce(
       se.right<
         Context,
-        CompileError,
+        DSLError,
         Readonly<{
           json: JsonObject;
           nodes: JsonObject;
@@ -784,7 +769,7 @@ export const annotationsToJson = (
           // Check if all the identifiers are in the stack
           se.tap(({ value }) =>
             pipe(
-              se.get<Context, CompileError>(),
+              se.get<Context, DSLError>(),
               se.flatMap(({ stack }) =>
                 pipe(
                   value.captures,
@@ -803,9 +788,9 @@ export const annotationsToJson = (
                   ),
                   items =>
                     readonlyArray.size(items) === 0
-                      ? se.right<Context, CompileError, Unit>(unit)
-                      : se.left<Context, CompileError, Unit>(
-                          identity<CompileError>({
+                      ? se.right<Context, DSLError, Unit>(unit)
+                      : se.left<Context, DSLError, Unit>(
+                          identity<DSLError>({
                             type: 'CompileError',
                             items,
                           }),
@@ -913,7 +898,7 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
 
 export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<JsonObject>> =>
   pipe(
-    se.right<Context, CompileError, Unit>(unit),
+    se.right<Context, DSLError, Unit>(unit),
     se.bind('ctx', () => se.get()),
     se.bind('annotations', () => annotationsToJson(ifThenElse.annotations)),
     se.bind('if_', () =>
@@ -1612,7 +1597,7 @@ export const objectMemberToJson = (objectMember: ObjectMember): Result<CompileDa
 
 export const identifierToJson = (identifier: Identifier): Result =>
   pipe(
-    se.get<Context, CompileError>(),
+    se.get<Context, DSLError>(),
     se.flatMap(({ stack, currentNode }) =>
       currentNode?.name?.name === identifier.name
         ? result.left({
@@ -1835,7 +1820,7 @@ export const objectToJson = (object: DSLObject): Result =>
   pipe(
     object.value,
     readonlyArray.reduce(
-      se.right<Context, CompileError, CompileData<JsonObject>>({
+      se.right<Context, DSLError, CompileData<JsonObject>>({
         json: newJsonObject(),
         captures: newCapures(),
         nodes: newJsonObject(),
