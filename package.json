@@ -1,9 +1,7 @@
 {
   "name": "@i-eight/graphai-dsl",
   "version": "0.1.0",
-  "bin": {
-    "graphai-dsl": "dist/graphai-dsl"
-  },
+  "bin": "dist/graphai-dsl",
   "files": [
     "dist",
     "lib"
@@ -40,5 +38,6 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.19.1",
     "vite": "^6.0.11"
-  }
+  },
+  "packageManager": "yarn@3.8.7"
 }
