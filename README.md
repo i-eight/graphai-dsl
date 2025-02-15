@@ -50,24 +50,26 @@ The execution result is as follows:
 A transformer is a type of machine learning model introduced in the paper "Attention is All You Need" by Vaswani et al. in 2017. It revolutionized natural language processing by using self-attention mechanisms to weigh the significance of different words in a sentence, enabling parallel processing of data. This architecture consists of an encoder and a decoder, each with layers of self-attention and feedforward neural networks. Unlike recurrent models, transformers handle entire sequences simultaneously, improving computational efficiency and performance. They are foundational in models like BERT and GPT, excelling in tasks like translation, summarization, and text generation.
 ```
 
+## Installation
+
+```
+yarn add @i-eight/graphai-dsl-cli
+```
+
 ## How to Execute
 
 The following command converts the source file to JSON and executes it:
 
 ```
-npx tsx src/index.ts run <source file>
+yarn graphai-dsl run <source file>
 ```
 
 To output only the JSON, use the following command:
 
 ```
-npx tsx src/index.ts compile <source file>
+yarn graphai-dsl compile <source file>
 ```
 
-CLI commands will be provided in the future.
+## More Examples
 
-## Other Examples
-
-- https://github.com/i-eight/graphai-dsl/blob/main/docs/spec.md
-- https://github.com/i-eight/graphai-dsl/tree/main/examples
-- https://github.com/i-eight/graphai-dsl/blob/main/tests/compiler.spec.ts
+https://github.com/i-eight/graphai-dsl/tree/main/packages/graphai-dsl-cli/examples
