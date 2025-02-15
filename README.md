@@ -1,5 +1,3 @@
-[日本語](./README.ja.md)
-
 # GraphAI DSL
 
 This is a language for GraphAI, allowing for simpler descriptions than JSON or YAML.
