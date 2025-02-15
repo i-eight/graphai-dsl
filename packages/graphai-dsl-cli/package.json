@@ -29,7 +29,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.19.1",
-    "vite": "^6.0.11"
+    "vite": "^6.0.11",
+    "vite-plugin-dts": "^4.5.0"
   },
   "packageManager": "yarn@3.8.7"
 }
