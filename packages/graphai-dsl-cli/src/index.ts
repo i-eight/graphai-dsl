@@ -1,9 +1,9 @@
 import dotenv from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { runFromFile, compileFromFile } from './lib/run';
+import { runFromFile, compileFromFile } from './run';
 import { apply, pipe } from 'fp-ts/lib/function';
-import { unit } from './lib/unit';
+import { unit } from '@i-eight/graphai-dsl-lib';
 
 type Argv = Readonly<{
   _: readonly string[];

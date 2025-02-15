@@ -4,7 +4,6 @@ import * as error from '../src/lib/error';
 import { compileFromFile } from '../src/lib/compiler';
 import { agents } from '../src/agents';
 import { Either } from 'fp-ts/lib/Either';
-import { through } from '../src/lib/through';
 
 export const formattedErrorMatcher =
   (errors: ReadonlyArray<error.FormattedError>) =>
@@ -14,8 +13,8 @@ export const formattedErrorMatcher =
       either.match(
         e => {
           const es = error.toFormattedError(e);
-          expect(es.length).toBe(errors.length);
-          readonlyArray.zip(es, errors).forEach(([a, b]) => {
+          expect(es.errors.length).toBe(errors.length);
+          readonlyArray.zip(es.errors, errors).forEach(([a, b]) => {
             const { path: p1, ...o1 } = a;
             const { path: p2, ...o2 } = b;
             expect(p1).toContain(p2);
@@ -34,7 +33,7 @@ export const printFormattedError = (res: Either<error.DSLError, unknown>): void 
     either.match(
       e => {
         console.log(JSON.stringify(error.toFormattedError(e), null, 2));
-        console.error(error.prettyString(e));
+        console.error(error.prettyString(error.toFormattedError(e)));
       },
       () => {
         throw new Error('it should be an error');
@@ -88,11 +87,10 @@ describe('error', () => {
   test('error 3', () =>
     pipe(
       compileFromFile('./tests/cases/error/error-3.graphai', agents),
-      // through(printFormattedError),
       formattedErrorMatcher([
         {
           type: 'CompileError',
-          path: '/Users/tkubo/Work/i8/GraphAI/graphai-dsl/tests/cases/error/error-3.graphai',
+          path: 'tests/cases/error/error-3.graphai',
           start: {
             row: 4,
             column: 1,

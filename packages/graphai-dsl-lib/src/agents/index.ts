@@ -1,4 +1,5 @@
 import * as defaultAgents from '@graphai/agents';
+import nestedAgentInfo from '@graphai/vanilla/lib/graph_agents/nested_agent';
 import { AgentFunctionInfoDictionary } from 'graphai';
 import { printlnInfo } from './println';
 import { plusAgentInfo } from './plus-agent';
@@ -49,6 +50,7 @@ import { nativeImportAgentInfo } from './native-import-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
+  nestedAgent: nestedAgentInfo,
   identity: identityAgentInfo,
   println: printlnInfo,
   andAgent: andAgentInfo,

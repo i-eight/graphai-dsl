@@ -1,0 +1,162 @@
+{
+  "version": "0.6",
+  "nodes": {
+    "Array": {
+      "graph": {},
+      "agent": "apply",
+      "inputs": {
+        "agent": "arrayAgent",
+        "args": {}
+      }
+    },
+    "Date": {
+      "graph": {},
+      "agent": "apply",
+      "inputs": {
+        "agent": "dateAgent",
+        "args": {}
+      }
+    },
+    "__anon12__": {
+      "agent": "defAgent",
+      "inputs": {
+        "return": ["__anon1__"]
+      },
+      "graph": {
+        "nodes": {
+          "userInput": {
+            "graph": {},
+            "agent": "apply",
+            "inputs": {
+              "agent": "textInputAgent",
+              "args": {
+                "message": "You:",
+                "required": true
+              }
+            }
+          },
+          "__anon4__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "userInput": ":userInput"
+              },
+              "return": ["__anon2__"]
+            },
+            "graph": {
+              "nodes": {
+                "__anon3__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":userInput",
+                    "key": "text"
+                  }
+                },
+                "__anon2__": {
+                  "isResult": true,
+                  "graph": {},
+                  "agent": "eqAgent",
+                  "inputs": {
+                    "left": ":__anon3__",
+                    "right": "/bye"
+                  }
+                }
+              }
+            }
+          },
+          "__anon6__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {},
+              "return": ["__anon5__"]
+            },
+            "graph": {
+              "nodes": {
+                "__anon5__": {
+                  "isResult": true,
+                  "graph": {},
+                  "agent": "apply",
+                  "inputs": {
+                    "agent": "identity",
+                    "args": false
+                  }
+                }
+              }
+            }
+          },
+          "__anon11__": {
+            "agent": "defAgent",
+            "inputs": {
+              "capture": {
+                "userInput": ":userInput"
+              },
+              "return": ["__anon10__"]
+            },
+            "graph": {
+              "nodes": {
+                "__anon8__": {
+                  "agent": "getObjectMemberAgent",
+                  "inputs": {
+                    "object": ":userInput",
+                    "key": "text"
+                  }
+                },
+                "__anon9__": {
+                  "graph": {},
+                  "agent": "concatStringAgent",
+                  "inputs": {
+                    "items": ["Agent: ", ":__anon8__"]
+                  }
+                },
+                "__anon7__": {
+                  "graph": {},
+                  "agent": "apply",
+                  "inputs": {
+                    "agent": "println",
+                    "args": ":__anon9__"
+                  }
+                },
+                "__anon10__": {
+                  "isResult": true,
+                  "graph": {},
+                  "agent": "apply",
+                  "inputs": {
+                    "agent": "recur",
+                    "args": true
+                  }
+                }
+              }
+            }
+          },
+          "__anon1__": {
+            "isResult": true,
+            "agent": "caseAgent",
+            "inputs": {
+              "conditions": [
+                {
+                  "if": ":__anon4__",
+                  "then": ":__anon6__"
+                },
+                {
+                  "else": ":__anon11__"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "__anon0__": {
+      "isResult": true,
+      "graph": {},
+      "agent": "apply",
+      "inputs": {
+        "agent": "loop",
+        "args": {
+          "init": true,
+          "callback": ":__anon12__"
+        }
+      }
+    }
+  }
+}

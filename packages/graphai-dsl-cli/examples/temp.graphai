@@ -1,0 +1,3 @@
+native import '../tests/cases/compiler/dummy-agent' as dummy;
+
+dummy.dummyAgentInfo({left: 1, right: 2});

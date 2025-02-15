@@ -4,7 +4,6 @@ import { Position, Source } from './stream';
 import os from 'os';
 import * as nodePath from 'path';
 import { ParserContext } from './parser-combinator';
-import { Json } from './compiler';
 import { readonlyArray } from 'fp-ts';
 
 export type BaseError = UnexpectedError | NotImplementedError | InvalidSyntaxError;
@@ -60,6 +59,11 @@ export type FormattedError = Readonly<{
   line: string;
 }>;
 
+export type FormattedErrors = Readonly<{
+  type: 'FormattedErrors';
+  errors: ReadonlyArray<FormattedError>;
+}>;
+
 export const isParserError = (self: unknown): self is ParserError =>
   typeof self === 'object' &&
   self !== null &&
@@ -70,6 +74,9 @@ export const isParserError = (self: unknown): self is ParserError =>
 
 export const isCompileError = (self: unknown): self is CompileError =>
   typeof self === 'object' && self !== null && 'type' in self && self.type === 'CompileError';
+
+export const isFormatedErrors = (self: unknown): self is FormattedErrors =>
+  typeof self === 'object' && self !== null && 'type' in self && self.type === 'FormattedErrors';
 
 export const getActual = (self: ParserError): string =>
   self.type === 'UnexpectedParserError' ? (self.actual ?? '?') : '?';
@@ -95,30 +102,34 @@ const findLineEnd = (src: string, index: number): string =>
 const pointer = (start: RowCol, end: RowCol): string =>
   ' '.repeat(start.column - 1) + '^'.repeat(end.column - start.column);
 
-const formatParserError = (self: ParserError): ReadonlyArray<FormattedError> => [
-  {
-    type: self.type,
-    path: self.source.path === '' ? '<No source file>' : nodePath.resolve(self.source.path),
-    start: {
-      row: self.position.row,
-      column: self.position.column,
+const formatParserError = (self: ParserError): FormattedErrors => ({
+  type: 'FormattedErrors',
+  errors: [
+    {
+      type: self.type,
+      path: self.source.path === '' ? '<No source file>' : nodePath.resolve(self.source.path),
+      start: {
+        row: self.position.row,
+        column: self.position.column,
+      },
+      end: {
+        row: self.position.row,
+        column: self.position.column + 1,
+      },
+      message:
+        self.type === 'UnexpectedParserError'
+          ? (self.message ?? `Expect '${self.expect}' but got '${getActual(self)}'`)
+          : self.message,
+      line:
+        findLineStart(self.source.data, self.position.index) +
+        findLineEnd(self.source.data, self.position.index + 1),
     },
-    end: {
-      row: self.position.row,
-      column: self.position.column + 1,
-    },
-    message:
-      self.type === 'UnexpectedParserError'
-        ? (self.message ?? `Expect '${self.expect}' but got '${getActual(self)}'`)
-        : self.message,
-    line:
-      findLineStart(self.source.data, self.position.index) +
-      findLineEnd(self.source.data, self.position.index + 1),
-  },
-];
+  ],
+});
 
-const formatCompileError = (self: CompileError): ReadonlyArray<FormattedError> =>
-  self.items.map(item => ({
+const formatCompileError = (self: CompileError): FormattedErrors => ({
+  type: 'FormattedErrors',
+  errors: self.items.map(item => ({
     type: self.type,
     path:
       item.parserContext.source.path === ''
@@ -136,40 +147,27 @@ const formatCompileError = (self: CompileError): ReadonlyArray<FormattedError> =
     line:
       findLineStart(item.parserContext.source.data, item.parserContext.start.index) +
       findLineEnd(item.parserContext.source.data, item.parserContext.start.index + 1),
-  }));
+  })),
+});
 
-export const toFormattedError = (self: DSLError): ReadonlyArray<FormattedError> =>
+export const toFormattedError = (self: DSLError): FormattedErrors =>
   isParserError(self)
     ? formatParserError(self)
     : self.type === 'CompileError'
       ? formatCompileError(self)
-      : [
-          {
-            type: '',
-            path: '',
-            start: { row: 0, column: 0 },
-            end: {
-              row: 0,
-              column: 0,
-            },
-            message: '',
-            line: '',
-          },
-        ];
+      : { type: 'FormattedErrors', errors: [] };
 
-export const prettyString = (self: DSLError): string =>
-  self.type !== 'SystemError'
-    ? pipe(
-        toFormattedError(self),
-        readonlyArray.map(({ path, start, end, message, line }) =>
-          [
-            `${path}(${start.row},${start.column}): ${self.type}: ${message}`,
-            '',
-            `\t${line}`,
-            `\t${pointer(start, end)}`,
-            '',
-          ].join(os.EOL),
-        ),
-        _ => _.join(os.EOL),
-      )
-    : JSON.stringify(self);
+export const prettyString = (self: FormattedErrors): string =>
+  pipe(
+    self.errors,
+    readonlyArray.map(({ type, path, start, end, message, line }) =>
+      [
+        `${path}(${start.row},${start.column}): ${type}: ${message}`,
+        '',
+        `\t${line}`,
+        `\t${pointer(start, end)}`,
+        '',
+      ].join(os.EOL),
+    ),
+    _ => _.join(os.EOL),
+  );
