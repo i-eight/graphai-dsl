@@ -1,0 +1,35 @@
+---
+sidebar_position: 70
+---
+
+# Module
+
+## Defining a Module
+
+A module is a file that contains a set of nodes and functions that are publicly accessible.
+
+```
+// ./path/to/my-module.graphai
+@version('0.6');
+
+public a = 1;
+
+public b = 2;
+
+public f = (x, y) -> x + y;
+```
+
+## Import
+
+
+```
+import "./path/to/my-module.graphai";
+
+f(a, b) |> println;
+```
+
+```
+import "path/to/my-module.graphai" as m;
+
+m.f(m.a, m.b) |> println;
+```

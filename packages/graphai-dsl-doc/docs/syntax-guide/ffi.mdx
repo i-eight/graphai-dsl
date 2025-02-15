@@ -1,0 +1,38 @@
+---
+sidebar_position: 90
+---
+
+# Foreign Function Interface
+
+JavaScript module can be imported and used in the GraphAI DSL code using the `native import` statement.
+Primitive types of JavaScript like `number`, `string`, `boolean`, `array`, `object` can be passed between the GraphAI DSL code and the JavaScript module.
+But JavaScript functions cannot be used as-is in DSL. Only functions defined as GraphAI agents can be used in the DSL.
+
+## Defining a Native Module
+
+```
+// ./path/to/native-module.js
+const dummyAgent = ({ namedInputs: { left, right } }) => left + right;
+
+const dummyAgentInfo = {
+  name: 'dummyAgent',
+  agent: dummyAgent,
+  mock: dummyAgent,
+
+  samples: [],
+  description: 'this is agent',
+  category: ['general'],
+  author: 'ai',
+  repository: 'https://github.com/receptron/graphai/',
+  license: 'MIT',
+};
+
+module.exports.dummyAgentInfo = dummyAgentInfo;
+```
+
+```
+@version('0.6');
+native import './dummy-agent' as dummy;
+
+dummy.dummyAgentInfo({left: 1, right: 2});
+```

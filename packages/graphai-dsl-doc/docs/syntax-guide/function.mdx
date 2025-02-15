@@ -1,0 +1,74 @@
+---
+sidebar_position: 60
+---
+
+# Function
+
+## Calling a Function
+
+```
+someFunction();
+```
+
+```
+someFunction(1, 2);
+```
+
+```
+someFunction([1, 2, 3]);
+```
+
+```
+someFunction({x: 1, y: 2});
+```
+
+## Defining a Function
+
+```
+f = (x, y) -> x + y;
+```
+
+```
+f = () -> {
+  x + y;
+};
+```
+
+## Currying
+
+Following two are equivalent:
+
+```
+f = (x, y) -> x + y;
+```
+
+```
+f = (x) -> (y) -> x + y;
+```
+
+Following two are equivalent:
+
+```
+f(1, 2);
+```
+
+```
+f(1)(2);
+```
+
+## Partial Application
+
+```
+f = (x, y) -> x + y;
+g = f(1);
+g(2); // f(1, 2)
+```
+
+```
+f = (x, y) -> x + y;
+1 |> f(2); // f(2, 1)
+```
+
+```
+[1, 2, 3] |> Array.map((x) -> x * 2)
+```

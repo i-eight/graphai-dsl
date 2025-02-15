@@ -1,0 +1,110 @@
+---
+sidebar_position: 20
+---
+
+# Operators
+
+| Operator | Underlying Agent              | Precedence |
+| :------- | :---------------------------- | :--------- |
+| `\|>`    | `applyAgent`                  | =          |
+| `-->`    | `hyphenHyphenRightArrowAgent` | ↓          |
+| `&&`     | `andAgent`                    | =          |
+| `\|\|`   | `orAgent`                     | ↓          |
+| `==`     | `eqAgent`                     | =          |
+| `!=`     | `neqAgent`                    | =          |
+| `>`      | `gtAgent`                     | =          |
+| `>=`     | `gteAgent`                    | =          |
+| `<`      | `ltAgent`                     | =          |
+| `<=`     | `lteAgent`                    | ↓          |
+| `+`      | `plusAgent`                   | =          |
+| `-`      | `minusAgent`                  | ↓          |
+| `*`      | `mulAgent`                    | =          |
+| `/`      | `divAgent`                    | =          |
+| `%`      | `modAgent`                    | ↓          |
+| `^`      | `powAgent`                    | ↓          |
+| `[]`     | `getArrayElementAgent`        | =          |
+| `.`      | `getObjectMemberAgent`        |            |
+
+## Arithmetic Operators
+
+```
+1 + 2
+```
+
+```
+(1 + 2) * 3 - 4
+```
+
+```
+1 / 2
+```
+
+```
+1 % 2
+```
+
+```
+1 ^ 2
+```
+
+## Logical Operators
+
+```
+true && false
+```
+
+```
+true || false
+```
+
+## Comparison Operators
+
+```
+1 == 2
+```
+
+```
+1 != 2
+```
+
+```
+1 > 2
+```
+
+```
+1 >= 2
+```
+
+```
+1 < 2
+```
+
+```
+1 <= 2
+```
+
+## Pipeline Operator
+
+```
+'Hello' |> println;
+```
+
+```
+f = (x + y) -> x + y;
+1 |> f(2);
+```
+
+## Connection Operator
+
+```
+getLocationAgent() --> getWeatherAgent;
+```
+
+```
+userInput --> [
+    getIssues, 
+    createIssue, 
+    editIssue, 
+    closeIssue
+];
+```    
