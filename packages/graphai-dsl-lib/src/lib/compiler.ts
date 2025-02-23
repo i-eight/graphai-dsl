@@ -276,23 +276,31 @@ export const newComputedNode = (
   context: params.context,
 });
 
+export const embeddedAgent = (name: string, agent: string) => ({ name, agent });
+
+export const embeddedAgents: ReadonlyArray<{ name: string; agent: string }> = [
+  embeddedAgent('Array', 'arrayAgent'),
+  embeddedAgent('Object', 'objectAgent'),
+  embeddedAgent('Date', 'dateAgent'),
+  embeddedAgent('Json', 'jsonAgent'),
+];
+
 export const addEmbeddedAgentsToGraph = (file: File): File => ({
   ...file,
   graph: {
     ...file.graph,
     statements: [
-      newComputedNode({
-        name: 'Array',
-        modifier: 'public',
-        agent: 'arrayAgent',
-        context: file.graph.context,
-      }),
-      newComputedNode({
-        name: 'Date',
-        modifier: 'public',
-        agent: 'dateAgent',
-        context: file.graph.context,
-      }),
+      ...pipe(
+        embeddedAgents,
+        readonlyArray.map(({ name, agent }) =>
+          newComputedNode({
+            name,
+            modifier: 'private',
+            agent,
+            context: file.graph.context,
+          }),
+        ),
+      ),
       ...file.graph.statements,
     ],
   },

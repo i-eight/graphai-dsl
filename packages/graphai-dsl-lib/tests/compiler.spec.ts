@@ -119,7 +119,7 @@ describe('Compiler', () => {
     );
   });
 
-  test('computed-node array', () => {
+  test('computed-node array 1', () => {
     pipe(
       parseSourceTest('@version("0.6"); a = [1, 2, 3];'),
       compileFileTest(),
@@ -145,7 +145,36 @@ describe('Compiler', () => {
     );
   });
 
-  test('computed-node object', () => {
+  test('computed-node array 2', () => {
+    pipe(
+      parseSourceTest(`
+        @version("0.6"); 
+        a = [];
+      `),
+      compileFileTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                isResult: true,
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: [],
+                },
+              },
+            },
+          }),
+        ),
+      ),
+      runFileTest(either.right({ a: [] })),
+    );
+  });
+
+  test('computed-node object 1', () => {
     pipe(
       parseSourceTest('@version("0.6"); a = {a: 1, b: "b", c: [3.0], d: false};'),
       compileFileTest(),
@@ -173,6 +202,35 @@ describe('Compiler', () => {
         ),
       ),
       runFileTest(either.right({ a: { a: 1, b: 'b', c: [3.0], d: false } })),
+    );
+  });
+
+  test('computed-node object 2', () => {
+    pipe(
+      parseSourceTest(`
+        @version("0.6");
+        a = {};
+      `),
+      compileFileTest(),
+      through(_ =>
+        expect(_).toStrictEqual(
+          either.right({
+            version: '0.6',
+            nodes: {
+              a: {
+                isResult: true,
+                graph: {},
+                agent: 'apply',
+                inputs: {
+                  agent: 'identity',
+                  args: {},
+                },
+              },
+            },
+          }),
+        ),
+      ),
+      runFileTest(either.right({ a: {} })),
     );
   });
 
@@ -704,7 +762,11 @@ describe('Compiler', () => {
 
   test('A nested graph with a captured value 1', () =>
     pipe(
-      parseSourceTest('@version("0.6"); static a = 1; { b = println(a); };'),
+      parseSourceTest(`
+        @version("0.6"); 
+        static a = 1; 
+        { b = println(a); };
+      `),
       compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
@@ -746,7 +808,7 @@ describe('Compiler', () => {
           }),
         ),
       ),
-      runFileTest(either.right({})),
+      runFileTest(either.right({ __anon0__: null })),
     ));
 
   test('A deep nested graph with a captured value', () =>
@@ -1750,6 +1812,17 @@ describe('Compiler', () => {
                 `),
       compileFileTest(),
       runFileTest(either.right({ __anon1__: 's = 1' })),
+    ));
+
+  test('object-member 10', async () =>
+    pipe(
+      parseSourceTest(`
+                    @version('0.6');
+                    o = {};
+                    o.a;
+                  `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: null })),
     ));
 
   test('loop', async () =>

@@ -1,5 +1,5 @@
 {
-  "name": "graphai-dsl-doc",
+  "name": "@i-eight/graphai-dsl-doc",
   "version": "0.0.0",
   "private": true,
   "scripts": {

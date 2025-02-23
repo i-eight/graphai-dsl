@@ -4,7 +4,7 @@ const getObjectMemberAgent: AgentFunction<
   object,
   unknown,
   Readonly<{ object: Readonly<Record<string, unknown>>; key: string }>
-> = async ({ namedInputs: { object, key } }) => object[key];
+> = async ({ namedInputs: { object, key } }) => object[key] ?? null;
 
 export const getObjectMemberAgentInfo: AgentFunctionInfo = {
   name: 'getObjectMemberAgent',

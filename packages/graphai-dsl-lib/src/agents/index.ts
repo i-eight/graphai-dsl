@@ -47,6 +47,8 @@ import {
 import { getProcessEnvAgentInfo } from './process-agent';
 import { getAgentInfoAgentInfo } from './agent-info-agent';
 import { nativeImportAgentInfo } from './native-import-agent';
+import { objectAgentInfo } from './object-agent';
+import { JsonAgentInfo } from './json-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -86,6 +88,8 @@ export const agents: AgentFunctionInfoDictionary = {
   apply: applyAgentInfo,
   getAgentInfo: getAgentInfoAgentInfo,
   arrayAgent: arrayAgentInfo,
+  objectAgent: objectAgentInfo,
+  jsonAgent: JsonAgentInfo,
   dateAgent: dateAgentInfo,
   getProcessEnvAgent: getProcessEnvAgentInfo,
   connectAgent: connectAgentInfo,

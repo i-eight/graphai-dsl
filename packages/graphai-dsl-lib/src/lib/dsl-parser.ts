@@ -66,6 +66,7 @@ import { Unit, unit } from './unit';
 import { Option } from 'fp-ts/lib/Option';
 import { loop, recur } from './loop';
 import * as error from './error';
+import { toReadableJson } from './dsl-util';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -1160,7 +1161,15 @@ export const computedNodeBody: Parser<ComputedNodeBody> = pipe(
   parser.or<ComputedNodeBody>(expr),
 );
 
-export const computedNode: Parser<ComputedNode> = pipe(
+export const anonComputedNode: Parser<ComputedNode> = pipe(
+  parser.unit,
+  parser.bind('body', () => computedNodeBody),
+  parser.left(whitespaces),
+  parser.left(char(';')),
+  parser.context(({ body }) => pipe({ type: 'ComputedNode', modifiers: [], body })),
+);
+
+export const namedComputedNode: Parser<ComputedNode> = pipe(
   parser.unit,
   parser.bind('modifiers', () =>
     pipe(
@@ -1176,26 +1185,19 @@ export const computedNode: Parser<ComputedNode> = pipe(
     ),
   ),
   parser.bind('name', () =>
-    pipe(
-      identifier,
-      parser.left(whitespaces),
-      parser.left(char('=')),
-      parser.left(whitespaces),
-      parser.optional,
-    ),
+    pipe(identifier, parser.left(whitespaces), parser.left(char('=')), parser.left(whitespaces)),
   ),
   parser.bind('body', () => computedNodeBody),
   parser.left(whitespaces),
   parser.left(char(';')),
   parser.context(({ name, modifiers, body }) =>
-    pipe(
-      name,
-      option.match(
-        () => ({ type: 'ComputedNode', modifiers, body }),
-        name => ({ type: 'ComputedNode', modifiers, name, body }),
-      ),
-    ),
+    pipe({ type: 'ComputedNode', modifiers, name, body }),
   ),
+);
+
+export const computedNode: Parser<ComputedNode> = pipe(
+  namedComputedNode,
+  parser.or(anonComputedNode),
 );
 
 export const statement: Parser<Node> = pipe(staticNode, parser.or<Node>(computedNode));
@@ -1226,7 +1228,12 @@ export const graph = (end: Parser<Unit>, version: Option<string>): Parser<Graph>
     ),
     parser.flatMap(([statements, flag]) =>
       flag === 'next' || flag === 'stop'
-        ? parser.of(statements)
+        ? statements.length === 0
+          ? parser.fail<Graph['statements']>({
+              type: 'UnexpectedParserError',
+              message: 'Graph must have at least one statement',
+            })
+          : parser.of(statements)
         : parser.fail<Graph['statements']>(flag),
     ),
     parser.context(statements =>
