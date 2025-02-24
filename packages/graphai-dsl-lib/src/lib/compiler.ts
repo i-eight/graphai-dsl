@@ -36,7 +36,7 @@ import {
   NativeImport,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
-import { parser, ParserContext, ParserData } from './parser-combinator';
+import { parser, ParserRange, ParserData } from './parser-combinator';
 import { StateEither, stateEither as se } from './state-either';
 import { unit, Unit } from './unit';
 import { Either } from 'fp-ts/lib/Either';
@@ -225,7 +225,7 @@ export const compileFromString = (
 ): Either<DSLError, Json> =>
   pipe(
     file(src.path),
-    parser.run(stream.create(src)),
+    parser.run({ stream: stream.create(src) }),
     either.flatMap(({ data }) => pipe(data, addEmbeddedAgentsToGraph, fileToJson, run(agents))),
     either.map(([_]) => _.json),
   );
@@ -245,7 +245,7 @@ export const newComputedNode = (
     modifier: 'public' | 'private';
     agent: string;
     args?: Expr;
-    context: ParserContext;
+    context: ParserRange;
   }>,
 ): ComputedNode => ({
   type: 'ComputedNode',
@@ -322,7 +322,7 @@ const importFromPath = (path: string): Result<Statements> =>
   pipe(
     fs.readFileSync(path, 'utf-8'),
     data =>
-      pipe(file(path), parser.run(stream.create(source.of(path, data))), _ =>
+      pipe(file(path), parser.run({ stream: stream.create(source.of(path, data)) }), _ =>
         result.fromEither<ParserData<File>>(_),
       ),
     se.let_('file_', _ => _.data),
@@ -356,7 +356,7 @@ const statementsToPublicPairs = (s: Statements): ReadonlyArray<DSLObjectPair> =>
     ),
   );
 
-const importsToObject = (s: Statements, context: ParserContext): NestedGraph => ({
+const importsToObject = (s: Statements, context: ParserRange): NestedGraph => ({
   type: 'NestedGraph',
   annotations: [],
   graph: {
@@ -424,7 +424,7 @@ const pathExists = (path: string): boolean => {
 const getPackageFilePath = (
   importPath: string,
   currentDir: string,
-  parserContext: ParserContext,
+  parserContext: ParserRange,
 ): Result<string> =>
   pipe(
     result.of(nodePath.resolve(currentDir)),

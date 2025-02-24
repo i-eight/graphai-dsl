@@ -53,7 +53,7 @@ describe('char-parser', () => {
       either.mapLeft(_ =>
         _.type === 'UnexpectedParserError' ? { expect: _.expect, actual: _.actual } : {},
       ),
-      _ => expect(_).toStrictEqual(either.left({ expect: 'a', actual: 'b' })),
+      _ => expect(_).toStrictEqual(either.left({ expect: ['a'], actual: 'b' })),
     );
 
     pipe(
@@ -81,7 +81,7 @@ describe('char-parser', () => {
       either.mapLeft(_ =>
         _.type === 'UnexpectedParserError' ? { expect: _.expect, actual: _.actual } : {},
       ),
-      _ => expect(_).toStrictEqual(either.left({ expect: 'a', actual: 'b' })),
+      _ => expect(_).toStrictEqual(either.left({ expect: ['a'], actual: 'b' })),
     );
 
     pipe(
@@ -119,16 +119,16 @@ describe('char-parser', () => {
         expect(_).toStrictEqual(
           either.left({
             type: 'UnexpectedParserError',
-            expect: 'hoge',
+            expect: ['hoge'],
             actual: 'a',
             source: {
               data: 'hoga',
               path: '',
             },
             position: {
-              index: 3,
+              index: 0,
               row: 1,
-              column: 4,
+              column: 1,
             },
           }),
         ),
@@ -180,7 +180,7 @@ describe('char-parser', () => {
         either.left({
           type: 'UnexpectedParserError',
           actual: 'a',
-          expect: 'space',
+          expect: ['space'],
           source: {
             data: 'a',
             path: '',
@@ -225,7 +225,7 @@ describe('char-parser', () => {
       expect(_).toStrictEqual(
         either.left({
           type: 'UnexpectedParserError',
-          expect: 'whitespace',
+          expect: ['whitespace'],
           actual: 'a',
           source: {
             data: 'a',
@@ -280,7 +280,7 @@ describe('char-parser', () => {
       expect(_).toStrictEqual(
         either.left({
           type: 'UnexpectedParserError',
-          expect: 'one of abcd',
+          expect: ['one of abcd'],
           actual: 'x',
           source: {
             data: 'x',

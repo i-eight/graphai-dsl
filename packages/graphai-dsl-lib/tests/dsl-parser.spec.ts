@@ -146,7 +146,7 @@ describe('dsl-parser', () => {
         expect(_).toEqual(
           either.left({
             type: 'UnexpectedParserError',
-            expect: 'number',
+            expect: ['number'],
             actual: '?',
             source: { data: '', path: '' },
             position: { index: 0, row: 1, column: 1 },

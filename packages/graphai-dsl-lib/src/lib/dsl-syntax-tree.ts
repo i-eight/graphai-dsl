@@ -1,4 +1,4 @@
-import { ParserContext as Context } from './parser-combinator';
+import { ParserRange as Context } from './parser-combinator';
 
 export type File = Readonly<{
   type: 'File';

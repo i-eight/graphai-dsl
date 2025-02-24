@@ -4,6 +4,10 @@ import * as error from '../src/lib/error';
 import { compileFromFile } from '../src/lib/compiler';
 import { agents } from '../src/agents';
 import { Either } from 'fp-ts/lib/Either';
+import { printJson } from './helpers';
+import { dslParser } from '../src';
+import { parser } from '../src/lib/parser-combinator';
+import { source, stream } from '../src/lib/stream';
 
 export const formattedErrorMatcher =
   (errors: ReadonlyArray<error.FormattedError>) =>
@@ -104,4 +108,13 @@ describe('error', () => {
         },
       ]),
     ));
+
+  // test.only('error 4', () =>
+  //   pipe(
+  //     dslParser.anonComputedNode,
+  //     parser.run(stream.create(source.of('', 'a === 1'))),
+  //     printJson,
+  //     //compileFromFile('./tests/cases/error/error-4.graphai', agents),
+  //     //printJson,
+  //   ));
 });

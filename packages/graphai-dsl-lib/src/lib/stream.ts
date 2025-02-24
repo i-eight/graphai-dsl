@@ -25,6 +25,9 @@ export namespace source {
 }
 
 export namespace stream {
+  export const is = (_: unknown): _ is Stream =>
+    typeof _ === 'object' && _ !== null && 'source' in _ && 'position' in _;
+
   export const create = (source: Source): Stream => ({
     source,
     position: { index: 0, row: 1, column: 1 },

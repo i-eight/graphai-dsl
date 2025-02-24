@@ -6,37 +6,37 @@ import os from 'os';
 import { unit, Unit } from './unit';
 
 export const eos: Parser<Unit> = parser.create(s =>
-  s.position.index < s.source.data.length
+  s.stream.position.index < s.stream.source.data.length
     ? either.left({
         type: 'UnexpectedParserError',
         message: 'Expect end of stream',
-        source: s.source,
-        position: s.position,
+        source: s.stream.source,
+        position: s.stream.position,
       })
-    : either.right({ stream: s, data: unit }),
+    : either.right({ state: s, data: unit }),
 );
 
 export const matchedChar = (f: (c: string) => boolean, expect: string): Parser<string> =>
   parser.create(s =>
     pipe(
-      stream.head(s),
+      stream.head(s.stream),
       option.match(
         () =>
           either.left({
             type: 'UnexpectedParserError',
             message: `Expect ${expect} but failed to get a next char in the stream`,
-            source: s.source,
-            position: s.position,
+            source: s.stream.source,
+            position: s.stream.position,
           }),
         c =>
           f(c)
-            ? either.right({ stream: stream.tail(s), data: c })
+            ? either.right({ state: { ...s, stream: stream.tail(s.stream) }, data: c })
             : either.left({
                 type: 'UnexpectedParserError',
-                expect,
+                expect: [expect],
                 actual: c,
-                source: s.source,
-                position: s.position,
+                source: s.stream.source,
+                position: s.stream.position,
               }),
       ),
     ),
@@ -55,7 +55,7 @@ export const text = (expect: string, index: number = 0): Parser<string> =>
         parser.orElse(e =>
           parser.fail({
             type: 'UnexpectedParserError',
-            expect,
+            expect: [expect],
             actual: e.type === 'UnexpectedParserError' ? e.actual : '?',
           }),
         ),
@@ -123,7 +123,7 @@ export const alphaNum: Parser<string> = pipe(
   parser.orElse(cause =>
     parser.fail({
       type: 'UnexpectedParserError',
-      expect: 'alphabet or digit',
+      expect: ['alphabet', 'digit'],
       actual: cause.type === 'UnexpectedParserError' ? cause.actual : '?',
       cause,
     }),

@@ -1,46 +1,54 @@
 import { Either } from 'fp-ts/lib/Either';
-import { Position, Source, Stream } from './stream';
+import { Position, Source, stream, Stream } from './stream';
 import { either, option } from 'fp-ts';
 import { pipe } from 'fp-ts/lib/function';
 import { Option } from 'fp-ts/lib/Option';
-import { Unit } from './unit';
+import { Unit, unit as unit_ } from './unit';
 import { loop, Recur, recur } from './loop';
-
-import { BaseError, ParserError } from './error';
+import { BaseError, mergeParserError, ParserError } from './error';
 
 export type ParserData<A> = Readonly<{
-  stream: Stream;
+  state: ParserState;
   data: A;
+}>;
+
+export type ParserState = Readonly<{
+  stream: Stream;
+  error?: ParserError;
 }>;
 
 export type ParserResult<A> = Either<ParserError, ParserData<A>>;
 
 export type Parser<A> = Readonly<{
-  parse: (stream: Stream) => ParserResult<A>;
+  parse: (state: ParserState) => ParserResult<A>;
 }>;
 
-export type ParserContext = Readonly<{
+export type ParserRange = Readonly<{
   source: Source;
   start: Position;
   end: Position;
 }>;
 
 export namespace parser {
-  export const create = <A>(parse: (stream: Stream) => ParserResult<A>): Parser<A> => ({
+  export const create = <A>(parse: (state: ParserState) => ParserResult<A>): Parser<A> => ({
     parse,
   });
 
-  export const of = <A>(data: A): Parser<A> => create(s => either.right({ stream: s, data }));
+  export const of = <A>(data: A): Parser<A> => create(state => either.right({ state, data }));
 
   export const fail = <A>(error: BaseError): Parser<A> =>
     create(s =>
-      either.left({ source: s.source, position: s.position, ...error } satisfies ParserError),
+      either.left({
+        source: s.stream.source,
+        position: s.stream.position,
+        ...error,
+      } satisfies ParserError),
     );
 
   export const run =
-    <A>(stream: Stream) =>
+    <A>(_: ParserState | Stream) =>
     (self: Parser<A>): ParserResult<A> =>
-      self.parse(stream);
+      self.parse(stream.is(_) ? { stream: _ } : _);
 
   export const flatMap =
     <A, B>(f: (a: A) => Parser<B>) =>
@@ -49,7 +57,7 @@ export namespace parser {
         pipe(
           self,
           run(s),
-          either.flatMap(({ stream, data }) => pipe(f(data), run(stream))),
+          either.flatMap(({ state, data }) => pipe(f(data), run(state))),
         ),
       );
 
@@ -101,8 +109,14 @@ export namespace parser {
             pipe(
               f(e1),
               run(s),
-              either.orElse(e2 =>
-                e1.position.index > e2.position.index ? either.left(e1) : either.left(e2),
+              either.flatMap(_ =>
+                either.right<ParserError, ParserData<A>>({
+                  ..._,
+                  state: {
+                    ..._.state,
+                    error: e1,
+                  },
+                }),
               ),
             ),
           ),
@@ -110,11 +124,16 @@ export namespace parser {
       );
 
   export const or =
-    <A>(p: Parser<A>) =>
+    <A>(p: Parser<A> | (() => Parser<A>)) =>
     (self: Parser<A>): Parser<A> =>
       pipe(
         self,
-        orElse(() => p),
+        orElse(e1 =>
+          pipe(
+            typeof p === 'function' ? p() : p,
+            orElse(e2 => fail(mergeParserError(e1, e2))),
+          ),
+        ),
       );
 
   export const optional = <A>(self: Parser<A>): Parser<Option<A>> =>
@@ -124,10 +143,20 @@ export namespace parser {
       orElse(() => of<Option<A>>(option.none)),
     );
 
-  export const getStream: Parser<Stream> = create(stream => either.right({ stream, data: stream }));
+  export const getState: Parser<ParserState> = create(state =>
+    either.right({ state, data: state }),
+  );
 
-  export const mapWithContext =
-    <A, B>(f: (a: A, context: ParserContext) => B) =>
+  export const updateState = (f: (state: ParserState) => ParserState): Parser<Unit> =>
+    create(state => either.right({ state: f(state), data: unit_ }));
+
+  export const getStream: Parser<Stream> = pipe(
+    getState,
+    map(s => s.stream),
+  );
+
+  export const mapWithRange =
+    <A, B>(f: (a: A, context: ParserRange) => B) =>
     (self: Parser<A>): Parser<B> =>
       pipe(
         unit,
@@ -139,12 +168,12 @@ export namespace parser {
         ),
       );
 
-  export const context =
+  export const range =
     <A, B>(f: (a: A) => B) =>
-    (self: Parser<A>): Parser<B & Readonly<{ context: ParserContext }>> =>
+    (self: Parser<A>): Parser<B & Readonly<{ context: ParserRange }>> =>
       pipe(
         self,
-        mapWithContext((a, context) => ({
+        mapWithRange((a, context) => ({
           ...f(a),
           context,
         })),
@@ -156,13 +185,13 @@ export namespace parser {
         self,
         run(s),
         either.match(
-          () => either.right({ stream: s, data: { type: 'Unit' } }),
+          () => either.right({ state: s, data: { type: 'Unit' } }),
           a =>
             either.left({
               type: 'UnexpectedParserError',
               message: `Expect not followed by ${a}`,
-              source: s.source,
-              position: s.position,
+              source: s.stream.source,
+              position: s.stream.position,
             }),
         ),
       ),
@@ -197,17 +226,17 @@ export namespace parser {
   export const repeat = <A>(init: A, f: (acc: A) => Parser<A>) =>
     create<A>(s =>
       pipe(
-        loop({ stream: s, data: init }, result =>
+        loop({ state: s, data: init }, result =>
           pipe(
             f(result.data),
-            run(result.stream),
+            run(result.state),
             either.match(
               () =>
                 ({
-                  stream: result.stream,
+                  state: result.state,
                   data: result.data,
                 }) as Recur<ParserData<A>> | ParserData<A>,
-              ({ stream, data }) => recur({ stream, data }),
+              ({ state, data }) => recur({ state, data }),
             ),
           ),
         ),

@@ -3,16 +3,18 @@ import { loop, recur } from './loop';
 import { Position, Source } from './stream';
 import os from 'os';
 import * as nodePath from 'path';
-import { ParserContext } from './parser-combinator';
+import { ParserRange } from './parser-combinator';
 import { readonlyArray } from 'fp-ts';
 
 export type BaseError = UnexpectedError | NotImplementedError | InvalidSyntaxError;
 
-export type ParserError = BaseError & Readonly<{ source: Source; position: Position }>;
+export type WithSrcPos<E extends BaseError> = E & Readonly<{ source: Source; position: Position }>;
+
+export type ParserError = WithSrcPos<BaseError>;
 
 export type UnexpectedError = Readonly<{
   type: 'UnexpectedParserError';
-  expect?: string;
+  expect?: ReadonlyArray<string>;
   actual?: string;
   message?: string;
   cause?: DSLError;
@@ -32,7 +34,7 @@ export type InvalidSyntaxError = Readonly<{
 
 export type CompileErrorItem = Readonly<{
   message: string;
-  parserContext: ParserContext;
+  parserContext: ParserRange;
 }>;
 
 export type CompileError = Readonly<{
@@ -80,6 +82,24 @@ export const isFormatedErrors = (self: unknown): self is FormattedErrors =>
 
 export const getActual = (self: ParserError): string =>
   self.type === 'UnexpectedParserError' ? (self.actual ?? '?') : '?';
+
+export const mergeUnexpectedError = (
+  e1: WithSrcPos<UnexpectedError>,
+  e2: WithSrcPos<UnexpectedError>,
+): WithSrcPos<UnexpectedError> => ({
+  ...e1,
+  expect: [...(e1.expect == null ? [] : e1.expect), ...(e2.expect == null ? [] : e2.expect)],
+});
+
+export const mergeParserError = (e1: ParserError, e2: ParserError): ParserError =>
+  e1.position.index === e2.position.index &&
+  e1.type === 'UnexpectedParserError' &&
+  e2.type === 'UnexpectedParserError' &&
+  e1.actual === e2.actual
+    ? mergeUnexpectedError(e1, e2)
+    : e1.position.index > e2.position.index
+      ? e1
+      : e2;
 
 const findLineStart = (src: string, index: number): string =>
   loop({ i: index, out: '' }, ({ i, out }) =>

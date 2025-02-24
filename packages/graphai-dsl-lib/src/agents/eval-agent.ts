@@ -4,7 +4,6 @@ import { GraphAI, GraphData } from 'graphai';
 import { pipe } from 'fp-ts/lib/function';
 import { either, task } from 'fp-ts';
 import { source } from '../lib/stream';
-import { unit } from '../lib';
 
 const evalAgent: AgentFunction<object, unknown, string> = async ({
   namedInputs: src,

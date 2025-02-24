@@ -59,14 +59,13 @@ import {
   Modifier,
   NativeImport,
 } from './dsl-syntax-tree';
-import { Parser, parser, ParserContext } from './parser-combinator';
+import { Parser, parser, ParserRange } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
 import os from 'os';
 import { Unit, unit } from './unit';
 import { Option } from 'fp-ts/lib/Option';
 import { loop, recur } from './loop';
 import * as error from './error';
-import { toReadableJson } from './dsl-util';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -90,7 +89,7 @@ export const blockComment: Parser<BlockComment> = pipe(
     ),
   ),
   parser.left(text('*/')),
-  parser.context(value => ({ type: 'BlockComment', value })),
+  parser.range(value => ({ type: 'BlockComment', value })),
 );
 
 export const lineComment: Parser<LineComment> = pipe(
@@ -117,7 +116,7 @@ export const lineComment: Parser<LineComment> = pipe(
       parser.or(eos),
     ),
   ),
-  parser.context(value => ({ type: 'LineComment', value })),
+  parser.range(value => ({ type: 'LineComment', value })),
 );
 
 export const ignoredToken: Parser<ReadonlyArray<BlockComment | LineComment>> = pipe(
@@ -152,7 +151,7 @@ export const identifier: Parser<Identifier> = pipe(
   parser.orElse(e =>
     parser.fail({
       type: 'UnexpectedParserError',
-      expect: 'identifier',
+      expect: ['identifier'],
       actual: error.getActual(e),
       message: `An identifier can not start with ${error.getActual(e)}`,
     }),
@@ -180,7 +179,7 @@ export const identifier: Parser<Identifier> = pipe(
           : parser.of(name),
     ),
   ),
-  parser.context(({ name, annotations }) => ({ type: 'Identifier', annotations, name })),
+  parser.range(({ name, annotations }) => ({ type: 'Identifier', annotations, name })),
 );
 
 export const boolean: Parser<DSLBoolean> = pipe(
@@ -193,13 +192,13 @@ export const boolean: Parser<DSLBoolean> = pipe(
       parser.orElse(e =>
         parser.fail({
           type: 'UnexpectedParserError',
-          expect: 'boolean',
+          expect: ['boolean'],
           actual: error.getActual(e),
         }),
       ),
     ),
   ),
-  parser.context(({ annotations, value }) => ({
+  parser.range(({ annotations, value }) => ({
     type: 'Boolean',
     annotations,
     value: value === 'true',
@@ -228,9 +227,9 @@ export const number: Parser<DSLNumber> = pipe(
   ),
   parser.bind('value', ({ sign, uint, decimal }) => parser.of(Number(`${sign}${uint}${decimal}`))),
   parser.orElse(e =>
-    parser.fail({ type: 'UnexpectedParserError', expect: 'number', actual: error.getActual(e) }),
+    parser.fail({ type: 'UnexpectedParserError', expect: ['number'], actual: error.getActual(e) }),
   ),
-  parser.context(({ annotations, value }) => ({ type: 'Number', annotations, value })),
+  parser.range(({ annotations, value }) => ({ type: 'Number', annotations, value })),
 );
 
 const stringQuote = (quote: '"' | "'"): Parser<DSLString> =>
@@ -273,7 +272,7 @@ const stringQuote = (quote: '"' | "'"): Parser<DSLString> =>
         parser.left(char(quote)),
       ),
     ),
-    parser.context(({ annotations, value }) => ({ type: 'String', annotations, value })),
+    parser.range(({ annotations, value }) => ({ type: 'String', annotations, value })),
   );
 
 export const string: Parser<DSLString> = pipe(stringQuote('"'), parser.or(stringQuote("'")));
@@ -299,7 +298,7 @@ export const array: Parser<DSLArray> = pipe(
       parser.left(char(']')),
     ),
   ),
-  parser.context(({ annotations, value }) => ({ type: 'Array', annotations, value })),
+  parser.range(({ annotations, value }) => ({ type: 'Array', annotations, value })),
 );
 
 export const object: Parser<DSLObject> = pipe(
@@ -328,14 +327,14 @@ export const object: Parser<DSLObject> = pipe(
       parser.left(char('}')),
     ),
   ),
-  parser.context(({ annotations, value }) => ({ type: 'Object', annotations, value })),
+  parser.range(({ annotations, value }) => ({ type: 'Object', annotations, value })),
 );
 
 export const null_: Parser<DSLNull> = pipe(
   parser.unit,
   parser.bind('annotations', () => nodeAnnotations),
   parser.bind('value', () => text('null')),
-  parser.context(({ annotations }) => ({ type: 'Null', annotations })),
+  parser.range(({ annotations }) => ({ type: 'Null', annotations })),
 );
 
 export const nodeAnnotation: Parser<NodeAnnotation> = pipe(
@@ -346,7 +345,7 @@ export const nodeAnnotation: Parser<NodeAnnotation> = pipe(
   parser.bind('value', () => expr),
   parser.left(whitespaces),
   parser.left(char(')')),
-  parser.context(({ name, value }) => ({ type: 'NodeAnnotation', name, value })),
+  parser.range(({ name, value }) => ({ type: 'NodeAnnotation', name, value })),
 );
 
 export const nodeAnnotations: Parser<ReadonlyArray<NodeAnnotation>> = pipe(
@@ -360,7 +359,7 @@ export const agentDefRecur = (
   annotations: ReadonlyArray<NodeAnnotation>,
   args: ReadonlyArray<Identifier>,
   body: Expr | Graph,
-  context: ParserContext,
+  context: ParserRange,
 ): AgentDef =>
   pipe(
     loop(
@@ -448,7 +447,7 @@ export const agentDef: Parser<AgentDef> = pipe(
       parser.or<Graph | Expr>(expr),
     ),
   ),
-  parser.mapWithContext(({ annotations, args, body }, context) =>
+  parser.mapWithRange(({ annotations, args, body }, context) =>
     agentDefRecur(annotations, args, body, context),
   ),
 );
@@ -482,8 +481,8 @@ export const term: Parser<Term> = pipe(
   parser.or<Term>(null_),
   parser.or<Term>(array),
   parser.or<Term>(object),
-  parser.orElse<Term>(() => paren),
-  parser.orElse<Term>(() => nestedGraph),
+  parser.or<Term>(() => paren),
+  parser.or<Term>(() => nestedGraph),
   parser.or<Term>(identifier),
 );
 
@@ -525,7 +524,7 @@ export const arrayAtFrom = (
             message: `Index access cannot be used for ${term.type}.`,
           }),
     ),
-    parser.context(({ index, array }) =>
+    parser.range(({ index, array }) =>
       identity<Omit<ArrayAt, 'context'>>({
         type: 'ArrayAt',
         annotations,
@@ -559,7 +558,7 @@ export const objectMemberFrom = (
             message: `Object member access cannot be used for ${term.type}.`,
           }),
     ),
-    parser.context(({ key, object }) => ({
+    parser.range(({ key, object }) => ({
       type: 'ObjectMember',
       annotations,
       object,
@@ -574,7 +573,7 @@ export const agentCallRecur = (
   annotations: ReadonlyArray<NodeAnnotation>,
   agent: Agentable | Call,
   args: ReadonlyArray<Expr>,
-  context: ParserContext,
+  context: ParserRange,
 ): AgentCall =>
   pipe(
     args,
@@ -638,7 +637,7 @@ export const agentCallFrom = (
             message: `Agent call cannot be used for ${term.type}.`,
           }),
     ),
-    parser.mapWithContext(({ agent, args }, context) =>
+    parser.mapWithRange(({ agent, args }, context) =>
       agentCallRecur(annotations, agent, args, context),
     ),
   );
@@ -698,7 +697,7 @@ export const powerExponent = (term: Term | TermPower | Power): Parser<Power> =>
         ),
       ),
     ),
-    parser.context(({ base, exponent }) =>
+    parser.range(({ base, exponent }) =>
       identity<Omit<Power, 'context'>>({
         type: 'Power',
         annotations: [],
@@ -747,7 +746,7 @@ export const mulDivModRight = (term: Term | TermMulDivMod | MulDivMod): Parser<M
         ),
       ),
     ),
-    parser.context(({ left, operator, right }) =>
+    parser.range(({ left, operator, right }) =>
       identity<Omit<MulDivMod, 'context'>>({
         type: 'MulDivMod',
         annotations: [],
@@ -800,7 +799,7 @@ export const plusMinusRight = (term: Term | TermPlusMinus | PlusMinus): Parser<P
     parser.flatMap(({ left, operator, right }) =>
       pipe(
         parser.unit,
-        parser.context(() =>
+        parser.range(() =>
           identity<Omit<PlusMinus, 'context'>>({
             type: 'PlusMinus',
             annotations: [],
@@ -859,7 +858,7 @@ export const relationalRight = (term: Term | TermRelational | Relational): Parse
     parser.flatMap(({ left, operator, right }) =>
       pipe(
         parser.unit,
-        parser.context(() =>
+        parser.range(() =>
           identity<Omit<Relational, 'context'>>({
             type: 'Relational',
             annotations: [],
@@ -918,7 +917,7 @@ export const equalityRight = (term: Term | TermEquality | Equality): Parser<Equa
         ),
       ),
     ),
-    parser.context(({ left, operator, right }) =>
+    parser.range(({ left, operator, right }) =>
       identity<Omit<Equality, 'context'>>({
         type: 'Equality',
         annotations: [],
@@ -968,7 +967,7 @@ export const logicalRight = (term: Term | TermLogical | Logical): Parser<Logical
         ),
       ),
     ),
-    parser.context(({ left, operator, right }) =>
+    parser.range(({ left, operator, right }) =>
       identity<Omit<Logical, 'context'>>({
         type: 'Logical',
         annotations: [],
@@ -1033,7 +1032,7 @@ export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipe
         ),
       ),
     ),
-    parser.context(({ left, operator, right }) =>
+    parser.range(({ left, operator, right }) =>
       identity<Omit<Pipeline, 'context'>>({
         type: 'Pipeline',
         annotations: [],
@@ -1068,7 +1067,7 @@ export const ifThenElse: Parser<IfThenElse> = pipe(
   parser.left(text('else')),
   parser.left(whitespaces1),
   parser.bind('else_', () => computedNodeBody),
-  parser.context(({ annotations, if_, then_, else_ }) => ({
+  parser.range(({ annotations, if_, then_, else_ }) => ({
     type: 'IfThenElse',
     annotations,
     if: if_,
@@ -1085,7 +1084,7 @@ export const paren: Parser<Paren> = pipe(
   parser.bind('expr', () => expr),
   parser.left(whitespaces),
   parser.left(char(')')),
-  parser.context(({ annotations, expr }) => ({ type: 'Paren', annotations, expr })),
+  parser.range(({ annotations, expr }) => ({ type: 'Paren', annotations, expr })),
 );
 
 export const expr: Parser<Expr> = pipe(
@@ -1097,7 +1096,7 @@ export const expr: Parser<Expr> = pipe(
 export const modifier: Parser<Modifier> = pipe(
   text('public'),
   parser.or(text('private')),
-  parser.context(_ => ({ type: 'Modifier', value: _ === 'public' ? 'public' : 'private' })),
+  parser.range(_ => ({ type: 'Modifier', value: _ === 'public' ? 'public' : 'private' })),
 );
 
 export const staticNode: Parser<StaticNode> = pipe(
@@ -1124,7 +1123,7 @@ export const staticNode: Parser<StaticNode> = pipe(
   parser.bind('value', () => expr),
   parser.left(whitespaces),
   parser.left(char(';')),
-  parser.context(({ name, modifiers, value }) => ({
+  parser.range(({ name, modifiers, value }) => ({
     type: 'StaticNode',
     modifiers,
     name,
@@ -1147,7 +1146,7 @@ export const nestedGraph: Parser<NestedGraph> = pipe(
       option.none,
     ),
   ),
-  parser.context(({ annotations, graph }) =>
+  parser.range(({ annotations, graph }) =>
     identity<Omit<NestedGraph, 'context'>>({
       type: 'NestedGraph',
       annotations,
@@ -1166,7 +1165,7 @@ export const anonComputedNode: Parser<ComputedNode> = pipe(
   parser.bind('body', () => computedNodeBody),
   parser.left(whitespaces),
   parser.left(char(';')),
-  parser.context(({ body }) => pipe({ type: 'ComputedNode', modifiers: [], body })),
+  parser.range(({ body }) => pipe({ type: 'ComputedNode', modifiers: [], body })),
 );
 
 export const namedComputedNode: Parser<ComputedNode> = pipe(
@@ -1190,7 +1189,7 @@ export const namedComputedNode: Parser<ComputedNode> = pipe(
   parser.bind('body', () => computedNodeBody),
   parser.left(whitespaces),
   parser.left(char(';')),
-  parser.context(({ name, modifiers, body }) =>
+  parser.range(({ name, modifiers, body }) =>
     pipe({ type: 'ComputedNode', modifiers, name, body }),
   ),
 );
@@ -1236,7 +1235,7 @@ export const graph = (end: Parser<Unit>, version: Option<string>): Parser<Graph>
           : parser.of(statements)
         : parser.fail<Graph['statements']>(flag),
     ),
-    parser.context(statements =>
+    parser.range(statements =>
       identity<Omit<Graph, 'context'>>({
         type: 'Graph',
         version: option.toUndefined(version),
@@ -1315,7 +1314,7 @@ export const import_: Parser<Import | NativeImport> = pipe(
         )
       : parser.of(unit),
   ),
-  parser.context(({ isNative, path, name }) =>
+  parser.range(({ isNative, path, name }) =>
     isNative === true
       ? identity<Omit<NativeImport, 'context'>>({
           type: 'NativeImport',
@@ -1348,5 +1347,5 @@ export const file = (path: string): Parser<File> =>
         version,
       ),
     ),
-    parser.context(({ imports, graph }) => ({ type: 'File', path, imports, graph })),
+    parser.range(({ imports, graph }) => ({ type: 'File', path, imports, graph })),
   );
