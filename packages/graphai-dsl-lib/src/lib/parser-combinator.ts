@@ -57,7 +57,21 @@ export namespace parser {
         pipe(
           self,
           run(s),
-          either.flatMap(({ state, data }) => pipe(f(data), run(state))),
+          either.flatMap(({ state, data }) =>
+            pipe(
+              f(data),
+              run(state),
+              either.orElse(e =>
+                either.left<ParserError, ParserData<B>>(
+                  state.error == null
+                    ? e
+                    : state.error.position.index > e.position.index
+                      ? state.error
+                      : e,
+                ),
+              ),
+            ),
+          ),
         ),
       );
 
@@ -114,7 +128,12 @@ export namespace parser {
                   ..._,
                   state: {
                     ..._.state,
-                    error: e1,
+                    error:
+                      _.state.error == null
+                        ? e1
+                        : _.state.error.position.index > e1.position.index
+                          ? _.state.error
+                          : e1,
                   },
                 }),
               ),

@@ -484,6 +484,14 @@ export const term: Parser<Term> = pipe(
   parser.or<Term>(() => paren),
   parser.or<Term>(() => nestedGraph),
   parser.or<Term>(identifier),
+  parser.orElse(e =>
+    parser.fail(
+      pipe(
+        e,
+        error.updateExpect(_ => ['expression']),
+      ),
+    ),
+  ),
 );
 
 export const isLiteral = (

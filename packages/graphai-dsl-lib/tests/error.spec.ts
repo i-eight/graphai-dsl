@@ -109,12 +109,27 @@ describe('error', () => {
       ]),
     ));
 
-  // test.only('error 4', () =>
-  //   pipe(
-  //     dslParser.anonComputedNode,
-  //     parser.run(stream.create(source.of('', 'a === 1'))),
-  //     printJson,
-  //     //compileFromFile('./tests/cases/error/error-4.graphai', agents),
-  //     //printJson,
-  //   ));
+  test('error 4', () =>
+    pipe(
+      // dslParser.computedNode,
+      // parser.run(stream.create(source.of('', 'a === 1'))),
+      // printJson,
+      compileFromFile('./tests/cases/error/error-4.graphai', agents),
+      formattedErrorMatcher([
+        {
+          type: 'UnexpectedParserError',
+          path: 'tests/cases/error/error-4.graphai',
+          start: {
+            row: 3,
+            column: 15,
+          },
+          end: {
+            row: 3,
+            column: 16,
+          },
+          message: "Expect 'expression' but got '='",
+          line: 'a = () -> b === 1;',
+        },
+      ]),
+    ));
 });

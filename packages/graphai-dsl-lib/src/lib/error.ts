@@ -83,6 +83,16 @@ export const isFormatedErrors = (self: unknown): self is FormattedErrors =>
 export const getActual = (self: ParserError): string =>
   self.type === 'UnexpectedParserError' ? (self.actual ?? '?') : '?';
 
+export const updateExpect =
+  (f: (expect: ReadonlyArray<string>) => ReadonlyArray<string>) =>
+  (self: ParserError): ParserError =>
+    self.type === 'UnexpectedParserError'
+      ? {
+          ...self,
+          expect: self.expect == null ? f([]) : f(self.expect),
+        }
+      : self;
+
 export const mergeUnexpectedError = (
   e1: WithSrcPos<UnexpectedError>,
   e2: WithSrcPos<UnexpectedError>,
