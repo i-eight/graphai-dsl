@@ -3,7 +3,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { runFromFile, compileFromFile } from './run';
 import { apply, pipe } from 'fp-ts/lib/function';
-import { unit } from '@i-eight/graphai-dsl-lib';
+import { unit } from '@graphai-dsl/lib';
 
 type Argv = Readonly<{
   _: readonly string[];

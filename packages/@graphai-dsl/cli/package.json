@@ -1,12 +1,14 @@
 {
   "name": "@graphai-dsl/cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/i-eight/graphai-dsl.git"
   },
-  "bin": "dist/graphai-dsl",
+  "bin": {
+    "graphai-dsl": "dist/graphai-dsl"
+  },
   "files": [
     "dist"
   ],

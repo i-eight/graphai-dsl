@@ -11,7 +11,7 @@ import {
   agents,
   readFile,
   compiler,
-} from '@i-eight/graphai-dsl-lib';
+} from '@graphai-dsl/lib';
 
 export const handleError = (e: unknown): Either<Unit, Unit> =>
   pipe(error.isFormatedErrors(e) ? console.error(error.prettyString(e)) : console.error(e), () =>
