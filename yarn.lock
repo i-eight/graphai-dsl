@@ -3206,7 +3206,7 @@ __metadata:
     vite-plugin-dts: ^4.5.0
     yargs: ^17.7.2
   bin:
-    cli: dist/graphai-dsl
+    graphai-dsl: dist/graphai-dsl
   languageName: unknown
   linkType: soft
 

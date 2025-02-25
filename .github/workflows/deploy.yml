@@ -26,9 +26,11 @@ jobs:
           yarn set version 3.x
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
         working-directory: ./packages/@graphai-dsl/doc
+        run: yarn install
+
       - name: Build website
+        working-directory: ./packages/@graphai-dsl/doc
         run: yarn build
 
       - name: Upload Build Artifact
