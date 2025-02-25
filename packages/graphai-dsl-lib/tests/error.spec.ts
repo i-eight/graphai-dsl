@@ -5,9 +5,6 @@ import { compileFromFile } from '../src/lib/compiler';
 import { agents } from '../src/agents';
 import { Either } from 'fp-ts/lib/Either';
 import { printJson } from './helpers';
-import { dslParser } from '../src';
-import { parser } from '../src/lib/parser-combinator';
-import { source, stream } from '../src/lib/stream';
 
 export const formattedErrorMatcher =
   (errors: ReadonlyArray<error.FormattedError>) =>
@@ -111,9 +108,6 @@ describe('error', () => {
 
   test('error 4', () =>
     pipe(
-      // dslParser.computedNode,
-      // parser.run(stream.create(source.of('', 'a === 1'))),
-      // printJson,
       compileFromFile('./tests/cases/error/error-4.graphai', agents),
       formattedErrorMatcher([
         {
@@ -131,5 +125,33 @@ describe('error', () => {
           line: 'a = () -> b === 1;',
         },
       ]),
+    ));
+
+  test('error 5', () =>
+    pipe(
+      {
+        type: 'FormattedErrors',
+        errors: [
+          {
+            type: 'UnexpectedParserError',
+            path: 'tests/cases/error/error-4.graphai',
+            start: {
+              row: 3,
+              column: 15,
+            },
+            end: {
+              row: 3,
+              column: 16,
+            },
+            message: "Expect 'expression' but got '='",
+            line: 'a = () -> b === 1;',
+          },
+        ],
+      },
+      error.prettyString,
+      _ =>
+        expect(_).toStrictEqual(
+          "tests/cases/error/error-4.graphai(3,15): UnexpectedParserError: Expect 'expression' but got '='\n\n\ta = () -> b === 1;\n\t              ^\n",
+        ),
     ));
 });

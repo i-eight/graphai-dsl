@@ -148,7 +148,7 @@ const formatParserError = (self: ParserError): FormattedErrors => ({
       },
       message:
         self.type === 'UnexpectedParserError'
-          ? (self.message ?? `Expect '${self.expect}' but got '${getActual(self)}'`)
+          ? (self.message ?? `Expect '${self.expect?.join(' or ')}' but got '${getActual(self)}'`)
           : self.message,
       line:
         findLineStart(self.source.data, self.position.index) +
