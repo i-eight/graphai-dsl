@@ -20,6 +20,11 @@ jobs:
           node-version: 20
           cache: yarn
 
+      - name: Setup Yarn version
+        run: |
+          corepack enable
+          corepack prepare yarn@3.8.7 --activate
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
         working-directory: ./packages/@graphai-dsl/doc
