@@ -17,13 +17,12 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: yarn
 
       - name: Install dependencies
-        run: 
-          shell: yarn install --frozen-lockfile
-          working-directory: ./packages/@graphai-dsl/doc
+        run: yarn install --frozen-lockfile
+        working-directory: ./packages/@graphai-dsl/doc
       - name: Build website
         run: yarn build
 
