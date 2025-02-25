@@ -53,7 +53,7 @@ A transformer is a type of machine learning model introduced in the paper "Atten
 ## Installation
 
 ```
-yarn add @i-eight/graphai-dsl-cli
+yarn add @graphai-dsl/cli
 ```
 
 ## How to Execute
