@@ -23,7 +23,7 @@ jobs:
       - name: Setup Yarn version
         run: |
           corepack enable
-          corepack prepare yarn@3.8.7 --activate
+          yarn set version 3.x
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
