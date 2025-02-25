@@ -1,37 +1,30 @@
 {
-  "name": "graphai-dsl-lib",
-  "version": "0.1.0",
+  "name": "@graphai-dsl/cli",
+  "version": "0.1.2",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/i-eight/graphai-dsl.git"
   },
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "bin": "dist/graphai-dsl",
   "files": [
-    "dist",
-    "lib"
+    "dist"
   ],
   "scripts": {
-    "build": "vite build",
-    "type:check": "tsc --noEmit && eslint"
+    "build": "vite build && chmod +x dist/graphai-dsl",
+    "type:check": "tsc --noEmit && eslint",
+    "postbuild": "chmod +x dist/graphai-dsl"
   },
   "dependencies": {
-    "@graphai/agents": "0.2.10",
-    "dotenv": "^16.4.7",
-    "fp-ts": "^2.16.9",
-    "geoip-lite": "^1.4.10",
-    "graphai": "0.6.24",
-    "rxjs": "^7.8.1",
+    "@graphai-dsl/lib": "workspace:*",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@swc/core": "^1.10.4",
     "@swc/jest": "^0.2.37",
-    "@types/geoip-lite": "^1.4.4",
     "@types/jest": "^29.5.14",
+    "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.18.2",
     "eslint": "^9.17.0",

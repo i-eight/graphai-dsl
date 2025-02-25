@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "private": true,
     "workspaces": [
-        "packages/*"
+        "packages/@graphai-dsl/*"
     ],
     "packageManager": "yarn@3.8.7"
 }
