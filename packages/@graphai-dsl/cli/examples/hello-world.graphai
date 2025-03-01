@@ -1,8 +1,10 @@
+@version('0.6');
+
 llm = 
   @params({model: 'gpt-4o'}) 
   openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
 
-println({message: llm.text});
+println(llm.text);
 
 /*
 上記のコードは以下のYAMLを生成:

@@ -122,8 +122,8 @@ const findLineStart = (src: string, index: number): string =>
 
 const findLineEnd = (src: string, index: number): string =>
   loop({ i: index, out: '' }, ({ i, out }) =>
-    i === src.length
-      ? { i: i - 1, out }
+    i >= src.length
+      ? { i: src.length - 1, out }
       : src[i] === os.EOL
         ? { i: i - 1, out }
         : recur({ i: i + 1, out: out + src[i] }),

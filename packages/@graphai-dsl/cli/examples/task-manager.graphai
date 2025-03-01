@@ -8,5 +8,6 @@ textChat((userInput) ->
         createIssue, 
         editIssue, 
         closeIssue
-    ] |> println
+    ] |> Json.prettyStringify
+      |> println
 );

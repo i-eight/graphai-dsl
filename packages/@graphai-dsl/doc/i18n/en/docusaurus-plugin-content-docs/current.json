@@ -1,0 +1,14 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.tutorialSidebar.category.Syntax Guide": {
+    "message": "Syntax Guide",
+    "description": "The label for category Syntax Guide in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Syntax Guide.link.generated-index.description": {
+    "message": "GraphAI DSL Syntax Guide",
+    "description": "The generated-index page description for category Syntax Guide in sidebar tutorialSidebar"
+  }
+}

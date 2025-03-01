@@ -3,6 +3,8 @@ static x = 1;
 static y = 2;
 static z = 3;
 
-if x + y * z > 10
-then println("It's greater then 10")
-else println("It's less then or equal 10");
+msg = if x + y * z > 10
+      then "It's greater then 10"
+      else "It's less then or equal 10";
+
+println(msg);

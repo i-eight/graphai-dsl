@@ -1,0 +1,8 @@
+{
+  "label": "Build-in Modules",
+  "position": 40,
+  "link": {
+    "type": "generated-index",
+    "description": "GraphAI DSL Build-in Modules"
+  }
+}

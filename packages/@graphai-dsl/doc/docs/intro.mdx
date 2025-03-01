@@ -3,7 +3,393 @@ sidebar_position: 10
 slug: /
 ---
 
-# GraphAI DSL
+# GraphAI DSLの紹介
+
+GraphAI DSLは、[GraphAI](https://github.com/receptron/graphai)のためのプログラミング言語です。
+GraphAIは、JSON/YAMLを用いてアプリを開発しますが、JSON/YAMLは表現が冗長になりがちです。
+GraphAI DSLは、JSON/YAMLよりも簡潔な記述が可能です。
+
+GraphAI DSLがどのような言語か見ていただくために、GraphAIのGithubリポジトリにある[Hello Worldの例](https://github.com/receptron/graphai/blob/main/docs/Tutorial.md#hello-world)を使って、JSON/YAMLとGraphAI DSLを比較してみましょう。
+
+まずは、YAMLで書いた場合です。
+
+```
+version: 0.5
+nodes:
+  llm:
+    agent: openAIAgent
+    params:
+      model: gpt-4o
+    inputs:
+      prompt: Explain ML's transformer in 100 words.
+  output:
+    agent: copyAgent
+    params:
+      namedKey: text
+    console:
+      after: true
+    inputs:
+      text: :llm.text
+```
+
+次に、GraphAI DSLで書いた場合です。
+
+```
+@version('0.6');
+
+llm = 
+  @params({model: 'gpt-4o'}) 
+  openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+
+println(llm.text);
+```
+
+このコードは以下のコマンドで実行できます。
+
+```
+yarn graphai-dsl run hello-world.graphai
+```
+
+このコマンドは、GraphAI DSLのコードをJSONに変換して、GraphAI処理系で実行します。
+実行結果は以下の通りです。
+
+```
+The transformer is a neural network architecture introduced in the paper "Attention is All You Need" by Vaswani et al. in 2017. It revolutionized natural language processing by using self-attention mechanisms to process data in parallel, improving efficiency and scalability. Unlike recurrent models, transformers do not process data sequentially, allowing them to capture long-range dependencies effectively. Key components include the encoder-decoder structure, multi-head attention, and positional encoding, enabling the model to understand context and relationships within the data. Transformers have become foundational in models like BERT and GPT, significantly advancing tasks like translation, summarization, and language understanding.
+```
+
+
+上記のGraphAI DSLのコードをYAMLと比較しながら、さらに詳細に見ていきましょう。
+
+```
+@version('0.6');
+```
+
+この行は、GraphAI DSLのバージョンを指定しています。
+YAMLの`version: 0.5`に対応します。
+
+```
+llm = 
+```
+
+この行は、ノード`llm`を作成しています。
+YAMLの`llm:`に対応します。
+
+```
+@params({model: 'gpt-4o'}) 
+```
+
+この行は、後に続く`openAIAgent`のパラメータを指定しています。
+YAMLの`params: {model: gpt-4o}`に対応します。
+
+```
+openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+```
+
+この行は、`openAIAgent`エージェントを呼び出しています。
+YAMLの`agent: openAIAgent`と`prompt: Explain ML's transformer in 100 words.`に対応します。
+GraphAI DSLでは、エージェントの呼び出しは、`JavaScript`の関数のように書くことができます。
+
+上記の３行をまとめて、１行で書くこともできます。
+
+```
+llm = @params({model: 'gpt-4o'}) openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+```
+
+```
+println(llm.text);
+```
+
+この行は、`llm`ノードの`text`プロパティをコンソールに出力しています。
+`println`はコンソールに文字列を出力するエージェントで、GraphAI DSLの組み込みエージェントです。
+
+このようにGraphAI DSLは、簡潔に可読性の高いコードを書くことができます。
+
+## GraphAI DSLの特徴
+
+### 文法はJavaScriptに似ている
+
+GraphAI DSLの文法は、`JavaScript`の影響を大きく受けています。`JavaScript`の文法を知っていれば、GraphAI DSLの文法を習得するのは難しくないでしょう。
+
+ただ、GraphAI DSLは`JavaScript`だけではなく、`Elixir`や`Haskell`などの関数型言語の特徴も取り入れています。そのため、`JavaScript`とは異なる部分もあります。
+
+特に以下の部分は`JavaScript`と異なる部分です。
+
+- 変数の再代入不可
+- データの変更不可
+- ほとんどが式
+- 条件式
+- ループ
+- スコープ内の最後の式が返り値
+- クラスはない
+- 関数のカリー化
+- パイプライン演算子
+- エージェント接続演算子
+
+これらの詳細は順次以下で説明します。
+
+### 基本型はJavaScriptと一緒
+
+GraphAI DSLは、GraphAI処理系で実行されます。つまり、JavaScript処理系で実行されます。
+そのため、GraphAI DSLの基本型は一部を除いてJavaScriptと同じです。
+JavaScriptのと同じ基本型は以下の通りです。
+
+- `number`: 数値
+  ```
+  x = 123
+  y = 123.456
+  ```
+- `string`: 文字列
+  ```
+  name = "Alice"
+  s = "Hello, ${Alice}!"
+  ```
+- `boolean`: 真偽値
+  ```
+  true
+  false
+  ```
+- `null`: null
+  ```
+  null
+  ```
+- `object`: オブジェクト
+  ```
+  obj = {name: "Alice", age: 20}
+  ```
+- `array`: 配列
+  ```
+  arr = [1, 2, 3]
+  ```
+
+書き方もJavaScriptと同じです。
+
+例外は以下の型です。
+
+- `undefined`: GraphAI DSLには`undefined`型はありません。`null`で代替します。
+- 関数: GraphAI DSLでは関数の代わりにエージェントを使用します。エージェント呼び出しは、JavaScriptの関数呼び出しと同じですが、実際にはエージェント呼び出しです。
+  ```
+  println("Hello, World!")
+  ```
+
+### ほとんどの構文が式
+
+GraphAI DSLのほとんどの構文は式です。以下にいくつかの例を挙げます。
+
+- `if`式: `JavaScript`では`if`は文ですが、GraphAI DSLでは式です。以下のように変数に代入できます。
+  ```
+  x = if a > b then a else b;
+  ```
+
+- ループ: GraphAI DSLにループ構文はありませんが、組み込み関数で実現しています。関数なので式です。
+  ```
+  sum = loop(0, (cnt) -> 
+    if cnt < 10 
+    then recur(cnt + 1) 
+    else cnt,
+  );
+  ```
+
+- スコープ: スコープはGraphAIでは`Nested Graph`と呼ばれるものです。`JavaScript`と違いスコープも式です。スコープ内の最後の式が返り値になります。
+  ```
+  x = {
+    y = 1;
+    z = 2;
+    y + z
+  }
+  ```
+
+例外は以下です。以下の構文は式ではなく文です。
+
+- 変数(ノード)定義
+  ```
+  a = 1;
+  ```
+- GraphAIバージョン設定
+  ```
+  @version('0.6');
+  ```
+- `import`文
+  ```
+  import "path/to/my-module.graphai" as m;
+  ```
+
+### スコープ内の最後の式が返り値
+
+前述のように、スコープはGraphAIではNested Graphと呼ばれるものです。JavaScriptと違いスコープも式です。スコープ内の最後の式が返り値になります。
+
+```
+x = {
+  y = 1;
+  z = 2;
+  y + z
+}
+```
+
+### 基本的にデータの変更不可
+
+GraphAI DSLは、基本的にデータの変更不可です。変数の再代入もできません。これは、GraphAI処理系が非同期でデータを処理するので、変更不可の方が安全だからです。
+
+GraphAI DSLがループ構文を持たないのも、データの変更不可を前提としているからです。
+
+ただし、`JavaScript`でエージェントを定義する場合は、エージェント内では`JavaScript`の文法の許す範囲でデータの変更が可能になってしまうので、注意が必要です。
+例えば、配列の要素を変更するエージェントを記述することが可能です。
+
+### 関数のカリー化
+
+GraphAI DSLでは、関数のカリー化をサポートしています。カリー化は、複数の引数を取る関数を、一つの引数を取る関数の組み合わせに変換することです。
+
+例えば、２つの引数を取る関数`add`を以下のように定義した場合を考えます。
+
+```
+add = (x, y) -> x + y;
+```
+
+この関数は以下の定義と同等です。
+
+```
+add = (x) -> (y) -> x + y;
+```
+
+関数の呼び出し時は、どちらの方法で定義しても、以下のように２つの方法で呼び出すことができます。
+
+```
+add(1, 2);
+```
+
+```
+add(1)(2);
+```
+
+このカリー化を利用することで、関数の部分適用が簡単に行えます。
+例えば、以下のように`add`関数を部分適用して、`1`を加える関数を作成することができます。
+
+```
+Array.map(add(1), [1, 2, 3]);
+```
+
+また、後述するパイプライン演算子と組み合わせることで、関数の処理を簡潔に記述することができます。
+
+### パイプライン演算子
+
+パイプライン演算子`|>`は、左辺の結果を右辺の関数の第一引数として渡す演算子です。
+例えば上記の`Array.map`の例をパイプライン演算子を使って書くと以下のようになります。
+
+```
+[1, 2, 3] |> Array.map(add(1));
+```
+
+パイプライン演算子を使うことで、関数を複数適用した場合の括弧のネストを減らすことができ、コードが読みやすくなります。
+
+```
+{
+  list: [1, 2, 3],
+} 
+|> Object.get('list')
+|> Array.map(add(1)) 
+|> Array.map(mul(2)) 
+|> Array.map(sub(3));
+```
+
+### エージェント接続演算子
+
+エージェント接続演算子は、LLMのFunction Callingを使って、
+左辺の入力値から右辺のエージェントの引数を生成し、エージェントを呼び出す演算子です。
+
+例えば、位置を自然言語で入力し、その位置の天気情報を取得する場合、以下のように書くことができます。
+
+```
+'longitude is 139.4925 and latitude is 35.7122.' --> getWeatherFromOpenMeteoAgent;
+```
+
+`-->`演算子が行なっていることを詳しく見ていきましょう。
+
+1. 右辺の`getWeatherFromOpenMeteoAgent`エージェントの入力形式を確認します。
+    ```
+    {
+      longitude: number;
+      latitude: number;
+    }
+    ```
+2. 左辺の`'longitude is 139.4925 and latitude is 35.7122.'`をパースして、以下の形式のオブジェクトを生成します。
+    ```
+    {
+      longitude: 139.4925,
+      latitude: 35.7122,
+    }
+    ```
+3. 生成したオブジェクトを`getWeatherFromOpenMeteoAgent`エージェントに渡して実行します。  
+    ```
+    getWeatherFromOpenMeteoAgent({longitude: 139.4925, latitude: 35.7122});
+    ```
+
+このように、`-->`演算子を使うことで、エージェントの引数を意識することなく、エージェントを呼び出すことができます。
+
+また、`-->`演算子は、複数のエージェントから適切なエージェントを選択することもできます。
+
+以下の例はタスク管理アプリの例です。
+タスク一覧の取得、タスクの作成、タスクの編集、タスクのクローズの４つのエージェントから、
+ユーザーの入力に応じて適切なエージェントを選択して実行します。
+
+```
+userInput --> [
+  getIssues, 
+  createIssue, 
+  editIssue, 
+  closeIssue
+]
+```
+
+「タスクを表示して」と入力すると、`getIssues`エージェントが実行され、以下の結果が返ってきます。
+
+```
+[
+  {
+    "number": 4,
+    "state": "open",
+    "title": "バグの修正",
+    "body": null
+  },
+  {
+    "number": 3,
+    "state": "open",
+    "title": "example issue 3",
+    "body": "こればissueの例です"
+  },
+  {
+    "number": 1,
+    "state": "open",
+    "title": "Example Task 2",
+    "body": "最初のissueです"
+  }
+]
+```
+
+「タスク番号4の内容をhogeに変更して」と入力すると、`editIssue`エージェントが実行され、タスク番号4の内容が変更されます。
+
+```
+{
+  "number": 4,
+  "state": "open",
+  "title": "バグの修正",
+  "body": "hoge"
+}
+```
+
+このように、`-->`演算子を使うことで、自然言語を使ったエージェントの呼び出しが簡単に行えます。
+
+### エージェントの定義
+
+T.B.D.
+
+### モジュールシステム
+
+T.B.D.
+
+### FFI
+
+T.B.D.
+
+--------------------------------------------
 
 This is a language for GraphAI, allowing for simpler descriptions than JSON or YAML.
 
@@ -14,7 +400,7 @@ llm =
   @params({model: 'gpt-4o'})
   openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
 
-println({message: llm.text});
+println(llm.text);
 ```
 
 This is converted into the following JSON:
@@ -58,7 +444,7 @@ A transformer is a type of machine learning model introduced in the paper "Atten
 ## Installation
 
 ```
-yarn add @i-eight/graphai-dsl-cli
+yarn add @graphai-dsl/cli
 ```
 
 ## How to Execute

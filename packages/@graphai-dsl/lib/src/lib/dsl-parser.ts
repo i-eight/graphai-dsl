@@ -781,7 +781,13 @@ export const termPlusMinus: Parser<Term | TermPlusMinus> = mulDivMod;
 export const plusMinusRight = (term: Term | TermPlusMinus | PlusMinus): Parser<PlusMinus> =>
   pipe(
     whitespaces,
-    parser.bind('operator', () => pipe(char('+'), parser.or(char('-')))),
+    parser.bind('operator', () =>
+      pipe(
+        parser.notFollowedBy(text('-->')),
+        parser.right(parser.notFollowedBy(text('->>'))),
+        parser.right(pipe(char('+'), parser.or(char('-')))),
+      ),
+    ),
     parser.left(whitespaces),
     parser.bind('left', () =>
       isTermPlusMinus(term) || term.type === 'PlusMinus'
