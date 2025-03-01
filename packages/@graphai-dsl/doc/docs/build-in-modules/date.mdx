@@ -1,0 +1,109 @@
+---
+sidebar_position: 40
+---
+
+# Date
+
+## now
+
+```
+now = () -> number
+```
+
+### Return value
+
+The current time in milliseconds since the Unix epoch.
+
+### Example
+
+```
+Date.now()
+```
+
+## toISOString
+
+```
+toISOString = (date: Date) -> string
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| date | A Date object. |
+
+### Return value
+
+A string representing the date in the simplified extended ISO format.
+
+### Example
+
+```
+Date.toISOString(Date.fromISOString('2025-03-01T15:08:36.533Z')) == '2025-03-01T15:08:36.533Z';
+```
+
+## fromISOString
+
+```
+fromISOString = (isoString: string) -> Date
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| isoString | A string representing the date in the simplified extended ISO format. |
+
+### Return value
+
+A Date object.
+
+### Example
+
+```
+Date.toISOString(Date.fromISOString('2025-03-01T15:08:36.533Z')) == '2025-03-01T15:08:36.533Z';
+```
+
+## getEpochTime
+
+```
+getEpochTime = (date: Date) -> number
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| date | A Date object. |
+
+### Return value
+
+A number representing the number of milliseconds since the Unix epoch.
+
+### Example
+
+```
+Date.getEpochTime(Date.fromEpochTime(1740841716533)) == 1740841716533;
+```
+
+## fromEpochTime
+
+```
+fromEpochTime = (epochTime: number) -> Date
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| epochTime | A number representing the number of milliseconds since the Unix epoch. |
+
+### Return value
+
+A Date object.
+
+### Example
+
+```
+Date.getEpochTime(Date.fromEpochTime(1740841716533)) == 1740841716533;
+```
