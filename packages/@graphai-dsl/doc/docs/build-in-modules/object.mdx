@@ -1,0 +1,325 @@
+---
+sidebar_position: 20
+---
+
+# Object
+
+## size
+
+```
+size = <A>(xs: Object<A>) -> number
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| xs | An object |
+
+### Return value
+
+A number of elements in the object.
+
+### Example
+
+```
+Object.size({a: 1, b: 2, c: 3}) == 3
+```
+
+## keys
+
+```
+keys = <A>(xs: Object<A>) -> Array<string>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| xs | An object |
+
+### Return value
+
+An array of keys in the object.
+
+### Example
+
+```
+Object.keys({a: 1, b: 2, c: 3}) == ['a', 'b', 'c']
+```
+
+## has
+
+```
+has = <A>(key: string, xs: Object<A>) -> boolean
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| key | A key |
+| xs | An object |
+
+### Return value
+
+`true` if the object has the key. Otherwise, `false`.
+
+### Example
+
+```
+Object.has('a', {a: 1, b: 2, c: 3}) == true
+```
+
+## get
+
+```
+get = <A>(key: string, xs: Object<A>) -> A | null
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| key | A key |
+| xs | An object |
+
+### Return value
+
+The value associated with the key. If the key does not exist, `null`.
+
+### Example
+
+```
+Object.get('a', {a: 1, b: 2, c: 3}) == 1
+```
+
+## put
+
+```
+put = <A>(key: string, value: A, xs: Object<A>) -> Object<A>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| key | A key |
+| value | A value |
+| xs | An object |
+
+### Return value
+
+A new object with the key-value pair.
+
+### Example
+
+```
+Object.put('d', 4, {a: 1, b: 2, c: 3}) == {a: 1, b: 2, c: 3, d: 4}
+```
+
+## concat
+
+```
+concat = <A>(xs: Object<A>, ys: Object<A>) -> Object<A>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| xs | An object |
+| ys | An object |
+
+### Return value
+
+A new object with the key-value pairs of both objects.
+
+### Example
+
+```
+Object.concat({a: 1, b: 2}, {c: 3, d: 4}) == {a: 1, b: 2, c: 3, d: 4}
+```
+
+## reduce
+
+```
+reduce = <A, B>(init: B, f: (acc: B, pair: { key: string, value: A }) -> B, xs: Object<A>) -> B
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| init | An initial value |
+| f | A callback function |
+| xs | An object |
+
+### Return value
+
+The value that results from running the "reducer" callback function to completion over the entire object.
+
+### Example
+
+```
+Object.reduce(0, (acc, pair) -> acc + pair.value, {a: 1, b: 2, c: 3}) == 6
+```
+
+## flatMap
+
+```
+flatMap = <A, B>(f: (pair: { key: string, value: A }) -> Object<B>, xs: Object<A>) -> Object<B>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| f | A callback function |
+| xs | An object |
+
+### Return value
+
+A new object with the key-value pairs transformed by the callback function.
+
+### Example
+
+```
+Object.flatMap((pair) -> { [pair.key]: pair.value * 2 }, {a: 1, b: 2, c: 3}) == {a: 2, b: 4, c: 6}
+```
+
+## map
+
+```
+map = <A, B>(f: (pair: { key: string, value: A }) -> B, xs: Object<A>) -> Object<B>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| f | A callback function |
+| xs | An object |
+
+### Return value
+
+A new object with the key-value pairs transformed by the callback function.
+
+### Example
+
+```
+Object.map((pair) -> pair.value * 2, {a: 1, b: 2, c: 3}) == {a: 2, b: 4, c: 6}
+```
+
+## filter
+
+```
+filter = <A>(f: (pair: { key: string, value: A }) -> boolean, xs: Object<A>) -> Object<A>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| f | A callback function |
+| xs | An object |
+
+### Return value
+
+A new object with the key-value pairs that satisfy the condition.
+
+### Example
+
+```
+Object.filter((pair) -> pair.value > 1, {a: 1, b: 2, c: 3}) == {b: 2, c: 3}
+```
+
+## find
+
+```
+find = <A>(f: (pair: { key: string, value: A }) -> boolean, xs: Object<A>) -> { key: string, value: A } | null
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| f | A callback function |
+| xs | An object |
+
+### Return value
+
+The first key-value pair that satisfies the condition. If no key-value pair satisfies the condition, `null`.
+
+### Example
+
+```
+Object.find((pair) -> pair.value > 1, {a: 1, b: 2, c: 3}) == {key: 'b', value: 2}
+```
+
+## fromArray
+
+```
+fromArray = <A>(xs: Array<{ key: string, value: A }>) -> Object<A>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| xs | An array of key-value pairs |
+
+### Return value
+
+An object with the key-value pairs.
+
+### Example
+
+```
+Object.fromArray([{key: 'a', value: 1}, {key: 'b', value: 2}, {key: 'c', value: 3}]) == {a: 1, b: 2, c: 3}
+```
+
+## toArray
+
+```
+toArray = <A>(xs: Object<A>) -> Array<{ key: string, value: A }>
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| xs | An object |
+
+### Return value
+
+An array of key-value pairs.
+
+### Example
+
+```
+Object.toArray({a: 1, b: 2, c: 3}) == [{key: 'a', value: 1}, {key: 'b', value: 2}, {key: 'c', value: 3}]
+```
+
+## take
+
+```
+take = <A>(keys: Array<string>, xs: Object<A>) -> [Object<A>, Object<A>]
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| keys | An array of keys |
+| xs | An object |
+
+### Return value
+
+An array of two objects. The first object contains the key-value pairs with the keys in the `keys` array. The second object contains the key-value pairs without the keys in the `keys` array.
+
+### Example
+
+```
+Object.take(['a', 'b'], {a: 1, b: 2, c: 3}) == [{a: 1, b: 2}, {c: 3}]
+```
