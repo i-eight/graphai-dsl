@@ -194,11 +194,25 @@ GraphAI DSLのほとんどの構文は式です。以下にいくつかの例を
   x = {
     y = 1;
     z = 2;
-    y + z
+    y + z;
+  }
+  ```
+  `if`式は`if 式 then 式 else 式`という形式で書く必要がありますが、スコープが式であることを利用して以下のように書くことができます。
+  ```
+  if a > b {
+    a;
+  } else {
+    b;
+  };
+  ```
+  関数定義も同様に`(引数) -> 式`という形式で書く必要がありますが、スコープを使って以下のように書くことができます。
+  ```
+  (x) -> {
+    x + 1;
   }
   ```
 
-例外は以下です。以下の構文は式ではなく文です。
+GraphAI DSLのほとんどの構文が式なのですが、例外もあります。以下の構文は式ではなく文です。
 
 - 変数(ノード)定義
   ```
@@ -221,7 +235,7 @@ GraphAI DSLのほとんどの構文は式です。以下にいくつかの例を
 x = {
   y = 1;
   z = 2;
-  y + z
+  y + z;
 }
 ```
 
@@ -377,14 +391,141 @@ userInput --> [
 
 このように、`-->`演算子を使うことで、自然言語を使ったエージェントの呼び出しが簡単に行えます。
 
-### エージェントの定義
+### エージェント(関数)の定義
 
-T.B.D.
+GraphAI DSLの関数は以下のような構文で定義します。
+
+```
+f = (args) -> args.x + args.y;
+```
+
+この関数は、`x`と`y`を引数に取り、`x + y`を返り値とする関数です。`JavaScript`と違い`=>`ではなく`->`を使います。
+
+この関数を実行する場合は、以下のようにします。
+
+```
+f({x: 1, y: 2});
+```
+
+GraphAI DSLの関数は、GraphAI処理系ではエージェントとして扱われるので、この関数呼び出しは以下の`JSON`と同じです。
+
+```
+{
+  agent: f,
+  inputs: {
+    x: 1,
+    y: 2,
+  },
+}
+```
+
+ただ、このままでは、エージェントの入出力情報がないので、`-->`演算子で使用することができません。
+エージェントの入出力情報を指定するためには、以下のように記述します。
+
+```
+f = {
+  name: 'f',
+  agent: (args) -> args.x + args.y,
+  description: 'This function adds x and y.',
+  inputs: {
+    type: 'object',
+    properties: {
+      x: {type: 'number'},
+      y: {type: 'number'},
+    },
+  },
+
+  outputs: {
+    type: 'number',
+  },
+};
+```
+
+こうすることで、`-->`演算子で使用することができるようになります。
+
+```
+'add 1 and 2' --> f;
+```
 
 ### モジュールシステム
 
-T.B.D.
+GraphAI DSLのモジュールは、`JavaScript`と同じようにファイル単位で管理します。
+関数や変数をファイルにまとめることで、モジュールとして再利用性を高めることができます。
 
-### FFI
+モジュールをインポートするには、２つの方法があります。
 
-T.B.D.
+１つは、インポートしたモジュールの関数や変数を直接使う方法です。
+例えば、`my-module.graphai`というモジュールをインポートする場合は以下のように書きます。
+
+```
+import "path/to/my-module.graphai";
+```
+
+このモジュールには、以下の関数が定義されているとします。
+`public`修飾子が付いていることに注意してください。
+`public`修飾子が付いている関数や変数は、他のモジュールからアクセス可能です。
+
+```
+public f = (x, y) -> x + y;
+```
+
+この関数は、インポートしたファイルで以下のように直接使うことができます。
+
+```
+f(1, 2);
+```
+
+２つ目は、インポートしたモジュールに名前を付けて使う方法です。
+
+```
+import "path/to/my-module.graphai" as m;
+```
+
+ここでは、`m`という名前を付けてモジュールをインポートしています。
+この場合、インポートしたモジュールの関数や変数は、`m`を経由してアクセスします。
+
+```
+m.f(1, 2);
+```
+
+### FFI(外部関数インターフェース)
+
+GraphAI DSLでは、`JavaScript`の変数や関数をインポートして使うことができます。
+`JavaScript`の基本型である、`number`, `string`, `boolean`, `array`, `object`は、
+そのままGraphAI DSLで使うことができます。
+`JavaScript`の関数は、エージェントとして定義されていれば、GraphAI DSLで使うことができます。
+
+例えば、以下のような`JavaScript`のエージェントを定義したモジュール`dummy-agent.js`があるとします。
+
+```
+const dummyAgent = ({ namedInputs: { left, right } }) => left + right;
+
+const dummyAgentInfo = {
+  name: 'dummyAgent',
+  agent: dummyAgent,
+  mock: dummyAgent,
+
+  samples: [],
+  description: 'this is agent',
+  category: ['general'],
+  author: 'ai',
+  repository: 'https://github.com/receptron/graphai/',
+  license: 'MIT',
+};
+
+module.exports.dummyAgentInfo = dummyAgentInfo;
+```
+
+この`dummy-agent.js`をインポートして使うには、以下のように記述します。
+
+```
+native import './dummy-agent' as dummy;
+```
+
+`native import`の場合は、必ず`as`で名前を付ける必要があります。
+
+`dummyAgent`は以下のように呼び出すことができます。
+
+```
+dummy.dummyAgentInfo({left: 1, right: 2});
+```
