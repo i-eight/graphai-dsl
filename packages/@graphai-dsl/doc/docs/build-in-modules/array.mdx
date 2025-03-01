@@ -1,0 +1,348 @@
+---
+sidebar_position: 10
+---
+
+# Array
+
+## size
+
+```
+size = <A>(xs: Array<A>) -> number
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| xs | An array |
+
+### Return value
+
+A number of elements in the array.
+
+### Example
+
+```
+Array.size([1, 2, 3]) == 3
+```
+
+## reduce
+
+```
+reduce = <A, B>(init: B, f: (B, A) -> B, xs: Array<A>) -> B
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| init | An initial value |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+The value that results from running the "reducer" callback function to completion over the entire array.
+
+### Example
+
+```
+Array.reduce(0, (acc, x) -> acc + x, [1, 2, 3]) == 6
+```
+
+## flatMap
+
+```
+flatMap = <A, B>(f: (A) -> Array<B>, xs: Array<A>) -> Array<B>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+A new array with the results of calling a provided function on every element in the array.
+
+### Example
+
+```
+Array.flatMap((x) -> [x, x], [1, 2, 3]) == [1, 1, 2, 2, 3, 3]
+```
+
+## map
+
+```
+map = <A, B>(f: (A) -> B, xs: Array<A>) -> Array<B>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+A new array with the results of calling a provided function on every element in the array.
+
+### Example
+
+```
+Array.map((x) -> x + 1, [1, 2, 3]) == [2, 3, 4]
+```
+
+## filter
+
+```
+filter = <A>(f: (A) -> boolean, xs: Array<A>) -> Array<A>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+A new array with all elements that pass the test implemented by the provided function.
+
+### Example
+
+```
+Array.filter((x) -> x > 1, [1, 2, 3]) == [2, 3]
+```
+
+## find
+
+```
+find = <A>(f: (A) -> boolean, xs: Array<A>) -> A | null
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+The value of the first element in the array that satisfies the provided testing function. Otherwise, `null` is returned.
+
+### Example
+
+```
+Array.find((x) -> x > 1, [1, 2, 3]) == 2
+```
+
+## some
+
+```
+some = <A>(f: (A) -> boolean, xs: Array<A>) -> boolean
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+`true` if the callback function returns a truthy value for any element of the array. Otherwise, `false`.
+
+### Example
+
+```
+Array.some((x) -> x > 1, [1, 2, 3]) == true
+```
+
+## every
+
+```
+every = <A>(f: (A) -> boolean, xs: Array<A>) -> boolean
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+`true` if the callback function returns a truthy value for every element of the array. Otherwise, `false`.
+
+### Example
+
+```
+Array.every((x) -> x > 1, [1, 2, 3]) == false
+```
+
+## splitAt
+
+```
+splitAt = <A>(n: number, xs: Array<A>) -> [Array<A>, Array<A>]
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| n | An index |
+| xs | An array |
+
+### Return value
+
+A tuple of two arrays. The first array contains the first `n` elements of the input array, and the second array contains the rest of the elements.
+
+### Example
+
+```
+Array.splitAt(2, [1, 2, 3]) == [[1, 2], [3]]
+```
+
+## head
+
+```
+head = <A>(xs: Array<A>) -> A | null
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| xs | An array |
+
+### Return value
+
+The first element of the array. If the array is empty, `null` is returned.
+
+### Example
+
+```
+Array.head([1, 2, 3]) == 1
+```
+
+## tail
+
+```
+tail = <A>(xs: Array<A>) -> Array<A>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| xs | An array |
+
+### Return value
+
+A new array containing all elements of the input array except for the first element.
+
+### Example
+
+```
+Array.tail([1, 2, 3]) == [2, 3]
+```
+
+## sort
+
+```
+sort = <A>(f: (pair: { first: A, second: A }) -> number, xs: Array<A>) -> Array<A>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| f | A callback function |
+| xs | An array |
+
+### Return value
+
+A new array containing all elements of the input array sorted according to the comparison function.
+
+### Example
+
+```
+Array.sort((pair) -> pair.first - pair.second, [3, 1, 2]) == [1, 2, 3]
+```
+
+## concat
+
+```
+concat = <A>(xs: Array<A>, ys: Array<A>) -> Array<A>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| xs | An array |
+| ys | An array |
+
+### Return value
+
+A new array containing all elements of the first array followed by all elements of the second array.
+
+### Example
+
+```
+Array.concat([1, 2], [3, 4]) == [1, 2, 3, 4]
+```
+
+## range
+
+```
+range = (start: number, end: number) -> Array<number>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| start | A start value |
+| end | An end value |
+
+### Return value
+
+A new array containing a range of numbers from `start` to `end`.
+
+### Example
+
+```
+Array.range(5, 10) == [5, 6, 7, 8, 9]
+```
+
+## zip
+
+```
+zip = <A, B>(xs: Array<A>, ys: Array<B>) -> Array<[A, B]>
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| xs | An array |
+| ys | An array |
+
+### Return value
+
+A new array containing pairs of elements from the input arrays.
+
+### Example
+
+```
+Array.zip([1, 2], ['a', 'b']) == [[1, 'a'], [2, 'b']]
+```
