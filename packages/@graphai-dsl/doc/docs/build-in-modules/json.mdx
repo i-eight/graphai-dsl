@@ -1,0 +1,75 @@
+---
+sidebar_position: 30
+---
+
+# Json
+
+## stringify
+
+```
+stringify = (x: unknown) -> string
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| x | A value to convert to a JSON string. |
+
+### Return value
+
+A JSON string.
+
+### Example
+
+```
+Json.stringify({a: 1, b: 2, c: 3}) == '{"a":1,"b":2,"c":3}'
+```
+
+## prettyStringify
+
+```
+prettyStringify = (x: unknown) -> string
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| x | A value to convert to a JSON string. |
+
+### Return value
+
+A pretty-printed JSON string.
+
+### Example
+
+```
+Json.prettyStringify({a: 1, b: 2, c: 3}) == '{
+  "a": 1,
+  "b": 2,
+  "c": 3
+}'
+```
+
+## parse
+
+```
+parse = (x: string) -> unknown
+```
+
+### Parameters
+
+| Name | Description |
+| :--- | :--- |
+| x | A JSON string to parse. |
+
+### Return value
+
+A value.
+
+### Example
+
+```
+Json.parse('{"a":1,"b":2,"c":3}') == {a: 1, b: 2, c: 3}
+```
