@@ -1,3 +1,5 @@
 
 .env
+.yarn/
 dist
+packages/@graphai-dsl/cli/examples/temp.*

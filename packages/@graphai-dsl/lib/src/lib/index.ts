@@ -4,6 +4,7 @@ export * as dslParser from './dsl-parser';
 export * as stateEihter from './state-either';
 export * as compiler from './compiler';
 export * as error from './error';
+export { source } from './stream';
 export * from './file';
 export * from './unit';
 export * from './run';

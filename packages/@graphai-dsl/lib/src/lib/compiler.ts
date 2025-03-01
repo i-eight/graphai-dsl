@@ -230,6 +230,14 @@ export const compileFromString = (
     either.map(([_]) => _.json),
   );
 
+export const compileFromStringOrThrow = (src: Source, agents: AgentFunctionInfoDictionary): Json =>
+  pipe(
+    compileFromFile(src.path, agents),
+    either.match(e => {
+      throw e;
+    }, identity),
+  );
+
 export const run =
   (agents: AgentFunctionInfoDictionary) =>
   (self: Result): Either<DSLError, [CompileData, Context]> =>
