@@ -258,7 +258,7 @@ Array.tail([1, 2, 3]) == [2, 3]
 ## sort
 
 ```
-sort = <A>(f: (pair: { first: A, second: A }) -> number, xs: Array<A>) -> Array<A>
+sort = <A>(f: (a: A, b: A) -> number, xs: Array<A>) -> Array<A>
 ```
 
 ### Parameters
@@ -275,7 +275,7 @@ A new array containing all elements of the input array sorted according to the c
 ### Example
 
 ```
-Array.sort((pair) -> pair.first - pair.second, [3, 1, 2]) == [1, 2, 3]
+Array.sort((a, b) -> a - b, [3, 1, 2]) == [1, 2, 3]
 ```
 
 ## concat

@@ -64,10 +64,10 @@ A Date object.
 Date.toISOString(Date.fromISOString('2025-03-01T15:08:36.533Z')) == '2025-03-01T15:08:36.533Z';
 ```
 
-## getEpochTime
+## toEpochTime
 
 ```
-getEpochTime = (date: Date) -> number
+toEpochTime = (date: Date) -> number
 ```
 
 ### Parameters
@@ -83,7 +83,7 @@ A number representing the number of milliseconds since the Unix epoch.
 ### Example
 
 ```
-Date.getEpochTime(Date.fromEpochTime(1740841716533)) == 1740841716533;
+Date.toEpochTime(Date.fromEpochTime(1740841716533)) == 1740841716533;
 ```
 
 ## fromEpochTime
@@ -105,5 +105,5 @@ A Date object.
 ### Example
 
 ```
-Date.getEpochTime(Date.fromEpochTime(1740841716533)) == 1740841716533;
+Date.toEpochTime(Date.fromEpochTime(1740841716533)) == 1740841716533;
 ```

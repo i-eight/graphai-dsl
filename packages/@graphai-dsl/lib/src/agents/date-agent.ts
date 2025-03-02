@@ -5,7 +5,7 @@ type Response = Readonly<{
   fromEpochTime: FromEpochTime;
   toISOString: ToISOString;
   fromISOString: FromISOString;
-  getEpochTime: GetEpochTime;
+  toEpochTime: ToEpochTime;
 }>;
 
 type Now = AgentFunction<object, number, unknown>;
@@ -16,7 +16,7 @@ type ToISOString = AgentFunction<object, string, Date>;
 
 type FromISOString = AgentFunction<object, Date, string>;
 
-type GetEpochTime = AgentFunction<object, number, Date>;
+type ToEpochTime = AgentFunction<object, number, Date>;
 
 const dateAgent: AgentFunction<object, Response> = async () => ({
   now: async () => Date.now(),
@@ -27,7 +27,7 @@ const dateAgent: AgentFunction<object, Response> = async () => ({
 
   fromISOString: async ({ namedInputs: isoString }) => new Date(isoString),
 
-  getEpochTime: async ({ namedInputs: date }) => date.getTime(),
+  toEpochTime: async ({ namedInputs: date }) => date.getTime(),
 });
 
 export const dateAgentInfo: AgentFunctionInfo = {

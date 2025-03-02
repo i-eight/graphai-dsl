@@ -373,7 +373,7 @@ describe('Array Agent', () => {
         source.fromData(
           `
             @version('0.6');
-            [1, 2, 3, 4, 5] |> Array.sort((_) -> _.first - _.second);
+            [1, 2, 3, 4, 5] |> Array.sort((a, b) -> a - b);
         `,
         ),
         agents,
@@ -391,7 +391,7 @@ describe('Array Agent', () => {
         source.fromData(
           `
             @version('0.6');
-            [1, 2, 3, 4, 5] |> Array.sort((_) -> _.second - _.first);
+            [1, 2, 3, 4, 5] |> Array.sort((a, b) -> b - a);
         `,
         ),
         agents,

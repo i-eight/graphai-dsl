@@ -254,14 +254,11 @@ type Tail<A> = (_: TailArg<A>) => TailReturn<A>;
 const tail = async <A>({ namedInputs: self }: TailArg<A>): TailReturn<A> => self.slice(1);
 
 //----------------------------------------------------------------------
-type SortCallback<A> = (
-  _: AFC<
-    Readonly<{
-      first: A;
-      second: A;
-    }>
-  >,
-) => AFR<-1 | 0 | 1>;
+type SortCallbackArg1<A> = AFC<A>;
+type SortCallbackArg2<A> = AFC<A>;
+type SortCallbackReturn2 = AFR<-1 | 0 | 1>;
+type SortCallbackReturn1<A> = AFR<(_: SortCallbackArg2<A>) => SortCallbackReturn2>;
+type SortCallback<A> = (arg1: SortCallbackArg1<A>) => SortCallbackReturn1<A>;
 type SortArg1<A> = AFC<SortCallback<A>>;
 type SortArg2<A> = AFC<ReadonlyArray<A>>;
 type SortReturn2<A> = AFR<ReadonlyArray<A>>;
@@ -301,7 +298,13 @@ const sortArray = async <A>(
 const sort =
   async <A>({ namedInputs: callback }: SortArg1<A>): SortReturn1<A> =>
   async ({ namedInputs: self, ...arg2 }: SortArg2<A>): SortReturn2<A> =>
-    sortArray(self, async (a, b) => callback({ namedInputs: { first: a, second: b }, ...arg2 }));
+    sortArray(self, async (a, b) =>
+      pipe(
+        () => callback({ namedInputs: a, ...arg2 }),
+        task.flatMap(f => () => f({ namedInputs: b, ...arg2 })),
+        apply(unit),
+      ),
+    );
 
 //----------------------------------------------------------------------
 type ConcatArg1<A> = AFC<ReadonlyArray<A>>;
