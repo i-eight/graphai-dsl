@@ -33,7 +33,6 @@ export type Statements = ReadonlyArray<Node>;
 
 export type NestedGraph = Readonly<{
   type: 'NestedGraph';
-  annotations: ReadonlyArray<NodeAnnotation>;
   graph: Graph;
   context: Context;
 }>;
@@ -78,7 +77,6 @@ export type Expr =
 
 export type IfThenElse = Readonly<{
   type: 'IfThenElse';
-  annotations: ReadonlyArray<NodeAnnotation>;
   if: ComputedNodeBody;
   then: ComputedNodeBody;
   else: ComputedNodeBody;
@@ -87,14 +85,12 @@ export type IfThenElse = Readonly<{
 
 export type Paren = Readonly<{
   type: 'Paren';
-  annotations: ReadonlyArray<NodeAnnotation>;
   expr: Expr;
   context: Context;
 }>;
 
 export type Identifier = Readonly<{
   type: 'Identifier';
-  annotations: ReadonlyArray<NodeAnnotation>;
   name: string;
   context: Context;
 }>;
@@ -110,35 +106,30 @@ export type Literal =
 
 export type DSLNumber = Readonly<{
   type: 'Number';
-  annotations: ReadonlyArray<NodeAnnotation>;
   value: number;
   context: Context;
 }>;
 
 export type RawString = Readonly<{
   type: 'RawString';
-  annotations: ReadonlyArray<NodeAnnotation>;
   value: string;
   context: Context;
 }>;
 
 export type DSLString = Readonly<{
   type: 'String';
-  annotations: ReadonlyArray<NodeAnnotation>;
   value: ReadonlyArray<string | Expr>;
   context: Context;
 }>;
 
 export type DSLBoolean = Readonly<{
   type: 'Boolean';
-  annotations: ReadonlyArray<NodeAnnotation>;
   value: boolean;
   context: Context;
 }>;
 
 export type DSLArray = Readonly<{
   type: 'Array';
-  annotations: ReadonlyArray<NodeAnnotation>;
   value: ReadonlyArray<Expr>;
   context: Context;
 }>;
@@ -150,19 +141,17 @@ export type DSLObjectPair = Readonly<{
 
 export type DSLObject = Readonly<{
   type: 'Object';
-  annotations: ReadonlyArray<NodeAnnotation>;
   value: ReadonlyArray<DSLObjectPair>;
   context: Context;
 }>;
 
 export type DSLNull = Readonly<{
   type: 'Null';
-  annotations: ReadonlyArray<NodeAnnotation>;
   context: Context;
 }>;
 
-export type NodeAnnotation = Readonly<{
-  type: 'NodeAnnotation';
+export type AgentContext = Readonly<{
+  type: 'AgentContext';
   name: Identifier;
   value: Expr;
   context: Context;
@@ -170,7 +159,6 @@ export type NodeAnnotation = Readonly<{
 
 export type AgentDef = Readonly<{
   type: 'AgentDef';
-  annotations: ReadonlyArray<NodeAnnotation>;
   args?: Identifier;
   body: Expr | Graph;
   context: Context;
@@ -209,7 +197,6 @@ export type Term =
 export type Arrayable = DSLArray | Paren | Identifier;
 export type ArrayAt = Readonly<{
   type: 'ArrayAt';
-  annotations: ReadonlyArray<NodeAnnotation>;
   array: Arrayable | Call;
   index: Expr;
   context: Context;
@@ -218,7 +205,6 @@ export type ArrayAt = Readonly<{
 export type Objectable = DSLObject | Paren | Identifier;
 export type ObjectMember = Readonly<{
   type: 'ObjectMember';
-  annotations: ReadonlyArray<NodeAnnotation>;
   object: Objectable | Call;
   key: Identifier;
   context: Context;
@@ -227,7 +213,7 @@ export type ObjectMember = Readonly<{
 export type Agentable = Paren | Identifier;
 export type AgentCall = Readonly<{
   type: 'AgentCall';
-  annotations: ReadonlyArray<NodeAnnotation>;
+  agentContext: ReadonlyArray<AgentContext>;
   agent: Agentable | Call;
   args?: Expr;
   context: Context;
@@ -240,7 +226,6 @@ export type TermPower = DSLNumber | Identifier | Paren | Call;
 
 export type Power = Readonly<{
   type: 'Power';
-  annotations: ReadonlyArray<NodeAnnotation>;
   base: TermPower | Power;
   exponent: TermPower;
   context: Context;
@@ -250,7 +235,6 @@ export type TermMulDivMod = TermPower | Power;
 
 export type MulDivMod = Readonly<{
   type: 'MulDivMod';
-  annotations: ReadonlyArray<NodeAnnotation>;
   left: TermMulDivMod | MulDivMod;
   operator: '*' | '/' | '%';
   right: TermMulDivMod;
@@ -261,7 +245,6 @@ export type TermPlusMinus = TermMulDivMod | MulDivMod;
 
 export type PlusMinus = Readonly<{
   type: 'PlusMinus';
-  annotations: ReadonlyArray<NodeAnnotation>;
   left: TermPlusMinus | PlusMinus;
   operator: '+' | '-';
   right: TermPlusMinus;
@@ -272,7 +255,6 @@ export type TermRelational = TermPlusMinus | PlusMinus | DSLString;
 
 export type Relational = Readonly<{
   type: 'Relational';
-  annotations: ReadonlyArray<NodeAnnotation>;
   left: TermRelational | Relational;
   operator: '<' | '<=' | '>' | '>=';
   right: TermRelational;
@@ -283,7 +265,6 @@ export type TermEquality = TermRelational | Relational | DSLBoolean | DSLArray |
 
 export type Equality = Readonly<{
   type: 'Equality';
-  annotations: ReadonlyArray<NodeAnnotation>;
   left: TermEquality | Equality;
   operator: '==' | '!=';
   right: TermEquality;
@@ -294,7 +275,6 @@ export type TermLogical = TermEquality | Equality;
 
 export type Logical = Readonly<{
   type: 'Logical';
-  annotations: ReadonlyArray<NodeAnnotation>;
   left: TermLogical | Logical;
   operator: '&&' | '||';
   right: TermLogical;
@@ -305,7 +285,6 @@ export type TermPipeline = TermLogical | Logical | IfThenElse | AgentDef;
 
 export type Pipeline = Readonly<{
   type: 'Pipeline';
-  annotations: ReadonlyArray<NodeAnnotation>;
   left: TermPipeline | Pipeline;
   operator: '|>' | '-->' | '>>' | '>>=' | '>>-' | '->>' | ':>';
   right: TermPipeline;

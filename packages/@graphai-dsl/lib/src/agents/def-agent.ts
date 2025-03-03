@@ -20,7 +20,12 @@ const defAgent =
       return?: ReadonlyArray<string>;
     }>
   >): Promise<AgentFunction> =>
-  async ({ namedInputs }) => {
+  async ({ namedInputs, ...tail }) => {
+    const context = {
+      ...tail,
+      forNestedGraph: null,
+    } as const;
+
     const result = (
       await new GraphAI(
         {
@@ -28,7 +33,10 @@ const defAgent =
           nodes: {
             exec: {
               agent: 'nestedAgent',
-              inputs: args == null ? capture : { [args]: namedInputs, ...capture },
+              inputs:
+                args == null
+                  ? { '@context': context, ...capture }
+                  : { [args]: namedInputs, '@context': context, ...capture },
               graph: forNestedGraph?.graphData,
               isResult: true,
             },

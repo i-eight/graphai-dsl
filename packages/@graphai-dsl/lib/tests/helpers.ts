@@ -4,7 +4,7 @@ import {
   ComputedNode,
   Expr,
   Graph,
-  NodeAnnotation,
+  AgentContext,
   StaticNode,
   ComputedNodeBody,
   File,
@@ -37,7 +37,7 @@ export const toTupleFromExpr = (
     | Graph
     | Statements
     | NestedGraph
-    | NodeAnnotation
+    | AgentContext
     | StaticNode
     | ComputedNode
     | ComputedNodeBody,
@@ -77,13 +77,13 @@ export const toTupleFromExpr = (
         return { array: toTupleFromExpr(_.array), at: toTupleFromExpr(_.index) };
       case 'ObjectMember':
         return { object: toTupleFromExpr(_.object), member: _.key.name };
-      case 'NodeAnnotation':
-        return { annotation: _.name.name, value: toTupleFromExpr(_.value) };
+      case 'AgentContext':
+        return { name: _.name.name, value: toTupleFromExpr(_.value) };
       case 'AgentCall':
         return _.args == null
-          ? { annotations: _.annotations.map(toTupleFromExpr), agent: toTupleFromExpr(_.agent) }
+          ? { agentContext: _.agentContext.map(toTupleFromExpr), agent: toTupleFromExpr(_.agent) }
           : {
-              annotations: _.annotations.map(toTupleFromExpr),
+              agentContext: _.agentContext.map(toTupleFromExpr),
               agent: toTupleFromExpr(_.agent),
               args: toTupleFromExpr(_.args),
             };
@@ -109,7 +109,6 @@ export const toTupleFromExpr = (
           : { anonNode: toTupleFromExpr(_.body) };
       case 'NestedGraph':
         return {
-          annotations: _.annotations.map(toTupleFromExpr),
           nested: toTupleFromExpr(_.graph),
         };
       case 'Graph':

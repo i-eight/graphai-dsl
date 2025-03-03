@@ -35,7 +35,7 @@ import {
   MulDivMod,
   NestedGraph,
   Node,
-  NodeAnnotation,
+  AgentContext,
   ObjectMember,
   Paren,
   PlusMinus,
@@ -146,45 +146,49 @@ const underScore = char('_');
 
 export const identifier: Parser<Identifier> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
-  parser.bind('first', () => pipe(alphabet, parser.or(underScore))),
-  parser.orElse(e =>
-    parser.fail({
-      type: 'UnexpectedParserError',
-      expect: ['identifier'],
-      actual: error.getActual(e),
-      message: `An identifier can not start with ${error.getActual(e)}`,
-    }),
-  ),
-  parser.bind('rest', () =>
-    parser.repeat('', a =>
-      pipe(
-        alphaNum,
-        parser.or(underScore),
-        parser.map(s => a + s),
+  parser.flatMap(() => text('@context')),
+  parser.orElse(() =>
+    pipe(
+      parser.unit,
+      parser.bind('first', () => pipe(alphabet, parser.or(underScore))),
+      parser.orElse(e =>
+        parser.fail({
+          type: 'UnexpectedParserError',
+          expect: ['identifier'],
+          actual: error.getActual(e),
+          message: `An identifier can not start with ${error.getActual(e)}`,
+        }),
+      ),
+      parser.bind('rest', () =>
+        parser.repeat('', a =>
+          pipe(
+            alphaNum,
+            parser.or(underScore),
+            parser.map(s => a + s),
+          ),
+        ),
+      ),
+      parser.bind('name', ({ first, rest }) => parser.of(first + rest)),
+      parser.flatMap(({ name }) =>
+        pipe(
+          reservedWords,
+          readonlyArray.exists(_ => _ === name),
+          _ =>
+            _
+              ? parser.fail<string>({
+                  type: 'UnexpectedParserError',
+                  message: `Cannot use '${name}' as an identifier`,
+                })
+              : parser.of(name),
+        ),
       ),
     ),
   ),
-  parser.bind('name', ({ first, rest }) => parser.of(first + rest)),
-  parser.bind('_', ({ name }) =>
-    pipe(
-      reservedWords,
-      readonlyArray.exists(_ => _ === name),
-      _ =>
-        _
-          ? parser.fail<string>({
-              type: 'UnexpectedParserError',
-              message: `Cannot use '${name}' as an identifier`,
-            })
-          : parser.of(name),
-    ),
-  ),
-  parser.range(({ name, annotations }) => ({ type: 'Identifier', annotations, name })),
+  parser.range(name => ({ type: 'Identifier', name })),
 );
 
 export const boolean: Parser<DSLBoolean> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('value', () =>
     pipe(
       text('true'),
@@ -198,9 +202,8 @@ export const boolean: Parser<DSLBoolean> = pipe(
       ),
     ),
   ),
-  parser.range(({ annotations, value }) => ({
+  parser.range(({ value }) => ({
     type: 'Boolean',
-    annotations,
     value: value === 'true',
   })),
 );
@@ -214,7 +217,6 @@ export const unsignedInteger: Parser<string> = parser.repeat1('', a =>
 
 export const number: Parser<DSLNumber> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('sign', () => pipe(char('+'), parser.or(char('-')), parser.or(parser.of('')))),
   parser.bind('uint', () => unsignedInteger),
   parser.bind('decimal', () =>
@@ -229,13 +231,12 @@ export const number: Parser<DSLNumber> = pipe(
   parser.orElse(e =>
     parser.fail({ type: 'UnexpectedParserError', expect: ['number'], actual: error.getActual(e) }),
   ),
-  parser.range(({ annotations, value }) => ({ type: 'Number', annotations, value })),
+  parser.range(({ value }) => ({ type: 'Number', value })),
 );
 
 const stringQuote = (quote: '"' | "'"): Parser<DSLString> =>
   pipe(
     parser.unit,
-    parser.bind('annotations', () => nodeAnnotations),
     parser.bind('value', () =>
       pipe(
         char(quote),
@@ -272,14 +273,13 @@ const stringQuote = (quote: '"' | "'"): Parser<DSLString> =>
         parser.left(char(quote)),
       ),
     ),
-    parser.range(({ annotations, value }) => ({ type: 'String', annotations, value })),
+    parser.range(({ value }) => ({ type: 'String', value })),
   );
 
 export const string: Parser<DSLString> = pipe(stringQuote('"'), parser.or(stringQuote("'")));
 
 export const array: Parser<DSLArray> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('value', () =>
     pipe(
       char('['),
@@ -298,12 +298,11 @@ export const array: Parser<DSLArray> = pipe(
       parser.left(char(']')),
     ),
   ),
-  parser.range(({ annotations, value }) => ({ type: 'Array', annotations, value })),
+  parser.range(({ value }) => ({ type: 'Array', value })),
 );
 
 export const object: Parser<DSLObject> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('value', () =>
     pipe(
       char('{'),
@@ -327,36 +326,42 @@ export const object: Parser<DSLObject> = pipe(
       parser.left(char('}')),
     ),
   ),
-  parser.range(({ annotations, value }) => ({ type: 'Object', annotations, value })),
+  parser.range(({ value }) => ({ type: 'Object', value })),
 );
 
 export const null_: Parser<DSLNull> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('value', () => text('null')),
-  parser.range(({ annotations }) => ({ type: 'Null', annotations })),
+  parser.range(() => ({ type: 'Null' })),
 );
 
-export const nodeAnnotation: Parser<NodeAnnotation> = pipe(
-  char('@'),
+export const agentContextPair: Parser<AgentContext> = pipe(
+  parser.unit,
   parser.bind('name', () => identifier),
-  parser.left(char('(')),
+  parser.left(whitespaces),
+  parser.left(char('=')),
   parser.left(whitespaces),
   parser.bind('value', () => expr),
   parser.left(whitespaces),
+  parser.range(({ name, value }) => ({ type: 'AgentContext', name, value })),
+);
+
+export const agentContext: Parser<ReadonlyArray<AgentContext>> = pipe(
+  text('@('),
+  parser.right(whitespaces),
+  parser.right(
+    pipe(
+      parser.unit,
+      parser.right(agentContextPair),
+      parser.sepBy1(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+    ),
+  ),
+  parser.left(whitespaces),
   parser.left(char(')')),
-  parser.range(({ name, value }) => ({ type: 'NodeAnnotation', name, value })),
+  parser.or(parser.of<ReadonlyArray<AgentContext>>([])),
 );
 
-export const nodeAnnotations: Parser<ReadonlyArray<NodeAnnotation>> = pipe(
-  nodeAnnotation,
-  parser.sepBy1(whitespaces1),
-  parser.left(whitespaces1),
-  parser.or(parser.of<ReadonlyArray<NodeAnnotation>>([])),
-);
-
-export const agentDefRecur = (
-  annotations: ReadonlyArray<NodeAnnotation>,
+export const curriedAgentDef = (
   args: ReadonlyArray<Identifier>,
   body: Expr | Graph,
   context: ParserRange,
@@ -384,7 +389,6 @@ export const agentDefRecur = (
                         () =>
                           option.of<AgentDef>({
                             type: 'AgentDef',
-                            annotations,
                             args: arg,
                             body,
                             context,
@@ -392,7 +396,6 @@ export const agentDefRecur = (
                         _ =>
                           option.of<AgentDef>({
                             type: 'AgentDef',
-                            annotations: [],
                             args: arg,
                             body: _,
                             context,
@@ -403,17 +406,17 @@ export const agentDefRecur = (
               ),
             ),
     ).result,
-    option.getOrElse(() => ({
-      type: 'AgentDef',
-      annotations,
-      body,
-      context,
-    })),
+    option.getOrElse(() =>
+      identity<AgentDef>({
+        type: 'AgentDef',
+        body,
+        context,
+      }),
+    ),
   );
 
 export const agentDef: Parser<AgentDef> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.left(char('(')),
   parser.left(whitespaces),
   parser.bind('args', () =>
@@ -447,9 +450,7 @@ export const agentDef: Parser<AgentDef> = pipe(
       parser.or<Graph | Expr>(expr),
     ),
   ),
-  parser.mapWithRange(({ annotations, args, body }, context) =>
-    agentDefRecur(annotations, args, body, context),
-  ),
+  parser.mapWithRange(({ args, body }, context) => curriedAgentDef(args, body, context)),
 );
 
 export const throwOr =
@@ -513,10 +514,7 @@ export const isArrayable = (term: Expr): term is Arrayable =>
   term.type === 'NestedGraph' ||
   term.type === 'Identifier';
 
-export const arrayAtFrom = (
-  annotations: ReadonlyArray<NodeAnnotation>,
-  term: Term | Call,
-): Parser<ArrayAt> =>
+export const arrayAtFrom = (term: Term | Call): Parser<ArrayAt> =>
   pipe(
     parser.unit,
     parser.left(char('[')),
@@ -535,7 +533,6 @@ export const arrayAtFrom = (
     parser.range(({ index, array }) =>
       identity<Omit<ArrayAt, 'context'>>({
         type: 'ArrayAt',
-        annotations,
         array,
         index,
       }),
@@ -548,10 +545,7 @@ export const isObjectable = (term: Expr): term is Objectable =>
   term.type === 'NestedGraph' ||
   term.type === 'Identifier';
 
-export const objectMemberFrom = (
-  annotations: ReadonlyArray<NodeAnnotation>,
-  term: Term | Call,
-): Parser<ObjectMember> =>
+export const objectMemberFrom = (term: Term | Call): Parser<ObjectMember> =>
   pipe(
     parser.unit,
     parser.left(whitespaces),
@@ -568,7 +562,6 @@ export const objectMemberFrom = (
     ),
     parser.range(({ key, object }) => ({
       type: 'ObjectMember',
-      annotations,
       object,
       key,
     })),
@@ -578,7 +571,7 @@ export const isAgentable = (term: Expr): term is Agentable =>
   term.type === 'Paren' || term.type === 'NestedGraph' || term.type === 'Identifier';
 
 export const agentCallRecur = (
-  annotations: ReadonlyArray<NodeAnnotation>,
+  agentContext: ReadonlyArray<AgentContext>,
   agent: Agentable | Call,
   args: ReadonlyArray<Expr>,
   context: ParserRange,
@@ -592,7 +585,7 @@ export const agentCallRecur = (
           () =>
             option.of<AgentCall>({
               type: 'AgentCall',
-              annotations,
+              agentContext,
               agent,
               args: arg,
               context,
@@ -600,7 +593,7 @@ export const agentCallRecur = (
           _ =>
             option.of<AgentCall>({
               type: 'AgentCall',
-              annotations: [],
+              agentContext,
               agent: _,
               args: arg,
               context,
@@ -611,19 +604,17 @@ export const agentCallRecur = (
     option.getOrElse(() =>
       identity<AgentCall>({
         type: 'AgentCall',
-        annotations,
+        agentContext,
         agent,
         context,
       }),
     ),
   );
 
-export const agentCallFrom = (
-  annotations: ReadonlyArray<NodeAnnotation>,
-  term: Term | Call,
-): Parser<AgentCall> =>
+export const agentCallFrom = (term: Term | Call): Parser<AgentCall> =>
   pipe(
     parser.unit,
+    parser.bind('agentContext', () => agentContext),
     parser.left(char('(')),
     parser.left(whitespaces),
     parser.bind('args', () =>
@@ -645,29 +636,23 @@ export const agentCallFrom = (
             message: `Agent call cannot be used for ${term.type}.`,
           }),
     ),
-    parser.mapWithRange(({ agent, args }, context) =>
-      agentCallRecur(annotations, agent, args, context),
+    parser.mapWithRange(({ agentContext, agent, args }, context) =>
+      agentCallRecur(agentContext, agent, args, context),
     ),
   );
 
-export const callFrom = (
-  annotations: ReadonlyArray<NodeAnnotation>,
-  term: Term | Call,
-): Parser<Term | Call> =>
+export const callFrom = (term: Term | Call): Parser<Term | Call> =>
   pipe(
-    agentCallFrom(annotations, term),
-    invalidOr<Call>(arrayAtFrom(annotations, term)),
-    invalidOr<Call>(objectMemberFrom(annotations, term)),
-    parser.flatMap(_ => pipe(callFrom(annotations, _), invalidOr<Term | Call>(parser.of(_)))),
+    agentCallFrom(term),
+    invalidOr<Call>(arrayAtFrom(term)),
+    invalidOr<Call>(objectMemberFrom(term)),
+    parser.flatMap(_ => pipe(callFrom(_), invalidOr<Term | Call>(parser.of(_)))),
   );
 
 export const call: Parser<Term | Call> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.bind('term', () => term),
-  parser.flatMap(({ annotations, term }) =>
-    pipe(callFrom(annotations, term), invalidOr<Term | Call>(parser.of(term))),
-  ),
+  parser.flatMap(({ term }) => pipe(callFrom(term), invalidOr<Term | Call>(parser.of(term)))),
 );
 
 export const isTermPower = (term: Expr): term is TermPower =>
@@ -708,7 +693,6 @@ export const powerExponent = (term: Term | TermPower | Power): Parser<Power> =>
     parser.range(({ base, exponent }) =>
       identity<Omit<Power, 'context'>>({
         type: 'Power',
-        annotations: [],
         base,
         exponent,
       }),
@@ -757,7 +741,6 @@ export const mulDivModRight = (term: Term | TermMulDivMod | MulDivMod): Parser<M
     parser.range(({ left, operator, right }) =>
       identity<Omit<MulDivMod, 'context'>>({
         type: 'MulDivMod',
-        annotations: [],
         left,
         operator: operator as '*' | '/' | '%',
         right,
@@ -816,7 +799,6 @@ export const plusMinusRight = (term: Term | TermPlusMinus | PlusMinus): Parser<P
         parser.range(() =>
           identity<Omit<PlusMinus, 'context'>>({
             type: 'PlusMinus',
-            annotations: [],
             left,
             operator: operator as '+' | '-',
             right,
@@ -875,7 +857,6 @@ export const relationalRight = (term: Term | TermRelational | Relational): Parse
         parser.range(() =>
           identity<Omit<Relational, 'context'>>({
             type: 'Relational',
-            annotations: [],
             left,
             operator: operator as '<=' | '<' | '>=' | '>',
             right,
@@ -934,7 +915,6 @@ export const equalityRight = (term: Term | TermEquality | Equality): Parser<Equa
     parser.range(({ left, operator, right }) =>
       identity<Omit<Equality, 'context'>>({
         type: 'Equality',
-        annotations: [],
         left,
         operator: operator as '==' | '!=',
         right,
@@ -984,7 +964,6 @@ export const logicalRight = (term: Term | TermLogical | Logical): Parser<Logical
     parser.range(({ left, operator, right }) =>
       identity<Omit<Logical, 'context'>>({
         type: 'Logical',
-        annotations: [],
         left,
         operator: operator as '&&' | '||',
         right,
@@ -1049,7 +1028,6 @@ export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipe
     parser.range(({ left, operator, right }) =>
       identity<Omit<Pipeline, 'context'>>({
         type: 'Pipeline',
-        annotations: [],
         left,
         operator: operator as Pipeline['operator'],
         right,
@@ -1069,7 +1047,6 @@ export const operator = pipeline;
 
 export const ifThenElse: Parser<IfThenElse> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.left(text('if')),
   parser.left(whitespaces1),
   parser.bind('if_', () => computedNodeBody),
@@ -1081,9 +1058,8 @@ export const ifThenElse: Parser<IfThenElse> = pipe(
   parser.left(text('else')),
   parser.left(whitespaces1),
   parser.bind('else_', () => computedNodeBody),
-  parser.range(({ annotations, if_, then_, else_ }) => ({
+  parser.range(({ if_, then_, else_ }) => ({
     type: 'IfThenElse',
-    annotations,
     if: if_,
     then: then_,
     else: else_,
@@ -1092,13 +1068,12 @@ export const ifThenElse: Parser<IfThenElse> = pipe(
 
 export const paren: Parser<Paren> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.left(char('(')),
   parser.left(whitespaces),
   parser.bind('expr', () => expr),
   parser.left(whitespaces),
   parser.left(char(')')),
-  parser.range(({ annotations, expr }) => ({ type: 'Paren', annotations, expr })),
+  parser.range(({ expr }) => ({ type: 'Paren', expr })),
 );
 
 export const expr: Parser<Expr> = pipe(
@@ -1147,7 +1122,6 @@ export const staticNode: Parser<StaticNode> = pipe(
 
 export const nestedGraph: Parser<NestedGraph> = pipe(
   parser.unit,
-  parser.bind('annotations', () => nodeAnnotations),
   parser.left(char('{')),
   parser.left(whitespaces),
   parser.bind('graph', () =>
@@ -1160,10 +1134,9 @@ export const nestedGraph: Parser<NestedGraph> = pipe(
       option.none,
     ),
   ),
-  parser.range(({ annotations, graph }) =>
+  parser.range(({ graph }) =>
     identity<Omit<NestedGraph, 'context'>>({
       type: 'NestedGraph',
-      annotations,
       graph,
     }),
   ),
@@ -1198,7 +1171,21 @@ export const namedComputedNode: Parser<ComputedNode> = pipe(
     ),
   ),
   parser.bind('name', () =>
-    pipe(identifier, parser.left(whitespaces), parser.left(char('=')), parser.left(whitespaces)),
+    pipe(
+      identifier,
+      parser.left(whitespaces),
+      parser.left(char('=')),
+      parser.left(whitespaces),
+      parser.flatMap(_ =>
+        _.name === '@context'
+          ? parser.fail<Identifier>({
+              type: 'UnexpectedParserError',
+              expect: ['identifier'],
+              actual: '@context',
+            })
+          : parser.of(_),
+      ),
+    ),
   ),
   parser.bind('body', () => computedNodeBody),
   parser.left(whitespaces),
@@ -1259,12 +1246,16 @@ export const graph = (end: Parser<Unit>, version: Option<string>): Parser<Graph>
   );
 
 export const version: Parser<string> = pipe(
-  nodeAnnotation,
+  text('@version('),
+  parser.right(whitespaces),
+  parser.right(string),
+  parser.left(whitespaces),
+  parser.left(char(')')),
   parser.left(whitespaces),
   parser.left(char(';')),
   parser.flatMap(_ =>
-    _.name.name === 'version' && _.value.type === 'String' && typeof _.value.value[0] === 'string'
-      ? parser.of(_.value.value[0])
+    typeof _.value[0] === 'string'
+      ? parser.of(_.value[0])
       : parser.fail({
           type: 'UnexpectedParserError',
           message: 'Version annotation must be a string',

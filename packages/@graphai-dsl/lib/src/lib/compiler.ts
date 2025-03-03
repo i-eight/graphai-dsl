@@ -22,7 +22,7 @@ import {
   MulDivMod,
   NestedGraph,
   Node,
-  NodeAnnotation,
+  AgentContext,
   ObjectMember,
   Paren,
   Pipeline,
@@ -266,16 +266,14 @@ export const newComputedNode = (
   ],
   name: {
     type: 'Identifier',
-    annotations: [],
     name: params.name,
     context: params.context,
   },
   body: {
     type: 'AgentCall',
-    annotations: [],
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: params.agent,
       context: params.context,
     },
@@ -366,7 +364,6 @@ const statementsToPublicPairs = (s: Statements): ReadonlyArray<DSLObjectPair> =>
 
 const importsToObject = (s: Statements, context: ParserRange): NestedGraph => ({
   type: 'NestedGraph',
-  annotations: [],
   graph: {
     type: 'Graph',
     statements: [
@@ -376,7 +373,6 @@ const importsToObject = (s: Statements, context: ParserRange): NestedGraph => ({
         modifiers: [],
         body: {
           type: 'Object',
-          annotations: [],
           value: statementsToPublicPairs(s),
           context,
         },
@@ -479,7 +475,6 @@ export const importToStatements = (import_: Import, currentDir: string): Result<
               se.map(name =>
                 identity<Identifier>({
                   type: 'Identifier',
-                  annotations: [],
                   name,
                   context: import_.context,
                 }),
@@ -507,27 +502,23 @@ export const nativeImportToStatements = (
         name: import_.as,
         body: {
           type: 'AgentCall',
-          annotations: [],
+          agentContext: [],
           agent: {
             type: 'Identifier',
-            annotations: [],
             name: 'nativeImportAgent',
             context: import_.context,
           },
           args: {
             type: 'Object',
-            annotations: [],
             value: [
               {
                 key: {
                   type: 'Identifier',
-                  annotations: [],
                   name: 'path',
                   context: import_.context,
                 },
                 value: {
                   type: 'String',
-                  annotations: [],
                   value: [path],
                   context: import_.context,
                 },
@@ -692,10 +683,9 @@ export const computedNodeBodyExprToJson = (expr: Expr): Result<CompileData<JsonO
       return exprToJson(
         identity<AgentCall>({
           type: 'AgentCall',
-          annotations: expr.annotations,
+          agentContext: [],
           agent: {
             type: 'Identifier',
-            annotations: [],
             name: 'identity',
             context: expr.context,
           },
@@ -755,8 +745,8 @@ export const exprToJson = (expr: Expr): Result => {
   }
 };
 
-export const annotationsToJson = (
-  annotations: ReadonlyArray<NodeAnnotation>,
+export const agentContextToJson = (
+  agentContext: ReadonlyArray<AgentContext>,
 ): Result<
   Readonly<{
     json: JsonObject;
@@ -764,7 +754,7 @@ export const annotationsToJson = (
   }>
 > =>
   pipe(
-    annotations,
+    agentContext,
     readonlyArray.reduce(
       se.right<
         Context,
@@ -829,8 +819,6 @@ export const annotationsToJson = (
 export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonObject>> =>
   pipe(
     result.of<Unit>(unit),
-    // Convert the annotations to the node's parameters
-    se.bind('annotations', () => annotationsToJson(graph.annotations)),
     // Convert the nested graph to a JSON
     se.bind('jsonGraph', () => graphToJson(graph.graph)),
     // Find the identifiers to be captured from the parent stack
@@ -890,7 +878,7 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
       ),
     ),
     se.bind('name', () => getAnnonName()),
-    se.map(({ annotations, jsonGraph, inputsCaptures: { inputs, captures }, name }) => ({
+    se.map(({ jsonGraph, inputsCaptures: { inputs, captures }, name }) => ({
       json: {
         agent: 'getObjectMemberAgent',
         inputs: {
@@ -900,9 +888,7 @@ export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonOb
       },
       captures,
       nodes: {
-        ...annotations.nodes,
         [name]: {
-          ...annotations.json,
           isResult: false,
           agent: 'nestedAgent',
           inputs,
@@ -916,11 +902,9 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
   pipe(
     se.right<Context, DSLError, Unit>(unit),
     se.bind('ctx', () => se.get()),
-    se.bind('annotations', () => annotationsToJson(ifThenElse.annotations)),
     se.bind('if_', () =>
       exprToJson({
         type: 'AgentDef',
-        annotations: [],
         body: ifThenElse.if.type === 'NestedGraph' ? ifThenElse.if.graph : ifThenElse.if,
         context: ifThenElse.if.context,
       }),
@@ -929,7 +913,6 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
     se.bind('then_', () =>
       exprToJson({
         type: 'AgentDef',
-        annotations: [],
         body: ifThenElse.then.type === 'NestedGraph' ? ifThenElse.then.graph : ifThenElse.then,
         context: ifThenElse.then.context,
       }),
@@ -938,15 +921,13 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
     se.bind('else_', () =>
       exprToJson({
         type: 'AgentDef',
-        annotations: [],
         body: ifThenElse.else.type === 'NestedGraph' ? ifThenElse.else.graph : ifThenElse.else,
         context: ifThenElse.else.context,
       }),
     ),
     se.bind('elseNode', () => getAnnonName()),
-    se.map(({ annotations, if_, ifNode, then_, thenNode, else_, elseNode }) => ({
+    se.map(({ if_, ifNode, then_, thenNode, else_, elseNode }) => ({
       json: identity<JsonObject>({
-        ...annotations.json,
         agent: 'caseAgent',
         inputs: {
           conditions: [{ if: `:${ifNode}`, then: `:${thenNode}` }, { else: `:${elseNode}` }],
@@ -973,11 +954,9 @@ export const parenToJson = (paren: Paren): Result => exprToJson(paren.expr);
 export const computedNodeParenToJson = (paren: Paren): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
-    se.bind('annotations', () => annotationsToJson(paren.annotations)),
     se.bind('expr', () => computedNodeToJson(paren.expr)),
-    se.map(({ annotations, expr }) => ({
+    se.map(({ expr }) => ({
       json: {
-        ...annotations.json,
         ...expr.json,
       },
       captures: expr.captures,
@@ -988,21 +967,18 @@ export const computedNodeParenToJson = (paren: Paren): Result<CompileData<JsonOb
 export const applyAgentToJson = (agentCall: AgentCall): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: agentCall.annotations,
+    agentContext: agentCall.agentContext,
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: 'apply',
       context: agentCall.context,
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'agent',
             context: agentCall.agent.context,
           },
@@ -1011,13 +987,11 @@ export const applyAgentToJson = (agentCall: AgentCall): Result<CompileData<JsonO
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'args',
             context: agentCall.args?.context ?? agentCall.context,
           },
           value: agentCall.args ?? {
             type: 'Object',
-            annotations: [],
             value: [],
             context: agentCall.context,
           },
@@ -1031,9 +1005,9 @@ export const applyAgentToJson = (agentCall: AgentCall): Result<CompileData<JsonO
 export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
-    se.bind('annotations', () =>
+    se.bind('agentContext', () =>
       pipe(
-        annotationsToJson(agentCall.annotations),
+        agentContextToJson(agentCall.agentContext),
         se.map(_ => ('graph' in _.json ? _ : { ..._, json: { ..._.json, graph: {} } })),
       ),
     ),
@@ -1098,13 +1072,13 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
           })
         : exprToJson(agentCall.args),
     ),
-    se.flatMap(({ annotations, agent, args, nestedAgentCall }) =>
+    se.flatMap(({ agentContext, agent, args, nestedAgentCall }) =>
       nestedAgentCall
         ? pipe(
             getAnnonName(),
             se.map(agentName => ({
               json: {
-                ...annotations.json,
+                ...agentContext.json,
                 agent: agent.json,
                 inputs: `:${agentName}`,
               },
@@ -1123,11 +1097,11 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
             json:
               args.json == null
                 ? {
-                    ...annotations.json,
+                    ...agentContext.json,
                     agent: agent.json,
                   }
                 : {
-                    ...annotations.json,
+                    ...agentContext.json,
                     agent: agent.json,
                     inputs: args.json,
                   },
@@ -1146,8 +1120,16 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
 export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
-    se.bind('annotations', () => annotationsToJson(agentDef.annotations)),
-    se.bind('graph', () =>
+    se.let_(
+      'agentContext',
+      () =>
+        ({
+          type: 'Identifier',
+          name: '@context',
+          context: agentDef.context,
+        }) satisfies Identifier,
+    ),
+    se.bind('graph', ({ agentContext }) =>
       graphToJson(
         agentDef.body.type === 'Graph'
           ? agentDef.body
@@ -1163,7 +1145,7 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
               ],
               context: agentDef.body.context,
             },
-        agentDef.args ? { agentArgs: [agentDef.args] } : undefined,
+        { agentArgs: [agentContext, ...(agentDef.args ? [agentDef.args] : [])] },
       ),
     ),
     se.let_('captures', ({ graph }) =>
@@ -1195,9 +1177,8 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
         ),
       ),
     ),
-    se.map(({ annotations, graph, captures, captures2 }) => ({
+    se.map(({ graph, captures, captures2 }) => ({
       json: {
-        ...annotations.json,
         agent: 'defAgent',
         inputs: {
           args: agentDef.args?.name,
@@ -1217,10 +1198,9 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
 export const pipelineToJson = (pipeline: Pipeline): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: pipeline.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: (() => {
         switch (pipeline.operator) {
           case '|>':
@@ -1243,12 +1223,10 @@ export const pipelineToJson = (pipeline: Pipeline): Result<CompileData<JsonObjec
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'left',
             context: pipeline.left.context,
           },
@@ -1257,7 +1235,6 @@ export const pipelineToJson = (pipeline: Pipeline): Result<CompileData<JsonObjec
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'right',
             context: pipeline.right.context,
           },
@@ -1272,21 +1249,18 @@ export const pipelineToJson = (pipeline: Pipeline): Result<CompileData<JsonObjec
 export const logicalToJson = (logical: Logical): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: logical.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: logical.operator === '&&' ? 'andAgent' : 'orAgent',
       context: logical.context,
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'left',
             context: logical.left.context,
           },
@@ -1295,7 +1269,6 @@ export const logicalToJson = (logical: Logical): Result<CompileData<JsonObject>>
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'right',
             context: logical.right.context,
           },
@@ -1310,10 +1283,9 @@ export const logicalToJson = (logical: Logical): Result<CompileData<JsonObject>>
 export const equalityToJson = (equality: Equality): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: equality.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: (() => {
         switch (equality.operator) {
           case '==':
@@ -1326,12 +1298,10 @@ export const equalityToJson = (equality: Equality): Result<CompileData<JsonObjec
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'left',
             context: equality.left.context,
           },
@@ -1340,7 +1310,6 @@ export const equalityToJson = (equality: Equality): Result<CompileData<JsonObjec
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'right',
             context: equality.right.context,
           },
@@ -1355,10 +1324,9 @@ export const equalityToJson = (equality: Equality): Result<CompileData<JsonObjec
 export const relationalToJson = (relational: Relational): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: relational.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: (() => {
         switch (relational.operator) {
           case '<':
@@ -1375,12 +1343,10 @@ export const relationalToJson = (relational: Relational): Result<CompileData<Jso
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'left',
             context: relational.left.context,
           },
@@ -1389,7 +1355,6 @@ export const relationalToJson = (relational: Relational): Result<CompileData<Jso
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'right',
             context: relational.right.context,
           },
@@ -1404,21 +1369,18 @@ export const relationalToJson = (relational: Relational): Result<CompileData<Jso
 export const plusMinusToJson = (plusMinus: PlusMinus): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: plusMinus.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: plusMinus.operator === '+' ? 'plusAgent' : 'minusAgent',
       context: plusMinus.context,
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'left',
             context: plusMinus.left.context,
           },
@@ -1427,7 +1389,6 @@ export const plusMinusToJson = (plusMinus: PlusMinus): Result<CompileData<JsonOb
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'right',
             context: plusMinus.right.context,
           },
@@ -1442,10 +1403,9 @@ export const plusMinusToJson = (plusMinus: PlusMinus): Result<CompileData<JsonOb
 export const mulDivModToJson = (mulDivMod: MulDivMod): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: mulDivMod.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: (() => {
         switch (mulDivMod.operator) {
           case '*':
@@ -1460,12 +1420,10 @@ export const mulDivModToJson = (mulDivMod: MulDivMod): Result<CompileData<JsonOb
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'left',
             context: mulDivMod.left.context,
           },
@@ -1474,7 +1432,6 @@ export const mulDivModToJson = (mulDivMod: MulDivMod): Result<CompileData<JsonOb
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'right',
             context: mulDivMod.right.context,
           },
@@ -1489,21 +1446,18 @@ export const mulDivModToJson = (mulDivMod: MulDivMod): Result<CompileData<JsonOb
 export const powerToJson = (power: Power): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: power.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: 'powAgent',
       context: power.context,
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'base',
             context: power.base.context,
           },
@@ -1512,7 +1466,6 @@ export const powerToJson = (power: Power): Result<CompileData<JsonObject>> =>
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'exponent',
             context: power.exponent.context,
           },
@@ -1527,7 +1480,6 @@ export const powerToJson = (power: Power): Result<CompileData<JsonObject>> =>
 export const arrayAtToJson = (arrayAt: ArrayAt): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
-    se.bind('annotations', () => annotationsToJson(arrayAt.annotations)),
     se.bind('array', () =>
       pipe(
         exprToJson(arrayAt.array),
@@ -1562,9 +1514,8 @@ export const arrayAtToJson = (arrayAt: ArrayAt): Result<CompileData<JsonObject>>
         ),
       ),
     ),
-    se.map(({ annotations, array, index }) => ({
+    se.map(({ array, index }) => ({
       json: {
-        ...annotations.json,
         agent: 'getArrayElementAgent',
         inputs: {
           array: array.json,
@@ -1579,7 +1530,6 @@ export const arrayAtToJson = (arrayAt: ArrayAt): Result<CompileData<JsonObject>>
 export const objectMemberToJson = (objectMember: ObjectMember): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
-    se.bind('annotations', () => annotationsToJson(objectMember.annotations)),
     se.bind('object', () =>
       pipe(
         exprToJson(objectMember.object),
@@ -1597,9 +1547,8 @@ export const objectMemberToJson = (objectMember: ObjectMember): Result<CompileDa
         ),
       ),
     ),
-    se.map(({ annotations, object }) => ({
+    se.map(({ object }) => ({
       json: {
-        ...annotations.json,
         agent: 'getObjectMemberAgent',
         inputs: {
           object: object.json,
@@ -1708,34 +1657,29 @@ export const stringToJson = (string: DSLString): Result =>
 export const computedNodeStringToJson = (string: DSLString): Result<CompileData<JsonObject>> =>
   agentCallToJson({
     type: 'AgentCall',
-    annotations: string.annotations,
+    agentContext: [],
     agent: {
       type: 'Identifier',
-      annotations: [],
       name: 'concatStringAgent',
       context: string.context,
     },
     args: {
       type: 'Object',
-      annotations: [],
       value: [
         {
           key: {
             type: 'Identifier',
-            annotations: [],
             name: 'items',
             context: string.context,
           },
           value: {
             type: 'Array',
-            annotations: [],
             value: pipe(
               string.value,
               readonlyArray.map(_ =>
                 typeof _ === 'string'
                   ? {
                       type: 'RawString',
-                      annotations: [],
                       value: _,
                       context: string.context,
                     }
