@@ -456,7 +456,7 @@ describe('Compiler', () => {
 
   test('An agent with an annotation', () =>
     pipe(
-      parseSourceTest('@version("0.6"); a = @isResult(true) identity({x: 1});'),
+      parseSourceTest('@version("0.6"); a = identity@(isResult = true)({x: 1});'),
       compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
@@ -484,7 +484,7 @@ describe('Compiler', () => {
   test('An agent with multiple annotations', () =>
     pipe(
       parseSourceTest(
-        '@version("0.6"); a = @isResult(true) @console({after: true}) identity({x: 1});',
+        '@version("0.6"); a = identity@(isResult = true, console = {after: true})({x: 1});',
       ),
       compileFileTest(),
       through(_ =>
@@ -515,7 +515,9 @@ describe('Compiler', () => {
 
   test('An anonymous agent with multiple annotations', () =>
     pipe(
-      parseSourceTest('@version("0.6"); @isResult(true) @console({after: true}) identity({x: 1});'),
+      parseSourceTest(
+        '@version("0.6"); identity@(isResult = true, console = {after: true})({x: 1});',
+      ),
       compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
@@ -1844,8 +1846,8 @@ describe('Compiler', () => {
       parseSourceTest(`
           // LLM
           llm = 
-            @params({model: 'gpt-4o'}) 
-            openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+            
+            openAIAgent@(params = {model: 'gpt-4o'})({prompt: "prompt: Explain ML's transformer in 100 words."});
 
           // Print the result
           println(llm.text);
@@ -1927,7 +1929,7 @@ describe('Compiler', () => {
               n: println(a)
             }
           };
-          c = @graph(b) nestedAgent({a: a});
+          c =  nestedAgent@(graph = b)({a: a});
       `),
       compileFileTest(),
       _ =>
@@ -2037,5 +2039,41 @@ describe('Compiler', () => {
       either.orElse(toTupleFromCompileError),
       _ =>
         expect(_).toStrictEqual(either.left(['CompileError', `Identifier 'a' is already defined`])),
+    ));
+
+  test('agent context 1', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = () -> @context.params.x;
+        f@(params = {x: 1})();
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon2__: 1 })),
+    ));
+
+  test('agent context 2', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = () -> { g: () -> @context.params.x };
+        f().g@(params = {x: 1})();
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon4__: 1 })),
+    ));
+
+  test('agent context 3', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = (a, b) -> {
+          println(@context.params.x);
+          @context.params.x + a + b;
+        };
+        f@(params = {x: 1})(2, 3);
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon8__: 6 })),
     ));
 });

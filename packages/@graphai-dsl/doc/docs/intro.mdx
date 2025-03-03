@@ -9,7 +9,9 @@ GraphAI DSLは、[GraphAI](https://github.com/receptron/graphai)のためのプ�
 GraphAIは、JSON/YAMLを用いてアプリを開発しますが、JSON/YAMLは表現が冗長になりがちです。
 GraphAI DSLは、JSON/YAMLよりも簡潔な記述が可能です。
 
-GraphAI DSLがどのような言語か見ていただくために、GraphAIのGithubリポジトリにある[Hello Worldの例](https://github.com/receptron/graphai/blob/main/docs/Tutorial.md#hello-world)を使って、JSON/YAMLとGraphAI DSLを比較してみましょう。
+GraphAI DSLがどのような言語か見ていただくために、
+GraphAIのGithubリポジトリにある[Hello Worldの例](https://github.com/receptron/graphai/blob/main/docs/Tutorial.md#hello-world)を使って、
+JSON/YAMLで書いた場合とGraphAI DSLで書いた場合で比較してみましょう。
 
 まずは、YAMLで書いた場合です。
 
@@ -37,9 +39,9 @@ nodes:
 ```
 @version('0.6');
 
-llm = 
-  @params({model: 'gpt-4o'}) 
-  openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+llm = openAIAgent@(params = {model: 'gpt-4o'})({
+  prompt: "prompt: Explain ML's transformer in 100 words."
+});
 
 println(llm.text);
 ```
@@ -71,29 +73,34 @@ YAMLの`version: 0.5`に対応します。
 llm = 
 ```
 
-この行は、ノード`llm`を作成しています。
+この行は、`llm`という名前の変数(ノード)を作成しています。
 YAMLの`llm:`に対応します。
 
 ```
-@params({model: 'gpt-4o'}) 
+openAIAgent@(params = {model: 'gpt-4o'})({
+  prompt: "prompt: Explain ML's transformer in 100 words."
+});
 ```
 
-この行は、後に続く`openAIAgent`のパラメータを指定しています。
-YAMLの`params: {model: gpt-4o}`に対応します。
+この行は、`openAIAgent`を呼び出しています。
+GraphAI DSLでは、`JavaScript`の関数のようにエージェントを呼び出すことができます。
+YAMLの`inputs`が関数の引数に対応します。
 
 ```
 openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
 ```
 
-この行は、`openAIAgent`エージェントを呼び出しています。
-YAMLの`agent: openAIAgent`と`prompt: Explain ML's transformer in 100 words.`に対応します。
-GraphAI DSLでは、エージェントの呼び出しは、`JavaScript`の関数のように書くことができます。
-
-上記の３行をまとめて、１行で書くこともできます。
+その他の`params`や`console`などの属性は、関数名の後に`@(属性名１ = 値, 属性名２ = 値, ...)`という形式で指定します。
+ここでは、YAMLで`params: {model: gpt-4o}`という属性を指定しているので、GraphAI DSLでは以下のように書きます。
 
 ```
-llm = @params({model: 'gpt-4o'}) openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+
+openAIAgent@(params = {model: 'gpt-4o'})({
+  prompt: "prompt: Explain ML's transformer in 100 words."
+});
 ```
+
+次の行も関数呼び出しの例です。
 
 ```
 println(llm.text);

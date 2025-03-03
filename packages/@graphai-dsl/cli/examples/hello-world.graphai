@@ -1,47 +1,7 @@
 @version('0.6');
 
-llm = 
-  @params({model: 'gpt-4o'}) 
-  openAIAgent({prompt: "prompt: Explain ML's transformer in 100 words."});
+llm = openAIAgent@(params = {model: 'gpt-4o'})({
+  prompt: "prompt: Explain ML's transformer in 100 words."
+});
 
 println(llm.text);
-
-/*
-上記のコードは以下のYAMLを生成:
-
-```
-{
-  "nodes": {
-    "llm": {
-      "params": {
-        "model": "gpt-4o"
-      },
-      "agent": "openAIAgent",
-      "inputs": {
-        "prompt": "prompt: Explain ML's transformer in 100 words."
-      }
-    },
-    "__anon1__": {
-      "agent": "getObjectMemberAgent",
-      "inputs": {
-        "object": ":llm",
-        "key": "text"
-      }
-    },
-    "__anon0__": {
-      "isResult": true,
-      "agent": "println",
-      "inputs": {
-        "message": ":__anon1__"
-      }
-    }
-  }
-}
-```
-
-実行結果は以下:
-
-```
-A transformer is a type of machine learning model introduced in the paper "Attention is All You Need" by Vaswani et al. in 2017. It revolutionized natural language processing by using self-attention mechanisms to weigh the significance of different words in a sentence, enabling parallel processing of data. This architecture consists of an encoder and a decoder, each with layers of self-attention and feedforward neural networks. Unlike recurrent models, transformers handle entire sequences simultaneously, improving computational efficiency and performance. They are foundational in models like BERT and GPT, excelling in tasks like translation, summarization, and text generation.
-```
-*/

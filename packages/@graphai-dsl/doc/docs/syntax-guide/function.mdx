@@ -22,6 +22,10 @@ someFunction([1, 2, 3]);
 someFunction({x: 1, y: 2});
 ```
 
+```
+someFunction@(params = 1)();
+```
+
 ## Defining a Function
 
 ```
@@ -32,6 +36,11 @@ f = (x, y) -> x + y;
 f = () -> {
   x + y;
 };
+```
+
+```
+f = (x) -> @context.params.a + x;
+f@(params = {a: 1})(2);
 ```
 
 ## Currying

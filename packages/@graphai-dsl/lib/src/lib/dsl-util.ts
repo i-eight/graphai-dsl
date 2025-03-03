@@ -13,6 +13,8 @@ export const toReadableJson = (value: Json): Json =>
       : pipe(
           readonlyRecord.toEntries(value),
           readonlyArray.reduce({}, (obj, [k, v]) =>
-            k === 'context' || k === 'annotations' ? obj : { ...obj, [k]: toReadableJson(v) },
+            k === 'context' || (k === 'annotations' && v instanceof Array && v.length === 0)
+              ? obj
+              : { ...obj, [k]: toReadableJson(v) },
           ),
         );

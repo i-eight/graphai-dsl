@@ -13,22 +13,22 @@ const applyAgent: AgentFunction<
   object,
   unknown,
   Readonly<{ agent: ((_: unknown) => unknown) | string | AgentFunctionInfo; args: unknown }>
-> = async ({ params, namedInputs: { agent, args }, forNestedGraph, filterParams, debugInfo }) => {
+> = async ({ namedInputs: { agent, args }, ...context }) => {
   switch (typeof agent) {
     case 'function':
-      return agent({ namedInputs: args });
+      return agent({ namedInputs: args, ...context });
     case 'string':
       return pipe(
-        option.fromNullable(forNestedGraph?.agents),
+        option.fromNullable(context.forNestedGraph?.agents),
         option.flatMap(readonlyRecord.lookup(agent)),
         option.match(
           () => Promise.reject(new Error(`No agents found: ${agent}`)),
-          _ => _.agent({ params, namedInputs: args, forNestedGraph, filterParams, debugInfo }),
+          _ => _.agent({ namedInputs: args, ...context }),
         ),
       );
     case 'object':
       if (isAgentFunction(agent)) {
-        return agent.agent({ params, namedInputs: args, forNestedGraph, filterParams, debugInfo });
+        return agent.agent({ namedInputs: args, ...context });
       } else {
         return Promise.reject(new Error(`Invalid agent: ${JSON.stringify(agent)}`));
       }

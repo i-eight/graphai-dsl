@@ -11,7 +11,7 @@ import {
   ifThenElse,
   logical,
   mulDivMod,
-  nodeAnnotation,
+  agentContext,
   null_,
   number,
   object,
@@ -23,11 +23,12 @@ import {
   equality,
   relational,
   pipeline,
+  agentContextPair,
 } from '../src/lib/dsl-parser';
 import { parser } from '../src/lib/parser-combinator';
 import { stream } from '../src/lib/stream';
 import { printJson, toTupleFromExpr } from './helpers';
-import { either } from 'fp-ts';
+import { either, readonlyArray } from 'fp-ts';
 import { Expr } from '../src/lib/dsl-syntax-tree';
 
 describe('dsl-parser', () => {
@@ -297,21 +298,29 @@ describe('dsl-parser', () => {
       _ => expect(_).toStrictEqual(either.right({ object: { a: 1 }, member: 'key' })),
     ));
 
-  test('node-annotation', () => {
+  test('agent-context 1', () =>
     pipe(
-      nodeAnnotation,
-      parser.run(stream.fromData('@abc(123)')),
+      agentContextPair,
+      parser.run(stream.fromData('abc = 123')),
       either.map(_ => [_.data.name.name, _.data.value.type === 'Number' ? _.data.value.value : _]),
       _ => expect(_).toStrictEqual(either.right(['abc', 123])),
-    );
+    ));
 
+  test('agent-context 2', () =>
     pipe(
-      nodeAnnotation,
-      parser.run(stream.fromData('@isResult(true)')),
+      agentContextPair,
+      parser.run(stream.fromData('isResult = true')),
       either.map(_ => [_.data.name.name, _.data.value.type === 'Boolean' ? _.data.value.value : _]),
       _ => expect(_).toStrictEqual(either.right(['isResult', true])),
-    );
-  });
+    ));
+
+  test('agent-context 3', () =>
+    pipe(
+      agentContext,
+      parser.run(stream.fromData('@(isResult = true)')),
+      either.map(_ => pipe(_.data, readonlyArray.map(toTupleFromExpr))),
+      _ => expect(_).toStrictEqual(either.right([{ name: 'isResult', value: true }])),
+    ));
 
   test('agent-call 1', () =>
     pipe(
@@ -322,7 +331,7 @@ describe('dsl-parser', () => {
         expect(_).toStrictEqual(
           either.right({
             agent: 'someAgent',
-            annotations: [],
+            agentContext: [],
             args: 'hoge',
           }),
         ),
@@ -337,7 +346,7 @@ describe('dsl-parser', () => {
         expect(_).toStrictEqual(
           either.right({
             agent: 'someAgent',
-            annotations: [],
+            agentContext: [],
             args: { a: 1, b: 2 },
           }),
         ),
@@ -351,9 +360,9 @@ describe('dsl-parser', () => {
       _ =>
         expect(_).toStrictEqual(
           either.right({
-            annotations: [],
+            agentContext: [],
             agent: {
-              annotations: [],
+              agentContext: [],
               agent: 'someAgent',
               args: {
                 a: 1,
@@ -367,35 +376,35 @@ describe('dsl-parser', () => {
         ),
     ));
 
-  test('annotated-agent-call 1', () =>
+  test('agent-call with context 1', () =>
     pipe(
       call,
-      parser.run(stream.fromData('@abc(123) someAgent(hoge)')),
+      parser.run(stream.fromData('someAgent@(abc = 123)(hoge)')),
       either.map(_ => toTupleFromExpr(_.data)),
       _ =>
         expect(_).toStrictEqual(
           either.right({
-            annotations: [{ annotation: 'abc', value: 123 }],
+            agentContext: [{ name: 'abc', value: 123 }],
             agent: 'someAgent',
             args: 'hoge',
           }),
         ),
     ));
 
-  test('annotated-agent-call 2', () =>
+  test('agent-call with context 2', () =>
     pipe(
       call,
       parser.run(
-        stream.fromData('@abc(123) @console({after: true}) @isResult(true) someAgent(hoge)'),
+        stream.fromData('someAgent@(abc = 123, console = {after: true}, isResult = true)(hoge)'),
       ),
       either.map(_ => toTupleFromExpr(_.data)),
       _ =>
         expect(_).toStrictEqual(
           either.right({
-            annotations: [
-              { annotation: 'abc', value: 123 },
-              { annotation: 'console', value: { after: true } },
-              { annotation: 'isResult', value: true },
+            agentContext: [
+              { name: 'abc', value: 123 },
+              { name: 'console', value: { after: true } },
+              { name: 'isResult', value: true },
             ],
             agent: 'someAgent',
             args: 'hoge',
@@ -413,7 +422,7 @@ describe('dsl-parser', () => {
           either.right({
             object: {
               array: {
-                annotations: [],
+                agentContext: [],
                 agent: 'someAgent',
                 args: {
                   a: 1,
@@ -659,7 +668,7 @@ describe('dsl-parser', () => {
                 {
                   def: '_',
                   body: {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'f1',
                     args: '_',
                   },
@@ -688,7 +697,7 @@ describe('dsl-parser', () => {
                 def: '_',
                 body: [
                   {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'f1',
                     args: '_',
                   },
@@ -825,14 +834,14 @@ describe('dsl-parser', () => {
           either.right({
             if: 'a',
             then: {
-              annotations: [],
+              agentContext: [],
               agent: 'println',
               args: {
                 message: 1,
               },
             },
             else: {
-              annotations: [],
+              agentContext: [],
               agent: 'println',
               args: {
                 message: 2,
@@ -855,11 +864,10 @@ describe('dsl-parser', () => {
           either.right({
             if: 'a',
             then: {
-              annotations: [],
               nested: [
                 {
                   anonNode: {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'println',
                     args: {
                       message: 1,
@@ -869,11 +877,10 @@ describe('dsl-parser', () => {
               ],
             },
             else: {
-              annotations: [],
               nested: [
                 {
                   anonNode: {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'println',
                     args: {
                       message: 2,
@@ -926,7 +933,7 @@ describe('dsl-parser', () => {
           either.right({
             if: 'flag',
             then: {
-              annotations: [],
+              agentContext: [],
               agent: 'agent',
               args: {
                 inputs: {
@@ -936,7 +943,7 @@ describe('dsl-parser', () => {
               },
             },
             else: {
-              annotations: [],
+              agentContext: [],
               agent: 'print',
               args: ['flag is false'],
             },
@@ -961,7 +968,7 @@ describe('dsl-parser', () => {
       _ =>
         expect(_).toStrictEqual(
           either.right({
-            annotations: [],
+            agentContext: [],
             agent: 'loop',
             args: {
               init: {
@@ -979,7 +986,7 @@ describe('dsl-parser', () => {
                     10,
                   ],
                   then: {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'recur',
                     args: {
                       cnt: [
@@ -1023,7 +1030,9 @@ describe('dsl-parser', () => {
     pipe(
       computedNode,
       parser.run(
-        stream.fromData('abc = @isResult(true) @console({after: true}) agent({inputs: "hoge"});'),
+        stream.fromData(
+          'abc = agent@(isResult = true, console = {after: true})({inputs: "hoge"});',
+        ),
       ),
       either.map(_ => toTupleFromExpr(_.data)),
       _ =>
@@ -1031,13 +1040,13 @@ describe('dsl-parser', () => {
           either.right({
             computedNode: 'abc',
             body: {
-              annotations: [
+              agentContext: [
                 {
-                  annotation: 'isResult',
+                  name: 'isResult',
                   value: true,
                 },
                 {
-                  annotation: 'console',
+                  name: 'console',
                   value: {
                     after: true,
                   },
@@ -1057,7 +1066,7 @@ describe('dsl-parser', () => {
     pipe(
       computedNode,
       parser.run(
-        stream.fromData(`abc = @isResult(true) @console({after: true}) { 
+        stream.fromData(`abc = { 
           node1 = agent1({inputs: "hoge"});
           agent2({inputs: node1});
         };`),
@@ -1068,23 +1077,11 @@ describe('dsl-parser', () => {
           either.right({
             computedNode: 'abc',
             body: {
-              annotations: [
-                {
-                  annotation: 'isResult',
-                  value: true,
-                },
-                {
-                  annotation: 'console',
-                  value: {
-                    after: true,
-                  },
-                },
-              ],
               nested: [
                 {
                   computedNode: 'node1',
                   body: {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'agent1',
                     args: {
                       inputs: ['hoge'],
@@ -1093,7 +1090,7 @@ describe('dsl-parser', () => {
                 },
                 {
                   anonNode: {
-                    annotations: [],
+                    agentContext: [],
                     agent: 'agent2',
                     args: {
                       inputs: 'node1',
@@ -1128,7 +1125,7 @@ describe('dsl-parser', () => {
       parser.run(
         stream.fromData(`
           static node1 = 123;
-          node2 = @isResult(true) @console({after: true}) agent({inputs: "hoge"});
+          node2 = agent@(isResult = true, console = {after: true})({inputs: "hoge"});
           { 
             node4 = agent1({inputs: "hoge"});
             agent2({inputs: node1});
@@ -1148,13 +1145,13 @@ describe('dsl-parser', () => {
               {
                 computedNode: 'node2',
                 body: {
-                  annotations: [
+                  agentContext: [
                     {
-                      annotation: 'isResult',
+                      name: 'isResult',
                       value: true,
                     },
                     {
-                      annotation: 'console',
+                      name: 'console',
                       value: {
                         after: true,
                       },
@@ -1168,12 +1165,11 @@ describe('dsl-parser', () => {
               },
               {
                 anonNode: {
-                  annotations: [],
                   nested: [
                     {
                       computedNode: 'node4',
                       body: {
-                        annotations: [],
+                        agentContext: [],
                         agent: 'agent1',
                         args: {
                           inputs: ['hoge'],
@@ -1182,7 +1178,7 @@ describe('dsl-parser', () => {
                     },
                     {
                       anonNode: {
-                        annotations: [],
+                        agentContext: [],
                         agent: 'agent2',
                         args: {
                           inputs: 'node1',
