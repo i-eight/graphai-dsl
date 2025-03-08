@@ -150,6 +150,35 @@ export type DSLNull = Readonly<{
   context: Context;
 }>;
 
+export type Destructuring =
+  | DSLNumber
+  | DSLString
+  | DSLBoolean
+  | DSLNull
+  | Identifier
+  | ArrayDestructuring
+  | ObjectDestructuring;
+
+export type ArrayDestructuring = Readonly<{
+  type: 'ArrayDestructuring';
+  value: ReadonlyArray<Destructuring>;
+  rest?: Identifier;
+  context: Context;
+}>;
+
+export type ObjectPairDestructuring = Readonly<{
+  type: 'ObjectPairDestructuring';
+  key: Identifier;
+  value: Destructuring;
+}>;
+
+export type ObjectDestructuring = Readonly<{
+  type: 'ObjectDestructuring';
+  value: ReadonlyArray<Identifier | ObjectPairDestructuring>;
+  rest?: Identifier;
+  context: Context;
+}>;
+
 export type AgentContext = Readonly<{
   type: 'AgentContext';
   name: Identifier;
@@ -159,27 +188,8 @@ export type AgentContext = Readonly<{
 
 export type AgentDef = Readonly<{
   type: 'AgentDef';
-  args?: Identifier;
+  args?: Identifier | Destructuring;
   body: Expr | Graph;
-  context: Context;
-}>;
-
-export type Destruction = ArrayDestruction | ObjectDestruction;
-
-export type ArrayDestruction = Readonly<{
-  type: 'ArrayDestruction';
-  elements: ReadonlyArray<Identifier | Destruction>;
-  context: Context;
-}>;
-
-export type ObjectDestruction = Readonly<{
-  type: 'ObjectDestruction';
-  keys: ReadonlyArray<
-    Readonly<{
-      key: Identifier;
-      value?: Identifier | Destruction;
-    }>
-  >;
   context: Context;
 }>;
 
@@ -261,7 +271,13 @@ export type Relational = Readonly<{
   context: Context;
 }>;
 
-export type TermEquality = TermRelational | Relational | DSLBoolean | DSLArray | DSLObject;
+export type TermEquality =
+  | TermRelational
+  | Relational
+  | DSLBoolean
+  | DSLNull
+  | DSLArray
+  | DSLObject;
 
 export type Equality = Readonly<{
   type: 'Equality';

@@ -58,6 +58,10 @@ import {
   Import,
   Modifier,
   NativeImport,
+  ArrayDestructuring,
+  Destructuring,
+  ObjectPairDestructuring,
+  ObjectDestructuring,
 } from './dsl-syntax-tree';
 import { Parser, parser, ParserRange } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
@@ -66,6 +70,7 @@ import { Unit, unit } from './unit';
 import { Option } from 'fp-ts/lib/Option';
 import { loop, recur } from './loop';
 import * as error from './error';
+import { toReadableJson } from './dsl-util';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -146,42 +151,48 @@ const underScore = char('_');
 
 export const identifier: Parser<Identifier> = pipe(
   parser.unit,
-  parser.flatMap(() => text('@context')),
-  parser.orElse(() =>
+  parser.flatMap(
+    () =>
+      pipe(
+        text('@context'),
+        parser.range(name => ({ type: 'Identifier', name })),
+      ) satisfies Parser<Identifier>,
+  ),
+  parser.orElse(() => nodeIdentifier),
+);
+
+export const nodeIdentifier: Parser<Identifier> = pipe(
+  parser.unit,
+  parser.bind('first', () => pipe(alphabet, parser.or(underScore))),
+  parser.orElse(e =>
+    parser.fail({
+      type: 'UnexpectedParserError',
+      expect: ['identifier'],
+      actual: error.getActual(e),
+      message: `An identifier can not start with ${error.getActual(e)}`,
+    }),
+  ),
+  parser.bind('rest', () =>
+    parser.repeat('', a =>
+      pipe(
+        alphaNum,
+        parser.or(underScore),
+        parser.map(s => a + s),
+      ),
+    ),
+  ),
+  parser.bind('name', ({ first, rest }) => parser.of(first + rest)),
+  parser.flatMap(({ name }) =>
     pipe(
-      parser.unit,
-      parser.bind('first', () => pipe(alphabet, parser.or(underScore))),
-      parser.orElse(e =>
-        parser.fail({
-          type: 'UnexpectedParserError',
-          expect: ['identifier'],
-          actual: error.getActual(e),
-          message: `An identifier can not start with ${error.getActual(e)}`,
-        }),
-      ),
-      parser.bind('rest', () =>
-        parser.repeat('', a =>
-          pipe(
-            alphaNum,
-            parser.or(underScore),
-            parser.map(s => a + s),
-          ),
-        ),
-      ),
-      parser.bind('name', ({ first, rest }) => parser.of(first + rest)),
-      parser.flatMap(({ name }) =>
-        pipe(
-          reservedWords,
-          readonlyArray.exists(_ => _ === name),
-          _ =>
-            _
-              ? parser.fail<string>({
-                  type: 'UnexpectedParserError',
-                  message: `Cannot use '${name}' as an identifier`,
-                })
-              : parser.of(name),
-        ),
-      ),
+      reservedWords,
+      readonlyArray.exists(_ => _ === name),
+      _ =>
+        _
+          ? parser.fail<string>({
+              type: 'UnexpectedParserError',
+              message: `Cannot use '${name}' as an identifier`,
+            })
+          : parser.of(name),
     ),
   ),
   parser.range(name => ({ type: 'Identifier', name })),
@@ -335,6 +346,90 @@ export const null_: Parser<DSLNull> = pipe(
   parser.range(() => ({ type: 'Null' })),
 );
 
+export const destructuring: Parser<Destructuring> = pipe(
+  number,
+  parser.or<Destructuring>(string),
+  parser.or<Destructuring>(boolean),
+  parser.or<Destructuring>(null_),
+  parser.or<Destructuring>(identifier),
+  parser.or<Destructuring>(() => destructuringArray),
+  parser.or<Destructuring>(() => destructuringObject),
+);
+
+export const destructuringArray: Parser<ArrayDestructuring> = pipe(
+  parser.unit,
+  parser.right(char('[')),
+  parser.right(whitespaces),
+  parser.bind('value', () =>
+    pipe(
+      destructuring,
+      parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+    ),
+  ),
+  parser.bind('rest', () =>
+    pipe(
+      whitespaces,
+      parser.right(char(',')),
+      parser.right(whitespaces),
+      parser.right(text('...')),
+      parser.right(whitespaces),
+      parser.right(nodeIdentifier),
+      parser.optional,
+    ),
+  ),
+  parser.left(whitespaces),
+  parser.left(char(']')),
+  parser.range(({ value, rest }) => ({
+    type: 'ArrayDestructuring',
+    value,
+    rest: option.toUndefined(rest),
+  })),
+);
+
+export const destructuringObjectPair: Parser<ObjectPairDestructuring> = pipe(
+  parser.unit,
+  parser.bind('key', () => identifier),
+  parser.left(whitespaces),
+  parser.left(char(':')),
+  parser.left(whitespaces),
+  parser.bind('value', () => destructuring),
+  parser.range(({ key, value }) => ({ type: 'ObjectPairDestructuring', key, value })),
+);
+
+export const destructuringObject: Parser<ObjectDestructuring> = pipe(
+  parser.unit,
+  parser.right(char('{')),
+  parser.right(whitespaces),
+  parser.bind('value', () =>
+    pipe(
+      destructuringObjectPair,
+      parser.or<Identifier | ObjectPairDestructuring>(identifier),
+      parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+    ),
+  ),
+  parser.bind('rest', () =>
+    pipe(
+      whitespaces,
+      parser.right(char(',')),
+      parser.right(whitespaces),
+      parser.right(text('...')),
+      parser.right(whitespaces),
+      parser.right(nodeIdentifier),
+      parser.optional,
+    ),
+  ),
+  parser.left(
+    pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
+  ),
+  parser.left(whitespaces),
+  parser.left(char('}')),
+  parser.range(({ value, rest }) => ({
+    type: 'ObjectDestructuring',
+    value,
+    rest: option.toUndefined(rest),
+  })),
+);
+
 export const agentContextPair: Parser<AgentContext> = pipe(
   parser.unit,
   parser.bind('name', () => identifier),
@@ -362,7 +457,7 @@ export const agentContext: Parser<ReadonlyArray<AgentContext>> = pipe(
 );
 
 export const curriedAgentDef = (
-  args: ReadonlyArray<Identifier>,
+  args: ReadonlyArray<Identifier | Destructuring>,
   body: Expr | Graph,
   context: ParserRange,
 ): AgentDef =>
@@ -422,6 +517,7 @@ export const agentDef: Parser<AgentDef> = pipe(
   parser.bind('args', () =>
     pipe(
       identifier,
+      parser.or<Identifier | Destructuring>(() => destructuring),
       parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
       parser.left(
         pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
@@ -1172,19 +1268,10 @@ export const namedComputedNode: Parser<ComputedNode> = pipe(
   ),
   parser.bind('name', () =>
     pipe(
-      identifier,
+      nodeIdentifier,
       parser.left(whitespaces),
       parser.left(char('=')),
       parser.left(whitespaces),
-      parser.flatMap(_ =>
-        _.name === '@context'
-          ? parser.fail<Identifier>({
-              type: 'UnexpectedParserError',
-              expect: ['identifier'],
-              actual: '@context',
-            })
-          : parser.of(_),
-      ),
     ),
   ),
   parser.bind('body', () => computedNodeBody),

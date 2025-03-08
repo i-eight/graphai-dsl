@@ -36,7 +36,7 @@ import { hyphenHyphenRightArrowAgentInfo } from './hyphen-hyphen-right-arrow-age
 import { getWeatherFromOpenMeteoAgentInfo } from './open-meteo-agent';
 import { getMyIpAgentInfo } from './my-ip-agent';
 import { getLocationFromIpAgentInfo } from './location-agent';
-import { arrayAgentInfo } from './array-agent';
+import { arrayAgentInfo, arraySizeAgentInfo, arraySplitAtAgentInfo } from './array-agent';
 import { dateAgentInfo } from './date-agent';
 import {
   closeGithubIssueAgentInfo,
@@ -47,8 +47,9 @@ import {
 import { getProcessEnvAgentInfo } from './process-agent';
 import { getAgentInfoAgentInfo } from './agent-info-agent';
 import { nativeImportAgentInfo } from './native-import-agent';
-import { objectAgentInfo } from './object-agent';
+import { objectAgentInfo, objectTakeAgentInfo } from './object-agent';
 import { JsonAgentInfo } from './json-agent';
+import { throwAgentInfo } from './throw-agent';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -82,12 +83,16 @@ export const agents: AgentFunctionInfoDictionary = {
   nativeImportAgent: nativeImportAgentInfo,
   defAgent: defAgentInfo,
   caseAgent: caseAgentInfo,
+  throw: throwAgentInfo,
   loop: loopAgentInfo,
   recur: recurAgentInfo,
   eval: evalAgentInfo,
   apply: applyAgentInfo,
   getAgentInfo: getAgentInfoAgentInfo,
+  arraySize: arraySizeAgentInfo,
+  arraySplitAt: arraySplitAtAgentInfo,
   arrayAgent: arrayAgentInfo,
+  objectTake: objectTakeAgentInfo,
   objectAgent: objectAgentInfo,
   jsonAgent: JsonAgentInfo,
   dateAgent: dateAgentInfo,

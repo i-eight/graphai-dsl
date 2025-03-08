@@ -314,6 +314,19 @@ const take =
       apply(unit),
     );
 
+export const objectTakeAgentInfo: AgentFunctionInfo = {
+  name: 'objectTakeAgent',
+  agent: take,
+  mock: take,
+
+  samples: [],
+  description: 'this is agent',
+  category: ['general'],
+  author: 'ai',
+  repository: 'https://github.com/receptron/graphai/',
+  license: 'MIT',
+};
+
 //----------------------------------------------------------------------
 const objectAgent: AgentFunction<object, Response> = async () => ({
   size,

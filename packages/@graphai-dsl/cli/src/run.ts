@@ -11,11 +11,30 @@ import {
   agents,
   readFile,
   compiler,
+  parserCombinator,
+  dslParser,
+  stream,
+  source,
+  dslUtil,
 } from '@graphai-dsl/lib';
 
 export const handleError = (e: unknown): Either<Unit, Unit> =>
   pipe(error.isFormatedErrors(e) ? console.error(error.prettyString(e)) : console.error(e), () =>
     either.of(unit),
+  );
+
+export const parseFromFile = (path: string): Either<Unit, Unit> =>
+  pipe(
+    readFile(path),
+    either.flatMap(_ =>
+      pipe(
+        dslParser.file(path),
+        parserCombinator.parser.run({ stream: stream.create(source.of(path, _)) }),
+      ),
+    ),
+    either.map(json => console.log(JSON.stringify(dslUtil.toReadableJson(json.data), null, 2))),
+    either.map(() => unit),
+    either.orElse(handleError),
   );
 
 export const compileFromFile = (file: string): Either<Unit, Unit> =>

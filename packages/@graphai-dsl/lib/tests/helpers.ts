@@ -11,6 +11,8 @@ import {
   Import,
   Statements,
   NativeImport,
+  Destructuring,
+  ObjectPairDestructuring,
 } from '../src/lib/dsl-syntax-tree';
 import { Json } from '../src/lib/compiler';
 import { either, readonlyArray, task, taskEither } from 'fp-ts';
@@ -24,7 +26,7 @@ import { through } from '../src/lib/through';
 import { agents } from '../src/agents';
 import fs from 'fs';
 import { unit } from '../src/lib/unit';
-import { parser } from '../src/lib/parser-combinator';
+import { Parser, parser } from '../src/lib/parser-combinator';
 
 export const printJson = (json: unknown): void => console.log(JSON.stringify(json, null, 2));
 
@@ -40,7 +42,8 @@ export const toTupleFromExpr = (
     | AgentContext
     | StaticNode
     | ComputedNode
-    | ComputedNodeBody,
+    | ComputedNodeBody
+    | Destructuring,
 ): unknown => {
   if (_ instanceof Array) {
     return _.map(toTupleFromExpr);
@@ -87,9 +90,35 @@ export const toTupleFromExpr = (
               agent: toTupleFromExpr(_.agent),
               args: toTupleFromExpr(_.args),
             };
+      case 'ArrayDestructuring':
+        return {
+          arrayDestrcuturing: {
+            heads: pipe(_.value, readonlyArray.map(toTupleFromExpr)),
+            rest: _.rest == null ? null : toTupleFromExpr(_.rest),
+          },
+        };
+      case 'ObjectDestructuring':
+        return {
+          objectDestructuring: {
+            heads: pipe(
+              _.value,
+              readonlyArray.map(_ =>
+                _.type === 'Identifier'
+                  ? toTupleFromExpr(_)
+                  : [toTupleFromExpr(_.key), toTupleFromExpr(_.value)],
+              ),
+            ),
+            rest: _.rest == null ? null : toTupleFromExpr(_.rest),
+          },
+        };
       case 'AgentDef':
         return {
-          def: _.args?.name,
+          def:
+            _.args == null
+              ? null
+              : _.args?.type === 'Identifier'
+                ? _.args.name
+                : toTupleFromExpr(_.args),
           body: toTupleFromExpr(_.body),
         };
       case 'Pipeline':
@@ -133,6 +162,15 @@ export const toTupleFromCompileError = (
 
 export const parseFileTest = (path: string): Either<ParserError, File> =>
   pipe(fs.readFileSync(path, 'utf-8'), src => parseSourceTest(src, path));
+
+export const runParser =
+  <A>(p: Parser<A>) =>
+  (src: string): Either<ParserError, A> =>
+    pipe(
+      p,
+      parser.run(stream.create(source.of('', src))),
+      either.map(_ => _.data),
+    );
 
 export const parseSourceTest = (src: string, path: string = ''): Either<ParserError, File> =>
   pipe(

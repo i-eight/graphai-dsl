@@ -5,11 +5,15 @@ import {
   parseSourceTest,
   printJson,
   runFileTest,
+  runParse,
+  runParser,
   toTupleFromCompileError,
   toTupleFromExpr,
 } from './helpers';
-import { either } from 'fp-ts';
+import { either, readonlyRecord } from 'fp-ts';
 import { through } from '../src/lib/through';
+import { toReadableJson } from '../src/lib/dsl-util';
+import { agentDef, computedNode } from '../src/lib/dsl-parser';
 
 describe('Compiler', () => {
   test('static-node: number', () =>
@@ -1103,18 +1107,18 @@ describe('Compiler', () => {
               a: {
                 value: 1,
               },
-              __anon2__: {
+              __anon3__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: undefined,
+                  args: '__anon1__',
                   capture: {
                     a: ':a',
                   },
-                  return: ['__anon1__'],
+                  return: ['__anon2__'],
                 },
                 graph: {
                   nodes: {
-                    __anon1__: {
+                    __anon2__: {
                       isResult: true,
                       agent: 'gtAgent',
                       inputs: {
@@ -1126,16 +1130,16 @@ describe('Compiler', () => {
                   },
                 },
               },
-              __anon4__: {
+              __anon6__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: undefined,
+                  args: '__anon4__',
                   capture: {},
-                  return: ['__anon3__'],
+                  return: ['__anon5__'],
                 },
                 graph: {
                   nodes: {
-                    __anon3__: {
+                    __anon5__: {
                       isResult: true,
                       agent: 'apply',
                       inputs: {
@@ -1147,16 +1151,16 @@ describe('Compiler', () => {
                   },
                 },
               },
-              __anon6__: {
+              __anon9__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: undefined,
+                  args: '__anon7__',
                   capture: {},
-                  return: ['__anon5__'],
+                  return: ['__anon8__'],
                 },
                 graph: {
                   nodes: {
-                    __anon5__: {
+                    __anon8__: {
                       isResult: true,
                       agent: 'apply',
                       inputs: {
@@ -1174,11 +1178,11 @@ describe('Compiler', () => {
                 inputs: {
                   conditions: [
                     {
-                      if: ':__anon2__',
-                      then: ':__anon4__',
+                      if: ':__anon3__',
+                      then: ':__anon6__',
                     },
                     {
-                      else: ':__anon6__',
+                      else: ':__anon9__',
                     },
                   ],
                 },
@@ -1210,18 +1214,18 @@ describe('Compiler', () => {
               a: {
                 value: 1,
               },
-              __anon2__: {
+              __anon3__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: undefined,
+                  args: '__anon1__',
                   capture: {
                     a: ':a',
                   },
-                  return: ['__anon1__'],
+                  return: ['__anon2__'],
                 },
                 graph: {
                   nodes: {
-                    __anon1__: {
+                    __anon2__: {
                       isResult: true,
                       agent: 'gtAgent',
                       inputs: {
@@ -1233,16 +1237,16 @@ describe('Compiler', () => {
                   },
                 },
               },
-              __anon4__: {
+              __anon6__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: undefined,
+                  args: '__anon4__',
                   capture: {},
-                  return: ['__anon3__'],
+                  return: ['__anon5__'],
                 },
                 graph: {
                   nodes: {
-                    __anon3__: {
+                    __anon5__: {
                       isResult: true,
                       agent: 'apply',
                       inputs: {
@@ -1254,16 +1258,16 @@ describe('Compiler', () => {
                   },
                 },
               },
-              __anon6__: {
+              __anon9__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: undefined,
+                  args: '__anon7__',
                   capture: {},
-                  return: ['__anon5__'],
+                  return: ['__anon8__'],
                 },
                 graph: {
                   nodes: {
-                    __anon5__: {
+                    __anon8__: {
                       isResult: true,
                       agent: 'apply',
                       inputs: {
@@ -1281,11 +1285,11 @@ describe('Compiler', () => {
                 inputs: {
                   conditions: [
                     {
-                      if: ':__anon2__',
-                      then: ':__anon4__',
+                      if: ':__anon3__',
+                      then: ':__anon6__',
                     },
                     {
-                      else: ':__anon6__',
+                      else: ':__anon9__',
                     },
                   ],
                 },
@@ -1660,7 +1664,7 @@ describe('Compiler', () => {
             a[1][2];
         `),
       compileFileTest(),
-      runFileTest(either.right({ __anon2__: 4 })),
+      runFileTest(either.right({ __anon3__: 4 })),
     ));
 
   test('object-member 1', () =>
@@ -1777,7 +1781,7 @@ describe('Compiler', () => {
             o.a.b;
           `),
       compileFileTest(),
-      runFileTest(either.right({ __anon2__: 1 })),
+      runFileTest(either.right({ __anon3__: 1 })),
     ));
 
   test('object-member 7', async () =>
@@ -2049,7 +2053,7 @@ describe('Compiler', () => {
         f@(params = {x: 1})();
       `),
       compileFileTest(),
-      runFileTest(either.right({ __anon2__: 1 })),
+      runFileTest(either.right({ __anon3__: 1 })),
     ));
 
   test('agent context 2', async () =>
@@ -2060,7 +2064,7 @@ describe('Compiler', () => {
         f().g@(params = {x: 1})();
       `),
       compileFileTest(),
-      runFileTest(either.right({ __anon4__: 1 })),
+      runFileTest(either.right({ __anon6__: 1 })),
     ));
 
   test('agent context 3', async () =>
@@ -2075,5 +2079,82 @@ describe('Compiler', () => {
       `),
       compileFileTest(),
       runFileTest(either.right({ __anon8__: 6 })),
+    ));
+
+  test('destructuring 1', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = ([a]) -> a;
+        f([1]);
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon3__: 1 })),
+    ));
+
+  test('destructuring 2', async () =>
+    pipe(
+      parseSourceTest(`
+          @version('0.6');
+          f = ([a, b]) -> a + b;
+          f([1, 2]);
+        `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon3__: 3 })),
+    ));
+
+  test('destructuring 3', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = ({a}) -> a;
+        f({a: 1});
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon3__: 1 })),
+    ));
+
+  test('destructuring 4', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = ({a, b}) -> a + b;
+        f({a: 1, b: 2});
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon3__: 3 })),
+    ));
+
+  test('destructuring 5', async () =>
+    pipe(
+      parseSourceTest(`
+          @version('0.6');
+          f = ([a, ...xs]) -> a + xs[0] + xs[1];
+          f([1, 2, 3]);
+        `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon8__: 6 })),
+    ));
+
+  test('destructuring 6', async () =>
+    pipe(
+      parseSourceTest(`
+            @version('0.6');
+            f = ({a, ...xs}) -> a + xs.b + xs.c;
+            f({ a: 1, b: 2, c: 3 });
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon8__: 6 })),
+    ));
+
+  test('destructuring 7', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        f = ([a, {b, c: d, e: [f, ...xs], ...ys}]) -> a + b + d + f + xs[0] + xs[1] + ys.g + ys.h;
+        f([1, {b: 2, c: 3, e: [4, 5, 6], g: 7, h: 8}]);
+      `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon22__: 36 })),
     ));
 });

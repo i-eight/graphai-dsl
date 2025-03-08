@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { runFromFile, compileFromFile } from './run';
+import { runFromFile, compileFromFile, parseFromFile } from './run';
 import { apply, pipe } from 'fp-ts/lib/function';
 import { unit } from '@graphai-dsl/lib';
 
@@ -16,6 +16,13 @@ dotenv.config();
 
 const main = async () => {
   const cmds = yargs(hideBin(process.argv))
+    .command('parse <file>', 'Parse a source file writen in DSL', yargs => {
+      yargs.positional('file', {
+        type: 'string',
+        describe: 'The file to be parsed',
+        demandOption: true,
+      });
+    })
     .command('compile <file>', 'Compile a source file writen in DSL', yargs => {
       yargs.positional('file', {
         type: 'string',
@@ -39,7 +46,9 @@ const main = async () => {
 
   const argv = cmds.parse() as unknown as Argv;
 
-  if (argv._[0] === 'compile') {
+  if (argv._[0] === 'parse') {
+    parseFromFile(argv.file);
+  } else if (argv._[0] === 'compile') {
     compileFromFile(argv.file);
   } else if (argv._[0] === 'run') {
     pipe(runFromFile(argv.file, { json: argv.json }), apply(unit));

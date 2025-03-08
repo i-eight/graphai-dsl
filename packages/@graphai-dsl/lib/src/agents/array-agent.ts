@@ -32,6 +32,19 @@ type Size<A> = (_: SizeArg<A>) => SizeReturn;
 
 const size = async <A>({ namedInputs: xs }: SizeArg<A>): SizeReturn => xs.length;
 
+export const arraySizeAgentInfo: AgentFunctionInfo = {
+  name: 'arraySizeAgent',
+  agent: size,
+  mock: size,
+
+  samples: [],
+  description: 'this is agent',
+  category: ['general'],
+  author: 'ai',
+  repository: 'https://github.com/receptron/graphai/',
+  license: 'MIT',
+};
+
 //----------------------------------------------------------------------
 type ReduceCallbackArg1<B> = AFC<B>;
 type ReduceCallbackArg2<A> = AFC<A>;
@@ -237,6 +250,19 @@ const splitAt =
   async <A>({ namedInputs: index }: SplitAtArg1): SplitAtReturn1<A> =>
   async ({ namedInputs: self }: SplitAtArg2<A>): SplitAtReturn2<A> =>
     pipe(self, readonlyArray.splitAt(index));
+
+export const arraySplitAtAgentInfo: AgentFunctionInfo = {
+  name: 'arraySplitAtAgent',
+  agent: splitAt,
+  mock: splitAt,
+
+  samples: [],
+  description: 'this is agent',
+  category: ['general'],
+  author: 'ai',
+  repository: 'https://github.com/receptron/graphai/',
+  license: 'MIT',
+};
 
 //----------------------------------------------------------------------
 type HeadArg<A> = AFC<ReadonlyArray<A>>;

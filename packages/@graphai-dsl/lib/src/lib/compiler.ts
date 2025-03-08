@@ -34,6 +34,11 @@ import {
   StaticNode,
   File,
   NativeImport,
+  ArrayDestructuring,
+  ObjectDestructuring,
+  Destructuring,
+  ObjectPairDestructuring,
+  TermEquality,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
 import { parser, ParserRange, ParserData } from './parser-combinator';
@@ -49,6 +54,23 @@ import nodePath from 'path';
 import { ReadonlyRecord } from 'fp-ts/lib/ReadonlyRecord';
 import { DSLError, CompileErrorItem } from './error';
 import { readFile } from './file';
+import {
+  newAgentCall,
+  newArray,
+  newArrayAt,
+  newComputedNode,
+  newEquality,
+  newError,
+  newIdentifier,
+  newIfThenElse,
+  newModifier,
+  newNull,
+  newNumber,
+  newObject,
+  newObjectMember,
+  newString,
+  toReadableJson,
+} from './dsl-util';
 
 export type Json = number | string | boolean | JsonArray | JsonObject | null | undefined;
 
@@ -247,41 +269,6 @@ export const run =
       imports: {},
     });
 
-export const newComputedNode = (
-  params: Readonly<{
-    name: string;
-    modifier: 'public' | 'private';
-    agent: string;
-    args?: Expr;
-    context: ParserRange;
-  }>,
-): ComputedNode => ({
-  type: 'ComputedNode',
-  modifiers: [
-    {
-      type: 'Modifier',
-      value: params.modifier,
-      context: params.context,
-    },
-  ],
-  name: {
-    type: 'Identifier',
-    name: params.name,
-    context: params.context,
-  },
-  body: {
-    type: 'AgentCall',
-    agentContext: [],
-    agent: {
-      type: 'Identifier',
-      name: params.agent,
-      context: params.context,
-    },
-    context: params.context,
-  },
-  context: params.context,
-});
-
 export const embeddedAgent = (name: string, agent: string) => ({ name, agent });
 
 export const embeddedAgents: ReadonlyArray<{ name: string; agent: string }> = [
@@ -299,12 +286,22 @@ export const addEmbeddedAgentsToGraph = (file: File): File => ({
       ...pipe(
         embeddedAgents,
         readonlyArray.map(({ name, agent }) =>
-          newComputedNode({
-            name,
-            modifier: 'private',
-            agent,
-            context: file.graph.context,
-          }),
+          pipe(file.graph.context, ctx =>
+            newComputedNode(
+              {
+                name: newIdentifier({ name }, ctx),
+                modifiers: [newModifier({ value: 'private' }, ctx)],
+                body: newAgentCall(
+                  {
+                    agentContext: [],
+                    agent: newIdentifier({ name: agent }, ctx),
+                  },
+                  ctx,
+                ),
+              },
+              ctx,
+            ),
+          ),
         ),
       ),
       ...file.graph.statements,
@@ -1117,6 +1114,520 @@ export const agentCallToJson = (agentCall: AgentCall): Result<CompileData<JsonOb
     ),
   );
 
+/*
+argName = [a, b, [c, d], { e, f }, ...g]
+pair = Array.aplitAt(4, argName)
+heads = pair[0]
+rest = pair[1]
+a = heads[0]
+b = heads[1]
+anon1 = heads[2]
+nodes1 = arrayDesturcturingToNodes(anon1, heads[2])
+anon1 = heads[3]
+nodes2 = objectDestructuringToNodes(anon2, heads[3])
+[a, b, ...nodes1, ...nodes2, rest]
+*/
+const arrayDestructuringToNodes = (
+  argName: Identifier,
+  array: ArrayDestructuring,
+): Result<ReadonlyArray<ComputedNode>> =>
+  pipe(
+    result.Do,
+    se.let_('ctx', () => array.context),
+    se.bind('heads', ({ ctx }) =>
+      pipe(
+        getAnnonName(),
+        se.map(_ => newIdentifier({ name: _ }, ctx)),
+      ),
+    ),
+    // nodes1 = [heads] or [heads, rest]
+    se.bind('nodes1', ({ heads, ctx }) =>
+      arrayDestructuringToHeadsRest(argName, array, heads, ctx),
+    ),
+    se.flatMap(({ heads, nodes1, ctx }) =>
+      pipe(
+        array.value,
+        readonlyArray.reduce(
+          result.of<[ReadonlyArray<ComputedNode>, number]>([nodes1, 0]),
+          (fout, item) =>
+            pipe(
+              fout,
+              se.map(([nodes1, idx]) => ({ nodes1, idx })),
+              se.bind('nodes2', ({ idx }) => arrayDestructuringEachItem(item, heads, idx, ctx)),
+              se.map(
+                ({ nodes1, nodes2, idx }) =>
+                  [[...nodes1, ...nodes2], idx + 1] satisfies [ReadonlyArray<ComputedNode>, number],
+              ),
+            ),
+        ),
+        se.map(_ => _[0]),
+      ),
+    ),
+  );
+
+const arrayDestructuringToHeadsRest = (
+  argName: Identifier,
+  array: ArrayDestructuring,
+  heads: Identifier,
+  ctx: ParserRange,
+): Result<ReadonlyArray<ComputedNode>> =>
+  pipe(
+    option.fromNullable(array.rest),
+    option.match(
+      // heads = argName;
+      () => result.of([newComputedNode({ name: heads, modifiers: [], body: argName }, ctx)]),
+      // pair = splitAt(array.value.length, argName);
+      // heads = pair[0];
+      // rest = pair[1];
+      rest =>
+        pipe(
+          // define pair
+          getAnnonName(),
+          se.map(_ => newIdentifier({ name: _ }, ctx)),
+          se.map(pair => [
+            newComputedNode(
+              {
+                name: pair,
+                modifiers: [],
+                body: pipe(
+                  // fill the first arguments of the splitAt with the length of the array:
+                  // splitAt(length)
+                  newAgentCall(
+                    {
+                      agentContext: [],
+                      agent: newIdentifier({ name: 'arraySplitAt' }, ctx),
+                      args: newNumber({ value: array.value.length }, ctx),
+                    },
+                    ctx,
+                  ),
+                  // fill the second arguments of the splitAt with the array:
+                  // f(argName)
+                  f =>
+                    newAgentCall(
+                      {
+                        agentContext: [],
+                        agent: f,
+                        args: argName,
+                      },
+                      ctx,
+                    ),
+                ),
+              },
+              ctx,
+            ),
+            newComputedNode(
+              {
+                name: heads,
+                modifiers: [],
+                body: newArrayAt(
+                  {
+                    array: pair,
+                    index: newNumber({ value: 0 }, ctx),
+                  },
+                  ctx,
+                ),
+              },
+              ctx,
+            ),
+            newComputedNode(
+              {
+                name: rest,
+                modifiers: [],
+                body: newArrayAt(
+                  {
+                    array: pair,
+                    index: newNumber({ value: 1 }, ctx),
+                  },
+                  ctx,
+                ),
+              },
+              ctx,
+            ),
+          ]),
+        ),
+    ),
+  );
+
+const arrayDestructuringEachItem = (
+  item: Destructuring,
+  heads: Identifier,
+  idx: number,
+  ctx: ParserRange,
+): Result<ReadonlyArray<ComputedNode>> => {
+  switch (item.type) {
+    case 'Number':
+    case 'String':
+    case 'Boolean':
+    case 'Null':
+      return destructuringMatch(
+        item,
+        newArrayAt(
+          {
+            array: heads,
+            index: newNumber({ value: idx }, ctx),
+          },
+          ctx,
+        ),
+        ctx,
+      );
+    case 'Identifier':
+      return result.of([
+        newComputedNode(
+          {
+            name: item,
+            modifiers: [],
+            body: newArrayAt(
+              {
+                array: heads,
+                index: newNumber({ value: idx }, ctx),
+              },
+              ctx,
+            ),
+          },
+          ctx,
+        ),
+      ]);
+    default:
+      return pipe(
+        result.Do,
+        // define node name
+        se.bind('name', () =>
+          pipe(
+            getAnnonName(),
+            se.map(_ => newIdentifier({ name: _ }, ctx)),
+          ),
+        ),
+        // name = heads[idx]
+        se.let_('node', ({ name }) =>
+          newComputedNode(
+            {
+              name,
+              modifiers: [],
+              body: newArrayAt(
+                {
+                  array: heads,
+                  index: newNumber({ value: idx }, ctx),
+                },
+                ctx,
+              ),
+            },
+            ctx,
+          ),
+        ),
+        se.bind('nestdNodes', ({ name }) =>
+          item.type === 'ArrayDestructuring'
+            ? arrayDestructuringToNodes(name, item)
+            : objectDestructuringToNodes(name, item),
+        ),
+        se.map(({ node, nestdNodes }) => [node, ...nestdNodes]),
+      );
+  }
+};
+
+/*
+argName = {a, b, c: [d, e], f: {g, h}, i: j, ...k}
+pair = Object.take(['a', 'b', 'c', 'f'], argName)
+heads = pair[0]
+rest = pair[1]
+a = heads.a
+b = heads.b
+anon1 = heads.c
+nodes1 = arrayDesturcturingToNodes(anon1, heads.c)
+anon2 = heads.f
+nodes2 = objectDestructuringToNodes(anon2, heads.f)
+anon3 = heads.i
+j = anon3
+[a, b, ...nodes1, ...nodes2, j, rest]
+*/
+const objectDestructuringToNodes = (
+  argName: Identifier,
+  object: ObjectDestructuring,
+): Result<ReadonlyArray<ComputedNode>> =>
+  pipe(
+    result.Do,
+    se.let_('ctx', () => object.context),
+    se.bind('heads', ({ ctx }) =>
+      pipe(
+        getAnnonName(),
+        se.map(_ => newIdentifier({ name: _ }, ctx)),
+      ),
+    ),
+    // [heads] or [heads, rest]
+    se.bind('nodes1', ({ heads, ctx }) =>
+      objectDestructuringToHeadsRest(argName, object, heads, ctx),
+    ),
+    // define nodes for each key in the object
+    se.flatMap(({ heads, nodes1, ctx }) =>
+      pipe(
+        object.value,
+        readonlyArray.reduce(
+          result.of<[ReadonlyArray<ComputedNode>, number]>([nodes1, 0]),
+          // each item in the object
+          (fout, item) =>
+            pipe(
+              fout,
+              se.map(([nodes1, idx]) => ({ nodes1, idx })),
+              se.bind('nodes2', ({ idx }) => objectDestructuringEachItem(item, heads, ctx)),
+              se.map(
+                ({ nodes1, nodes2, idx }) =>
+                  [[...nodes1, ...nodes2], idx + 1] satisfies [ReadonlyArray<ComputedNode>, number],
+              ),
+            ),
+        ),
+        se.map(_ => _[0]),
+      ),
+    ),
+  );
+
+const objectDestructuringToHeadsRest = (
+  argName: Identifier,
+  object: ObjectDestructuring,
+  heads: Identifier,
+  ctx: ParserRange,
+): Result<ReadonlyArray<ComputedNode>> =>
+  pipe(
+    option.fromNullable(object.rest),
+    option.match(
+      // heads = argName;
+      () => result.of([newComputedNode({ name: heads, modifiers: [], body: argName }, ctx)]),
+      // pair = take(['a', 'b', ...], argName);
+      // heads = pair[0];
+      // rest = pair[1];
+      rest =>
+        pipe(
+          // define pair
+          getAnnonName(),
+          se.map(_ => newIdentifier({ name: _ }, ctx)),
+          se.map(pair => [
+            newComputedNode(
+              {
+                name: pair,
+                modifiers: [],
+                body: pipe(
+                  // fill the first arguments of the take with the keys of the object:
+                  // take(keys)
+                  newAgentCall(
+                    {
+                      agentContext: [],
+                      agent: newIdentifier({ name: 'objectTake' }, ctx),
+                      args: newArray(
+                        {
+                          value: pipe(
+                            object.value,
+                            readonlyArray.map(kv =>
+                              kv.type === 'Identifier'
+                                ? newString({ value: [kv.name] }, ctx)
+                                : newString({ value: [kv.key.name] }, ctx),
+                            ),
+                          ),
+                        },
+                        ctx,
+                      ),
+                    },
+                    ctx,
+                  ),
+                  // fill the second arguments of the take with the array:
+                  // f(argName)
+                  f =>
+                    newAgentCall(
+                      {
+                        agentContext: [],
+                        agent: f,
+                        args: argName,
+                      },
+                      ctx,
+                    ),
+                ),
+              },
+              ctx,
+            ),
+            // define heads: heads = pair[0];
+            newComputedNode(
+              {
+                name: heads,
+                modifiers: [],
+                body: newArrayAt(
+                  {
+                    array: pair,
+                    index: newNumber({ value: 0 }, ctx),
+                  },
+                  ctx,
+                ),
+              },
+              ctx,
+            ),
+            // define rest: rest = pair[1];
+            newComputedNode(
+              {
+                name: rest,
+                modifiers: [],
+                body: newArrayAt(
+                  {
+                    array: pair,
+                    index: newNumber({ value: 1 }, ctx),
+                  },
+                  ctx,
+                ),
+              },
+              ctx,
+            ),
+          ]),
+        ),
+    ),
+  );
+
+const objectDestructuringEachItem = (
+  item: Identifier | ObjectPairDestructuring,
+  heads: Identifier,
+  ctx: ParserRange,
+): Result<ReadonlyArray<ComputedNode>> => {
+  switch (item.type) {
+    case 'Identifier':
+      // define a node for the item: a = heads.a
+      return result.of([
+        newComputedNode(
+          {
+            name: item,
+            modifiers: [],
+            body: newObjectMember(
+              {
+                object: heads,
+                key: item,
+              },
+              ctx,
+            ),
+          },
+          ctx,
+        ),
+      ]);
+    default: // define nodes for the item: c: [d, e] or f: {g, h}
+      return pipe(
+        result.Do,
+        se.bind('name', () =>
+          pipe(
+            getAnnonName(),
+            se.map(_ => newIdentifier({ name: _ }, ctx)),
+          ),
+        ),
+        // name = heads.c
+        se.let_('node', ({ name }) =>
+          newComputedNode(
+            {
+              name,
+              modifiers: [],
+              body: newObjectMember(
+                {
+                  object: heads,
+                  key: item.key,
+                },
+                ctx,
+              ),
+            },
+            ctx,
+          ),
+        ),
+        se.bind('nestdNodes', ({ name }) => {
+          switch (item.value.type) {
+            case 'Number':
+            case 'String':
+            case 'Boolean':
+            case 'Null':
+              return destructuringMatch(item.value, name, ctx);
+            case 'Identifier':
+              return result.of([
+                newComputedNode(
+                  {
+                    name: item.value,
+                    modifiers: [],
+                    body: name,
+                  },
+                  ctx,
+                ),
+              ]);
+            case 'ArrayDestructuring':
+              return arrayDestructuringToNodes(name, item.value);
+            default:
+              return objectDestructuringToNodes(name, item.value);
+          }
+        }),
+        se.map(({ node, nestdNodes }) => [node, ...nestdNodes]),
+      );
+  }
+};
+
+const destructuringToNodes = (
+  argName: Identifier,
+  value: Destructuring,
+): Result<ReadonlyArray<ComputedNode>> => {
+  switch (value.type) {
+    case 'Number':
+    case 'String':
+    case 'Boolean':
+    case 'Null':
+      return destructuringMatch(value, argName, value.context);
+    case 'Identifier':
+      return result.of([]);
+    case 'ArrayDestructuring':
+      return arrayDestructuringToNodes(argName, value);
+    default:
+      return objectDestructuringToNodes(argName, value);
+  }
+};
+
+const destructuringMatch = (
+  item: DSLNumber | DSLString | DSLBoolean | DSLNull,
+  value: TermEquality,
+  ctx: ParserRange,
+): Result<ReadonlyArray<ComputedNode>> =>
+  pipe(
+    result.Do,
+    se.bind('isMatched', () =>
+      pipe(
+        getAnnonName(),
+        se.map(_ => newIdentifier({ name: _ }, ctx)),
+      ),
+    ),
+    se.map(({ isMatched }) => [
+      newComputedNode(
+        {
+          name: isMatched,
+          modifiers: [],
+          body: pipe(
+            {
+              x: value,
+              eq: newEquality(
+                {
+                  left: value,
+                  right: item,
+                  operator: '==',
+                },
+                ctx,
+              ),
+            },
+            ({ x, eq }) =>
+              newIfThenElse(
+                {
+                  if: eq,
+                  then: newNull({}, ctx),
+                  else: newError(
+                    newString(
+                      {
+                        value: [`Failed to match a pattern `, item, ` with `, x],
+                      },
+                      ctx,
+                    ),
+                    ctx,
+                  ),
+                },
+                ctx,
+              ),
+          ),
+        },
+        ctx,
+      ),
+    ]),
+  );
+
 export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
@@ -1129,13 +1640,32 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
           context: agentDef.context,
         }) satisfies Identifier,
     ),
-    se.bind('graph', ({ agentContext }) =>
+    se.bind('argName', () =>
+      agentDef.args?.type === 'Identifier' ? result.of(agentDef.args.name) : getAnnonName(),
+    ),
+    se.bind('destructuring', ({ argName }) =>
+      pipe(
+        option.fromNullable(agentDef.args),
+        option.match(
+          () => result.of([]),
+          args =>
+            args.type === 'Identifier'
+              ? result.of([])
+              : destructuringToNodes(newIdentifier({ name: argName }, args.context), args),
+        ),
+      ),
+    ),
+    se.bind('graph', ({ agentContext, destructuring, argName }) =>
       graphToJson(
         agentDef.body.type === 'Graph'
-          ? agentDef.body
+          ? {
+              ...agentDef.body,
+              statements: [...destructuring, ...agentDef.body.statements],
+            }
           : {
               type: 'Graph',
               statements: [
+                ...destructuring,
                 {
                   type: 'ComputedNode',
                   modifiers: [],
@@ -1145,16 +1675,23 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
               ],
               context: agentDef.body.context,
             },
-        { agentArgs: [agentContext, ...(agentDef.args ? [agentDef.args] : [])] },
+        {
+          agentArgs: [
+            agentContext,
+            ...(agentDef.args == null
+              ? []
+              : [newIdentifier({ name: argName }, agentDef.args.context)]),
+          ],
+        },
       ),
     ),
-    se.let_('captures', ({ graph }) =>
+    se.let_('captures', ({ graph, argName }) =>
       pipe(
         graph.captures,
-        readonlyRecord.filter(value => value.name !== agentDef.args?.name),
+        readonlyRecord.filter(value => value.name !== argName),
       ),
     ),
-    se.bind('captures2', ({ graph }) =>
+    se.bind('captures2', ({ graph, argName }) =>
       pipe(
         result.Do,
         se.bind('ctx', () => result.get()),
@@ -1166,7 +1703,7 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
                 ctx.stack.items,
                 readonlyRecord.lookup(v.name),
                 option.match(
-                  () => v.name !== agentDef.args?.name,
+                  () => v.name !== argName,
                   // if the identifier is found in the stack,
                   // don't tell the parent stack to capture it
                   () => false,
@@ -1177,11 +1714,11 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
         ),
       ),
     ),
-    se.map(({ graph, captures, captures2 }) => ({
+    se.map(({ graph, captures, captures2, argName }) => ({
       json: {
         agent: 'defAgent',
         inputs: {
-          args: agentDef.args?.name,
+          args: argName,
           capture: pipe(
             captures,
             readonlyRecord.map(value => `:${value.name}`),
