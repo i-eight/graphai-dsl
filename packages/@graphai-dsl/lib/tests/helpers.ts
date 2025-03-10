@@ -73,7 +73,7 @@ export const toTupleFromExpr = (
         return _.value.map(toTupleFromExpr);
       case 'Object':
         return pipe(
-          _.value.map(_ => [_.key.name, toTupleFromExpr(_.value)]),
+          _.value.map(_ => [toTupleFromExpr(_.key), toTupleFromExpr(_.value)]),
           Object.fromEntries,
         );
       case 'ArrayAt':

@@ -237,32 +237,22 @@ describe('dsl-parser', () => {
     pipe(
       object,
       parser.run(stream.fromData('{ a: 1, b: 2, c: 3 }')),
-      either.map(_ =>
-        _.data.value.map(_ => ({
-          key: _.key.name,
-          value: _.value.type === 'Number' ? _.value.value : _.value,
-        })),
-      ),
+      either.map(_ => toTupleFromExpr(_.data)),
       _ =>
         expect(_).toStrictEqual(
-          either.right([
-            { key: 'a', value: 1 },
-            { key: 'b', value: 2 },
-            { key: 'c', value: 3 },
-          ]),
+          either.right({
+            a: 1,
+            b: 2,
+            c: 3,
+          }),
         ),
     );
 
     pipe(
       object,
       parser.run(stream.fromData('{ }')),
-      either.map(_ =>
-        _.data.value.map(_ => ({
-          key: _.key.name,
-          value: _.value.type === 'Number' ? _.value.value : _.value,
-        })),
-      ),
-      _ => expect(_).toStrictEqual(either.right([])),
+      either.map(_ => toTupleFromExpr(_.data)),
+      _ => expect(_).toStrictEqual(either.right({})),
     );
   });
 

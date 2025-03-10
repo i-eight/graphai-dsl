@@ -159,7 +159,7 @@ export type DSLArray = Readonly<{
 }>;
 
 export type DSLObjectPair = Readonly<{
-  key: Identifier;
+  key: Identifier | DSLString;
   value: Expr;
 }>;
 

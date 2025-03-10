@@ -326,7 +326,7 @@ export const object: Parser<DSLObject> = pipe(
       parser.right(
         pipe(
           parser.unit,
-          parser.bind('key', () => identifier),
+          parser.bind('key', () => pipe(identifier, parser.or<Identifier | DSLString>(string))),
           parser.left(whitespaces),
           parser.left(char(':')),
           parser.left(whitespaces),

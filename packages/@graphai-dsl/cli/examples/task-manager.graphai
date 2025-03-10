@@ -1,4 +1,4 @@
-@version('0.6');
+@version('1.0');
 import './github.graphai';
 import './text-chat.graphai';
 
@@ -8,6 +8,5 @@ textChat((userInput) ->
         createIssue, 
         editIssue, 
         closeIssue
-    ] |> Json.prettyStringify
-      |> println
+    ] |> println
 );

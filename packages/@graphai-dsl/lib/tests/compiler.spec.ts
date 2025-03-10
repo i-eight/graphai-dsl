@@ -184,6 +184,13 @@ describe('Compiler', () => {
     );
   });
 
+  test('object 1', () =>
+    pipe(
+      parseSourceTest('@version("0.6"); o = {"a": 1};'),
+      compileFileTest(),
+      runFileTest(either.right({ o: { a: 1 } })),
+    ));
+
   test('computed-node object 1', () => {
     pipe(
       parseSourceTest('@version("0.6"); a = {a: 1, b: "b", c: [3.0], d: false};'),
@@ -2255,7 +2262,7 @@ describe('Compiler', () => {
       runFileTest(either.right({ __anon0__: 3 })),
     ));
 
-  test.only('match 5', async () =>
+  test('match 5', async () =>
     pipe(
       parseSourceTest(`
             @version('0.6');

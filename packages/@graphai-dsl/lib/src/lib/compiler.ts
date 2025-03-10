@@ -348,7 +348,14 @@ const importFromPath = (path: string): Result<Statements> =>
     se.map(({ ss1, ss2 }) => [...ss2, ...ss1] as Statements),
   );
 
-const statementsToPublicPairs = (s: Statements): ReadonlyArray<DSLObjectPair> =>
+const statementsToPublicPairs = (
+  s: Statements,
+): ReadonlyArray<
+  Readonly<{
+    key: Identifier;
+    value: Expr;
+  }>
+> =>
   pipe(
     s,
     readonlyArray.flatMap(n =>
@@ -2662,12 +2669,21 @@ export const arrayToJson = (array: DSLArray): Result =>
 export const objectPairToJson = (pair: DSLObjectPair): Result<CompileData<JsonObject>> =>
   pipe(
     result.Do,
+    se.bind('key', () =>
+      pair.key.type === 'Identifier'
+        ? result.of<CompileData>({
+            json: pair.key.name,
+            captures: newCapures(),
+            nodes: newJsonObject(),
+          })
+        : stringToJson(pair.key),
+    ),
     se.bind('value', () => exprToJson(pair.value)),
     se.let_(
       'isRawString',
       () => pair.value.type === 'String' && pipe(toRawString(pair.value), option.isSome),
     ),
-    se.flatMap(({ value, isRawString }) =>
+    se.flatMap(({ key, value, isRawString }) =>
       pair.value.type === 'Identifier' ||
       pair.value.type === 'Boolean' ||
       pair.value.type === 'Number' ||
@@ -2676,16 +2692,20 @@ export const objectPairToJson = (pair: DSLObjectPair): Result<CompileData<JsonOb
       pair.value.type === 'Null' ||
       isRawString
         ? result.of({
-            json: { [pair.key.name]: value.json },
+            json: { [key.json as string]: value.json },
             captures: value.captures,
             nodes: value.nodes,
           })
         : pipe(
             getAnnonName(),
             se.map(name => ({
-              json: { [pair.key.name]: `:${name}` },
-              captures: value.captures,
+              json: { [key.json as string]: `:${name}` },
+              captures: {
+                ...key.captures,
+                ...value.captures,
+              },
               nodes: {
+                ...key.nodes,
                 ...value.nodes,
                 [name]: value.json,
               },

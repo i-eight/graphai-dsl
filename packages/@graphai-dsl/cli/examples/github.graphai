@@ -1,3 +1,15 @@
+@version('1.0');
+
+owner = 'i-eight';
+repo = 'graphai-tasks';
+accessToken = getProcessEnvAgent().GITHUB_ACCESS_TOKEN;
+
+headers = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    Authorization: 'Bearer ${accessToken}',
+    'User-Agent': 'graphai',
+};
 
 formatIssue = (issue) -> {
     number: issue.number, 
@@ -6,40 +18,51 @@ formatIssue = (issue) -> {
     body: issue.body,
 };
 
-getIssuesInfo = getAgentInfo(getGithubIssuesAgent);
+issueType = {
+  type: 'object',
+  properties: {
+    number: { type: 'number' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    state: { type: 'string' },
+  },
+};
 
 public getIssues = {
-    name: 'getIssues',
-    agent: () -> getIssuesInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
+    name: 'getIssues', 
+    agent: () -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+        method: 'GET',
+        headers: headers,
     }) 
-    |> Array.map(formatIssue),
+    |> Array.map(formatIssue)
+    |> Json.prettyStringify,
 
-    description: getIssuesInfo.description,
-    
+    description: 'Get issues from Github repository',
+
     inputs: {
         type: 'object',
         properties: {},
     },
     
-    output: getIssuesInfo.output,
+    output: {
+        type: 'array',
+        items: issueType,
+    },
 };
-
-createIssueInfo = getAgentInfo(createGithubIssueAgent);
 
 public createIssue = {
     name: 'createIssue',
-    agent: (namedInputs) -> createIssueInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-        title: namedInputs.title,
+    agent: ({title}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+        method: 'POST',
+        headers: headers,
+        body: {title: title},
     })
-    |> formatIssue,
+    |> formatIssue
+    |> Json.prettyStringify,
 
-    description: createIssueInfo.description,
+    description: 'Create an issue in Github repository',
 
     inputs: {
         type: 'object',
@@ -48,24 +71,22 @@ public createIssue = {
         }
     },
 
-    output: createIssueInfo.output,
+    output: issueType,
 };
-
-editIssueInfo = getAgentInfo(editGithubIssueAgent);
 
 public editIssue = {
     name: 'editIssue',
-    agent: (namedInputs) -> editIssueInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-        issueNumber: namedInputs.issueNumber,
-        body: namedInputs.body,
+    agent: ({issueNumber, body}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}',
+        method: 'PATCH',
+        headers: headers,
+        body: {body: body},
     })
-    |> formatIssue,
-    
-    description: editIssueInfo.description,
-    
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Edit an issue in Github repository',
+
     inputs: {
         type: 'object',
         properties: {
@@ -74,22 +95,21 @@ public editIssue = {
         }
     },
     
-    output: editIssueInfo.output,
+    output: issueType,
 };
-
-closeIssueInfo = getAgentInfo(closeGithubIssueAgent);
 
 public closeIssue = {
     name: 'closeIssue',
-    agent: (namedInputs) -> closeIssueInfo.agent({
-        owner: 'i-eight',
-        repo: 'graphai-tasks',
-        accessToken: getProcessEnvAgent().GITHUB_ACCESS_TOKEN,
-        issueNumber: namedInputs.issueNumber,
+    agent: ({issueNumber}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}',
+        method: 'PATCH',
+        headers: headers,
+        body: {state: 'closed'},
     })
-    |> formatIssue,
+    |> formatIssue
+    |> Json.prettyStringify,
 
-    description: closeIssueInfo.description,
+    description: 'Close an issue in Github repository',
 
     inputs: {
         type: 'object',
@@ -98,5 +118,5 @@ public closeIssue = {
         },
     },
 
-    output: closeIssueInfo.output,
+    output: issueType,
 };

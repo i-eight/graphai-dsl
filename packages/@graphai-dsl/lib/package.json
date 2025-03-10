@@ -18,11 +18,11 @@
     "type:check": "tsc --noEmit && eslint"
   },
   "dependencies": {
-    "@graphai/agents": "0.2.10",
+    "@graphai/agents": "1.0.2",
     "dotenv": "^16.4.7",
     "fp-ts": "^2.16.9",
     "geoip-lite": "^1.4.10",
-    "graphai": "0.6.24",
+    "graphai": "1.0.1",
     "rxjs": "^7.8.1",
     "yargs": "^17.7.2"
   },
