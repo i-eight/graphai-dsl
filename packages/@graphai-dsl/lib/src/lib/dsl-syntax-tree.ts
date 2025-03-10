@@ -65,6 +65,8 @@ export type ComputedNode = Readonly<{
 
 export type Expr =
   | IfThenElse
+  | TryCatch
+  | Match
   | Paren
   | NestedGraph
   | Identifier
@@ -80,6 +82,28 @@ export type IfThenElse = Readonly<{
   if: ComputedNodeBody;
   then: ComputedNodeBody;
   else: ComputedNodeBody;
+  context: Context;
+}>;
+
+export type TryCatch = Readonly<{
+  type: 'TryCatch';
+  try: Expr;
+  catch?: AgentDef;
+  finally?: Expr;
+  context: Context;
+}>;
+
+export type Match = Readonly<{
+  type: 'Match';
+  value: Expr;
+  cases: ReadonlyArray<MatchCase>;
+  context: Context;
+}>;
+
+export type MatchCase = Readonly<{
+  type: 'MatchCase';
+  pattern: Destructuring;
+  body: Expr;
   context: Context;
 }>;
 
@@ -200,11 +224,12 @@ export type Term =
   | DSLArray
   | DSLObject
   | DSLNull
+  | Match
   | Paren
   | NestedGraph
   | Identifier;
 
-export type Arrayable = DSLArray | Paren | Identifier;
+export type Arrayable = DSLArray | NestedGraph | Paren | Identifier;
 export type ArrayAt = Readonly<{
   type: 'ArrayAt';
   array: Arrayable | Call;
@@ -212,7 +237,7 @@ export type ArrayAt = Readonly<{
   context: Context;
 }>;
 
-export type Objectable = DSLObject | Paren | Identifier;
+export type Objectable = DSLObject | NestedGraph | Paren | Identifier;
 export type ObjectMember = Readonly<{
   type: 'ObjectMember';
   object: Objectable | Call;
@@ -220,7 +245,7 @@ export type ObjectMember = Readonly<{
   context: Context;
 }>;
 
-export type Agentable = Paren | Identifier;
+export type Agentable = NestedGraph | Paren | Identifier;
 export type AgentCall = Readonly<{
   type: 'AgentCall';
   agentContext: ReadonlyArray<AgentContext>;
@@ -297,7 +322,7 @@ export type Logical = Readonly<{
   context: Context;
 }>;
 
-export type TermPipeline = TermLogical | Logical | IfThenElse | AgentDef;
+export type TermPipeline = TermLogical | Logical | IfThenElse | TryCatch | AgentDef;
 
 export type Pipeline = Readonly<{
   type: 'Pipeline';

@@ -1,11 +1,11 @@
 import { pipe } from 'fp-ts/lib/function';
 import {
   compileFileTest,
+  getValue,
   parseFileTest,
   parseSourceTest,
   printJson,
   runFileTest,
-  runParse,
   runParser,
   toTupleFromCompileError,
   toTupleFromExpr,
@@ -13,7 +13,13 @@ import {
 import { either, readonlyRecord } from 'fp-ts';
 import { through } from '../src/lib/through';
 import { toReadableJson } from '../src/lib/dsl-util';
-import { agentDef, computedNode } from '../src/lib/dsl-parser';
+import {
+  agentDef,
+  computedNode,
+  computedNodeBody,
+  operator,
+  tryCatch,
+} from '../src/lib/dsl-parser';
 
 describe('Compiler', () => {
   test('static-node: number', () =>
@@ -1097,7 +1103,13 @@ describe('Compiler', () => {
 
   test('A basic if-then-else', () =>
     pipe(
-      parseSourceTest('@version("0.6"); static a = 1; if a > 1 then println(1) else println(2);'),
+      parseSourceTest(`
+        @version("0.6"); 
+        static a = 1; 
+        if a > 1 
+        then println(1) 
+        else println(2);
+      `),
       compileFileTest(),
       through(_ =>
         expect(_).toStrictEqual(
@@ -1110,7 +1122,7 @@ describe('Compiler', () => {
               __anon3__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: '__anon1__',
+                  args: undefined,
                   capture: {
                     a: ':a',
                   },
@@ -1133,7 +1145,7 @@ describe('Compiler', () => {
               __anon6__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: '__anon4__',
+                  args: undefined,
                   capture: {},
                   return: ['__anon5__'],
                 },
@@ -1154,7 +1166,7 @@ describe('Compiler', () => {
               __anon9__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: '__anon7__',
+                  args: undefined,
                   capture: {},
                   return: ['__anon8__'],
                 },
@@ -1217,7 +1229,7 @@ describe('Compiler', () => {
               __anon3__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: '__anon1__',
+                  args: undefined,
                   capture: {
                     a: ':a',
                   },
@@ -1240,7 +1252,7 @@ describe('Compiler', () => {
               __anon6__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: '__anon4__',
+                  args: undefined,
                   capture: {},
                   return: ['__anon5__'],
                 },
@@ -1261,7 +1273,7 @@ describe('Compiler', () => {
               __anon9__: {
                 agent: 'defAgent',
                 inputs: {
-                  args: '__anon7__',
+                  args: undefined,
                   capture: {},
                   return: ['__anon8__'],
                 },
@@ -1598,6 +1610,16 @@ describe('Compiler', () => {
         `),
       compileFileTest(),
       runFileTest(either.right({ __anon0__: 2 })),
+    ));
+
+  test('operator 5', async () =>
+    await pipe(
+      parseSourceTest(`
+            @version('0.6');
+            { 1; } + { 2; };
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('array-at 1', async () =>
@@ -2089,7 +2111,7 @@ describe('Compiler', () => {
         f([1]);
       `),
       compileFileTest(),
-      runFileTest(either.right({ __anon3__: 1 })),
+      runFileTest(either.right({ __anon14__: 1 })),
     ));
 
   test('destructuring 2', async () =>
@@ -2100,7 +2122,7 @@ describe('Compiler', () => {
           f([1, 2]);
         `),
       compileFileTest(),
-      runFileTest(either.right({ __anon3__: 3 })),
+      runFileTest(either.right({ __anon14__: 3 })),
     ));
 
   test('destructuring 3', async () =>
@@ -2111,7 +2133,7 @@ describe('Compiler', () => {
         f({a: 1});
       `),
       compileFileTest(),
-      runFileTest(either.right({ __anon3__: 1 })),
+      runFileTest(either.right({ __anon14__: 1 })),
     ));
 
   test('destructuring 4', async () =>
@@ -2122,7 +2144,7 @@ describe('Compiler', () => {
         f({a: 1, b: 2});
       `),
       compileFileTest(),
-      runFileTest(either.right({ __anon3__: 3 })),
+      runFileTest(either.right({ __anon14__: 3 })),
     ));
 
   test('destructuring 5', async () =>
@@ -2133,7 +2155,7 @@ describe('Compiler', () => {
           f([1, 2, 3]);
         `),
       compileFileTest(),
-      runFileTest(either.right({ __anon8__: 6 })),
+      runFileTest(either.right({ __anon19__: 6 })),
     ));
 
   test('destructuring 6', async () =>
@@ -2144,7 +2166,7 @@ describe('Compiler', () => {
             f({ a: 1, b: 2, c: 3 });
           `),
       compileFileTest(),
-      runFileTest(either.right({ __anon8__: 6 })),
+      runFileTest(either.right({ __anon19__: 6 })),
     ));
 
   test('destructuring 7', async () =>
@@ -2155,6 +2177,94 @@ describe('Compiler', () => {
         f([1, {b: 2, c: 3, e: [4, 5, 6], g: 7, h: 8}]);
       `),
       compileFileTest(),
-      runFileTest(either.right({ __anon22__: 36 })),
+      runFileTest(either.right({ __anon55__: 36 })),
+    ));
+
+  test('try catch 1', async () =>
+    pipe(
+      parseSourceTest(`
+        @version('0.6');
+        a = try 1 catch () -> 2;
+        b = try throw('error') catch () -> 10;
+        a + b;
+      `),
+      compileFileTest(),
+      //printJson,
+      runFileTest(either.right({ __anon12__: 11 })),
+    ));
+
+  test('match 1', async () =>
+    pipe(
+      parseSourceTest(`
+          @version('0.6');
+          match 1 {
+            a -> a + 1,
+          };
+        `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 2 })),
+    ));
+
+  test('match 2', async () =>
+    pipe(
+      parseSourceTest(`
+          @version('0.6');
+          match 1 {
+            1 -> '1',
+          };
+        `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: '1' })),
+    ));
+
+  test('match 3', async () =>
+    pipe(
+      parseSourceTest(`
+            @version('0.6');
+            match 2 {
+              1 -> '1',
+              2 -> '2'
+            };
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: '2' })),
+    ));
+
+  test('match 4', async () =>
+    pipe(
+      parseSourceTest(`
+            @version('0.6');
+            try match 1 {
+              {a} -> '1',
+            } catch () -> 'error';
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 'error' })),
+    ));
+
+  test('match 5', async () =>
+    pipe(
+      parseSourceTest(`
+            @version('0.6');
+            match [1, 2] {
+              {a} -> '1',
+              [a, b] -> a + b,
+            };
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 3 })),
+    ));
+
+  test.only('match 5', async () =>
+    pipe(
+      parseSourceTest(`
+            @version('0.6');
+            match { a: { b: 1, c: [1, 2, 3] }, d: 4 } {
+              {a: { b: 1, c: [1, 3, x] }, d: y} -> 'fail',
+              {a: { b: 1, c: [1, 2, x] }, d: y} -> x + y,
+            };
+          `),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 7 })),
     ));
 });

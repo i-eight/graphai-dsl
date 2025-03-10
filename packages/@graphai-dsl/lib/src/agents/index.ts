@@ -50,6 +50,14 @@ import { nativeImportAgentInfo } from './native-import-agent';
 import { objectAgentInfo, objectTakeAgentInfo } from './object-agent';
 import { JsonAgentInfo } from './json-agent';
 import { throwAgentInfo } from './throw-agent';
+import { tryCatchAgentInfo } from './try-catch';
+import {
+  isArrayAgentInfo,
+  isBooleanAgentInfo,
+  isNumberAgentInfo,
+  isObjectAgentInfo,
+  isStringAgentInfo,
+} from './type-check';
 
 export const agents: AgentFunctionInfoDictionary = {
   ...defaultAgents,
@@ -82,12 +90,18 @@ export const agents: AgentFunctionInfoDictionary = {
   getObjectMemberAgent: getObjectMemberAgentInfo,
   nativeImportAgent: nativeImportAgentInfo,
   defAgent: defAgentInfo,
+  tryCatch: tryCatchAgentInfo,
   caseAgent: caseAgentInfo,
   throw: throwAgentInfo,
   loop: loopAgentInfo,
   recur: recurAgentInfo,
   eval: evalAgentInfo,
   apply: applyAgentInfo,
+  isBoolean: isBooleanAgentInfo,
+  isNumber: isNumberAgentInfo,
+  isString: isStringAgentInfo,
+  isArray: isArrayAgentInfo,
+  isObject: isObjectAgentInfo,
   getAgentInfo: getAgentInfoAgentInfo,
   arraySize: arraySizeAgentInfo,
   arraySplitAt: arraySplitAtAgentInfo,

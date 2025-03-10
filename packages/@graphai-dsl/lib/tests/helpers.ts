@@ -217,3 +217,9 @@ export const runFileTest =
             ),
           ),
     );
+
+export const getValue = (result: Either<unknown, Json>): Either<unknown, Json> =>
+  pipe(
+    result,
+    either.map(v => (v != null && typeof v === 'object' ? Object.values(v) : v)),
+  );

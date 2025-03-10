@@ -39,6 +39,9 @@ import {
   Destructuring,
   ObjectPairDestructuring,
   TermEquality,
+  Match,
+  TryCatch,
+  MatchCase,
 } from './dsl-syntax-tree';
 import { either, option, readonlyArray, readonlyRecord, string } from 'fp-ts';
 import { parser, ParserRange, ParserData } from './parser-combinator';
@@ -56,19 +59,25 @@ import { DSLError, CompileErrorItem } from './error';
 import { readFile } from './file';
 import {
   newAgentCall,
+  newAgentDef,
   newArray,
   newArrayAt,
+  newBoolean,
   newComputedNode,
   newEquality,
   newError,
+  newGraph,
   newIdentifier,
   newIfThenElse,
   newModifier,
+  newNestedGraph,
   newNull,
   newNumber,
   newObject,
   newObjectMember,
+  newParen,
   newString,
+  newTryCatch,
   toReadableJson,
 } from './dsl-util';
 
@@ -648,6 +657,10 @@ export const computedNodeBodyExprToJson = (expr: Expr): Result<CompileData<JsonO
   switch (expr.type) {
     case 'IfThenElse':
       return ifThenElseToJson(expr);
+    case 'TryCatch':
+      return tryCatchToJson(expr);
+    case 'Match':
+      return matchToJson(expr);
     case 'Paren':
       return computedNodeParenToJson(expr);
     case 'NestedGraph':
@@ -697,6 +710,10 @@ export const exprToJson = (expr: Expr): Result => {
   switch (expr.type) {
     case 'IfThenElse':
       return ifThenElseToJson(expr);
+    case 'TryCatch':
+      return tryCatchToJson(expr);
+    case 'Match':
+      return matchToJson(expr);
     case 'Paren':
       return parenToJson(expr);
     case 'NestedGraph':
@@ -946,6 +963,302 @@ export const ifThenElseToJson = (ifThenElse: IfThenElse): Result<CompileData<Jso
     })),
   );
 
+export const tryCatchToJson = (tryCatch: TryCatch): Result<CompileData<JsonObject>> =>
+  agentCallToJson(
+    newAgentCall(
+      {
+        agentContext: [],
+        agent: newIdentifier({ name: 'tryCatch' }, tryCatch.context),
+        args: newObject(
+          {
+            value: [
+              {
+                key: newIdentifier({ name: 'try' }, tryCatch.try.context),
+                value: newAgentDef({ body: tryCatch.try }, tryCatch.try.context),
+              },
+              ...(tryCatch.catch == null
+                ? []
+                : [
+                    {
+                      key: newIdentifier({ name: 'catch' }, tryCatch.catch.context),
+                      value: tryCatch.catch,
+                    },
+                  ]),
+              ...(tryCatch.finally == null
+                ? []
+                : [
+                    {
+                      key: newIdentifier({ name: 'finally' }, tryCatch.finally.context),
+                      value: newAgentDef({ body: tryCatch.finally }, tryCatch.finally.context),
+                    },
+                  ]),
+            ],
+          },
+          tryCatch.context,
+        ),
+      },
+      tryCatch.context,
+    ),
+  );
+
+/*
+match a {
+  1 -> true,
+  {a, 2} -> true,
+  _ -> false,
+};
+
+{
+  case1 = try { matched: true, result: patt1(a) } catch () -> { matched: false }; 
+  case2 = if case1.matched
+          then case1
+          else try { matched: true, result: patt2(a) } catch () -> { matched: false }; 
+  case3 = if case2.matched
+          then case2
+          else try { matched: true, result: patt3(a) } catch () -> { matched: false }; 
+}
+*/
+export const matchToJson = (match: Match): Result<CompileData<JsonObject>> =>
+  pipe(
+    match.cases,
+    readonlyArray.reduce(
+      pipe(
+        getAnnonName(),
+        se.map(_ => newIdentifier({ name: _ }, match.value.context)),
+        se.map(argName => ({
+          argName,
+          result: [
+            newComputedNode(
+              {
+                modifiers: [],
+                name: argName,
+                body: match.value,
+              },
+              match.value.context,
+            ),
+          ] as ReadonlyArray<ComputedNode>,
+          prev: option.none as Option<Identifier>,
+        })),
+      ),
+      (facc, case_) =>
+        pipe(
+          facc,
+          se.bind('name', () =>
+            pipe(
+              getAnnonName(),
+              se.map(_ => newIdentifier({ name: _ }, case_.context)),
+            ),
+          ),
+          se.bind('caseBody', ({ argName }) => createMatchCase(argName, case_)),
+          se.let_('node', ({ prev, name, caseBody }) =>
+            newComputedNode(
+              {
+                modifiers: [],
+                name,
+                body: pipe(
+                  prev,
+                  option.match(
+                    () => caseBody as Expr,
+                    _ =>
+                      newIfThenElse(
+                        {
+                          if: newObjectMember(
+                            {
+                              object: _,
+                              key: newIdentifier({ name: 'matched' }, case_.context),
+                            },
+                            case_.context,
+                          ),
+                          then: _,
+                          else: caseBody,
+                        },
+                        case_.context,
+                      ) as Expr,
+                  ),
+                ),
+              },
+              case_.context,
+            ),
+          ),
+          se.map(({ argName, result, node, name }) => ({
+            argName,
+            result: [...result, node],
+            prev: option.some(name),
+          })),
+        ),
+    ),
+    se.map(({ result, prev }) =>
+      pipe(
+        newGraph(
+          {
+            statements: [
+              ...result,
+              ...pipe(
+                prev,
+                option.match(
+                  () => [],
+                  name => [
+                    newComputedNode(
+                      {
+                        modifiers: [],
+                        body: pipe(
+                          newObjectMember(
+                            {
+                              object: name,
+                              key: newIdentifier({ name: 'matched' }, match.context),
+                            },
+                            match.context,
+                          ),
+                          matched =>
+                            newIfThenElse(
+                              {
+                                if: matched,
+                                then: newNull({}, match.context),
+                                else: newAgentCall(
+                                  {
+                                    agentContext: [],
+                                    agent: newIdentifier({ name: 'throw' }, match.context),
+                                    args: newString(
+                                      {
+                                        value: [
+                                          "'",
+                                          match.value,
+                                          "'",
+                                          ' does not match any pattern',
+                                        ],
+                                      },
+                                      match.context,
+                                    ),
+                                  },
+                                  match.context,
+                                ),
+                              },
+                              match.context,
+                            ),
+                        ),
+                      },
+                      match.context,
+                    ),
+                    newComputedNode(
+                      {
+                        modifiers: [],
+                        body: name,
+                      },
+                      match.context,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          },
+          match.context,
+        ),
+        graph =>
+          newAgentCall(
+            {
+              agentContext: [],
+              agent: newParen(
+                {
+                  expr: newAgentDef(
+                    {
+                      body: graph,
+                    },
+                    match.context,
+                  ),
+                },
+                match.context,
+              ),
+            },
+            match.context,
+          ),
+      ),
+    ),
+    se.map(g =>
+      newObjectMember(
+        {
+          object: g,
+          key: newIdentifier({ name: 'result' }, match.context),
+        },
+        match.context,
+      ),
+    ),
+    se.flatMap(objectMemberToJson),
+  );
+
+export const createMatchCase = (argName: Identifier, case_: MatchCase): Result<TryCatch> =>
+  pipe(
+    destructuringToNodes(argName, case_.pattern),
+    se.map(xs => [
+      ...xs,
+      newComputedNode(
+        {
+          modifiers: [],
+          body: case_.body,
+        },
+        case_.body.context,
+      ),
+    ]),
+    se.map(pattern =>
+      newTryCatch(
+        {
+          try: newObject(
+            {
+              value: [
+                {
+                  key: newIdentifier({ name: 'matched' }, case_.pattern.context),
+                  value: newBoolean({ value: true }, case_.pattern.context),
+                },
+                {
+                  key: newIdentifier({ name: 'result' }, case_.pattern.context),
+                  value: newAgentCall(
+                    {
+                      agentContext: [],
+                      agent: newParen(
+                        {
+                          expr: newAgentDef(
+                            {
+                              body: newGraph(
+                                {
+                                  statements: pattern,
+                                },
+                                case_.pattern.context,
+                              ),
+                            },
+                            case_.pattern.context,
+                          ),
+                        },
+                        case_.pattern.context,
+                      ),
+                    },
+                    case_.pattern.context,
+                  ),
+                },
+              ],
+            },
+            case_.pattern.context,
+          ),
+          catch: newAgentDef(
+            {
+              body: newObject(
+                {
+                  value: [
+                    {
+                      key: newIdentifier({ name: 'matched' }, case_.context),
+                      value: newBoolean({ value: false }, case_.context),
+                    },
+                  ],
+                },
+                case_.context,
+              ),
+            },
+            case_.context,
+          ),
+        },
+        case_.context,
+      ),
+    ),
+  );
+
 export const parenToJson = (paren: Paren): Result => exprToJson(paren.expr);
 
 export const computedNodeParenToJson = (paren: Paren): Result<CompileData<JsonObject>> =>
@@ -1172,79 +1485,91 @@ const arrayDestructuringToHeadsRest = (
   ctx: ParserRange,
 ): Result<ReadonlyArray<ComputedNode>> =>
   pipe(
-    option.fromNullable(array.rest),
-    option.match(
-      // heads = argName;
-      () => result.of([newComputedNode({ name: heads, modifiers: [], body: argName }, ctx)]),
-      // pair = splitAt(array.value.length, argName);
-      // heads = pair[0];
-      // rest = pair[1];
-      rest =>
-        pipe(
-          // define pair
-          getAnnonName(),
-          se.map(_ => newIdentifier({ name: _ }, ctx)),
-          se.map(pair => [
-            newComputedNode(
-              {
-                name: pair,
-                modifiers: [],
-                body: pipe(
-                  // fill the first arguments of the splitAt with the length of the array:
-                  // splitAt(length)
-                  newAgentCall(
-                    {
-                      agentContext: [],
-                      agent: newIdentifier({ name: 'arraySplitAt' }, ctx),
-                      args: newNumber({ value: array.value.length }, ctx),
-                    },
-                    ctx,
-                  ),
-                  // fill the second arguments of the splitAt with the array:
-                  // f(argName)
-                  f =>
-                    newAgentCall(
+    result.Do,
+    se.let_('frest', () => option.fromNullable(array.rest)),
+    se.let_('checkType', () => destructuringTypeCheck(argName, 'isArray', ctx)),
+    se.flatMap(({ frest, checkType }) =>
+      pipe(
+        frest,
+        option.match(
+          // heads = argName;
+          () =>
+            result.of([
+              checkType,
+              newComputedNode({ name: heads, modifiers: [], body: argName }, ctx),
+            ]),
+          // pair = splitAt(array.value.length, argName);
+          // heads = pair[0];
+          // rest = pair[1];
+          rest =>
+            pipe(
+              // define pair
+              getAnnonName(),
+              se.map(_ => newIdentifier({ name: _ }, ctx)),
+              se.map(pair => [
+                checkType,
+                newComputedNode(
+                  {
+                    name: pair,
+                    modifiers: [],
+                    body: pipe(
+                      // fill the first arguments of the splitAt with the length of the array:
+                      // splitAt(length)
+                      newAgentCall(
+                        {
+                          agentContext: [],
+                          agent: newIdentifier({ name: 'arraySplitAt' }, ctx),
+                          args: newNumber({ value: array.value.length }, ctx),
+                        },
+                        ctx,
+                      ),
+                      // fill the second arguments of the splitAt with the array:
+                      // f(argName)
+                      f =>
+                        newAgentCall(
+                          {
+                            agentContext: [],
+                            agent: f,
+                            args: argName,
+                          },
+                          ctx,
+                        ),
+                    ),
+                  },
+                  ctx,
+                ),
+                newComputedNode(
+                  {
+                    name: heads,
+                    modifiers: [],
+                    body: newArrayAt(
                       {
-                        agentContext: [],
-                        agent: f,
-                        args: argName,
+                        array: pair,
+                        index: newNumber({ value: 0 }, ctx),
                       },
                       ctx,
                     ),
-                ),
-              },
-              ctx,
-            ),
-            newComputedNode(
-              {
-                name: heads,
-                modifiers: [],
-                body: newArrayAt(
-                  {
-                    array: pair,
-                    index: newNumber({ value: 0 }, ctx),
                   },
                   ctx,
                 ),
-              },
-              ctx,
-            ),
-            newComputedNode(
-              {
-                name: rest,
-                modifiers: [],
-                body: newArrayAt(
+                newComputedNode(
                   {
-                    array: pair,
-                    index: newNumber({ value: 1 }, ctx),
+                    name: rest,
+                    modifiers: [],
+                    body: newArrayAt(
+                      {
+                        array: pair,
+                        index: newNumber({ value: 1 }, ctx),
+                      },
+                      ctx,
+                    ),
                   },
                   ctx,
                 ),
-              },
-              ctx,
+              ]),
             ),
-          ]),
         ),
+      ),
     ),
   );
 
@@ -1367,7 +1692,7 @@ const objectDestructuringToNodes = (
             pipe(
               fout,
               se.map(([nodes1, idx]) => ({ nodes1, idx })),
-              se.bind('nodes2', ({ idx }) => objectDestructuringEachItem(item, heads, ctx)),
+              se.bind('nodes2', () => objectDestructuringEachItem(item, heads, ctx)),
               se.map(
                 ({ nodes1, nodes2, idx }) =>
                   [[...nodes1, ...nodes2], idx + 1] satisfies [ReadonlyArray<ComputedNode>, number],
@@ -1389,7 +1714,11 @@ const objectDestructuringToHeadsRest = (
     option.fromNullable(object.rest),
     option.match(
       // heads = argName;
-      () => result.of([newComputedNode({ name: heads, modifiers: [], body: argName }, ctx)]),
+      () =>
+        result.of([
+          destructuringTypeCheck(argName, 'isObject', ctx),
+          newComputedNode({ name: heads, modifiers: [], body: argName }, ctx),
+        ]),
       // pair = take(['a', 'b', ...], argName);
       // heads = pair[0];
       // rest = pair[1];
@@ -1399,6 +1728,7 @@ const objectDestructuringToHeadsRest = (
           getAnnonName(),
           se.map(_ => newIdentifier({ name: _ }, ctx)),
           se.map(pair => [
+            destructuringTypeCheck(argName, 'isObject', ctx),
             newComputedNode(
               {
                 name: pair,
@@ -1566,7 +1896,16 @@ const destructuringToNodes = (
     case 'Null':
       return destructuringMatch(value, argName, value.context);
     case 'Identifier':
-      return result.of([]);
+      return result.of([
+        newComputedNode(
+          {
+            modifiers: [],
+            name: value,
+            body: argName,
+          },
+          value.context,
+        ),
+      ]);
     case 'ArrayDestructuring':
       return arrayDestructuringToNodes(argName, value);
     default:
@@ -1579,53 +1918,95 @@ const destructuringMatch = (
   value: TermEquality,
   ctx: ParserRange,
 ): Result<ReadonlyArray<ComputedNode>> =>
-  pipe(
-    result.Do,
-    se.bind('isMatched', () =>
-      pipe(
-        getAnnonName(),
-        se.map(_ => newIdentifier({ name: _ }, ctx)),
-      ),
-    ),
-    se.map(({ isMatched }) => [
-      newComputedNode(
-        {
-          name: isMatched,
-          modifiers: [],
-          body: pipe(
-            {
-              x: value,
-              eq: newEquality(
-                {
-                  left: value,
-                  right: item,
-                  operator: '==',
-                },
-                ctx,
-              ),
-            },
-            ({ x, eq }) =>
-              newIfThenElse(
-                {
-                  if: eq,
-                  then: newNull({}, ctx),
-                  else: newError(
-                    newString(
+  result.of([
+    newComputedNode(
+      {
+        modifiers: [],
+        body: pipe(
+          {
+            x: value,
+            eq: newEquality(
+              {
+                left: value,
+                right: item,
+                operator: '==',
+              },
+              ctx,
+            ),
+          },
+          ({ x, eq }) =>
+            newIfThenElse(
+              {
+                if: eq,
+                then: value,
+                else: newAgentCall(
+                  {
+                    agentContext: [],
+                    agent: newIdentifier({ name: 'throw' }, ctx),
+                    args: newString(
                       {
                         value: [`Failed to match a pattern `, item, ` with `, x],
                       },
                       ctx,
                     ),
+                  },
+                  ctx,
+                ),
+              },
+              ctx,
+            ),
+        ),
+      },
+      ctx,
+    ),
+  ]);
+
+const destructuringTypeCheck = (
+  argName: Identifier,
+  agentName: 'isArray' | 'isObject',
+  ctx: ParserRange,
+): ComputedNode =>
+  newComputedNode(
+    {
+      modifiers: [],
+      body: pipe(
+        newAgentCall(
+          {
+            agentContext: [],
+            agent: newIdentifier({ name: agentName }, ctx),
+            args: argName,
+          },
+          ctx,
+        ),
+        test =>
+          newIfThenElse(
+            {
+              if: test,
+              then: newNull({}, ctx),
+              else: newAgentCall(
+                {
+                  agentContext: [],
+                  agent: newIdentifier({ name: 'throw' }, ctx),
+                  args: newString(
+                    {
+                      value: [
+                        "'",
+                        argName,
+                        "'",
+                        ` is not an ${agentName === 'isArray' ? 'Array' : 'Object'}`,
+                      ],
+                    },
                     ctx,
                   ),
                 },
                 ctx,
               ),
+            },
+            ctx,
           ),
-        },
-        ctx,
       ),
-    ]),
+    },
+    ctx,
   );
 
 export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObject>> =>
@@ -1718,7 +2099,7 @@ export const agentDefToJson = (agentDef: AgentDef): Result<CompileData<JsonObjec
       json: {
         agent: 'defAgent',
         inputs: {
-          args: argName,
+          args: agentDef.args == null ? undefined : argName,
           capture: pipe(
             captures,
             readonlyRecord.map(value => `:${value.name}`),

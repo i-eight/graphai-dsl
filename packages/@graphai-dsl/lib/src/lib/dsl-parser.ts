@@ -62,6 +62,9 @@ import {
   Destructuring,
   ObjectPairDestructuring,
   ObjectDestructuring,
+  MatchCase,
+  Match,
+  TryCatch,
 } from './dsl-syntax-tree';
 import { Parser, parser, ParserRange } from './parser-combinator';
 import { option, readonlyArray } from 'fp-ts';
@@ -70,7 +73,6 @@ import { Unit, unit } from './unit';
 import { Option } from 'fp-ts/lib/Option';
 import { loop, recur } from './loop';
 import * as error from './error';
-import { toReadableJson } from './dsl-util';
 
 export const reservedWords: ReadonlyArray<string> = [
   'static',
@@ -80,6 +82,9 @@ export const reservedWords: ReadonlyArray<string> = [
   'true',
   'false',
   'null',
+  'match',
+  'try',
+  'catch',
 ];
 
 export const blockComment: Parser<BlockComment> = pipe(
@@ -578,6 +583,7 @@ export const term: Parser<Term> = pipe(
   parser.or<Term>(null_),
   parser.or<Term>(array),
   parser.or<Term>(object),
+  parser.or<Term>(() => match),
   parser.or<Term>(() => paren),
   parser.or<Term>(() => nestedGraph),
   parser.or<Term>(identifier),
@@ -606,6 +612,7 @@ export const isCall = (term: Expr): term is Call =>
 
 export const isArrayable = (term: Expr): term is Arrayable =>
   term.type === 'Array' ||
+  term.type === 'Match' ||
   term.type === 'Paren' ||
   term.type === 'NestedGraph' ||
   term.type === 'Identifier';
@@ -637,6 +644,7 @@ export const arrayAtFrom = (term: Term | Call): Parser<ArrayAt> =>
 
 export const isObjectable = (term: Expr): term is Objectable =>
   term.type === 'Object' ||
+  term.type === 'Match' ||
   term.type === 'Paren' ||
   term.type === 'NestedGraph' ||
   term.type === 'Identifier';
@@ -664,7 +672,10 @@ export const objectMemberFrom = (term: Term | Call): Parser<ObjectMember> =>
   );
 
 export const isAgentable = (term: Expr): term is Agentable =>
-  term.type === 'Paren' || term.type === 'NestedGraph' || term.type === 'Identifier';
+  term.type === 'Match' ||
+  term.type === 'Paren' ||
+  term.type === 'NestedGraph' ||
+  term.type === 'Identifier';
 
 export const agentCallRecur = (
   agentContext: ReadonlyArray<AgentContext>,
@@ -754,6 +765,7 @@ export const call: Parser<Term | Call> = pipe(
 export const isTermPower = (term: Expr): term is TermPower =>
   term.type === 'Number' ||
   term.type === 'Identifier' ||
+  term.type === 'Match' ||
   term.type === 'Paren' ||
   term.type === 'NestedGraph' ||
   isCall(term);
@@ -1078,11 +1090,13 @@ export const logical: Parser<Term | TermLogical | Logical> = pipe(
 export const isTermPipeline = (term: Expr): term is TermPipeline =>
   isTermLogical(term) || term.type === 'Logical';
 
-export const termPipeline: Parser<Term | TermPipeline | IfThenElse | AgentDef> = pipe(
+type TermPipelineReturn = Term | TermPipeline | IfThenElse | TryCatch | AgentDef;
+export const termPipeline: Parser<TermPipelineReturn> = pipe(
   parser.unit,
-  parser.flatMap(() => ifThenElse as Parser<Term | TermPipeline | IfThenElse | AgentDef>),
-  parser.or<Term | TermPipeline | IfThenElse | AgentDef>(agentDef),
-  parser.or<Term | TermPipeline | IfThenElse | AgentDef>(logical),
+  parser.flatMap(() => ifThenElse as Parser<TermPipelineReturn>),
+  parser.or<TermPipelineReturn>(() => tryCatch),
+  parser.or<TermPipelineReturn>(agentDef),
+  parser.or<TermPipelineReturn>(logical),
 );
 
 export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipeline> =>
@@ -1112,7 +1126,10 @@ export const pipelineRight = (term: Term | TermPipeline | Pipeline): Parser<Pipe
       pipe(
         termPipeline,
         parser.flatMap(_ =>
-          isTermLogical(_) || _.type === 'IfThenElse' || _.type === 'AgentDef'
+          isTermLogical(_) ||
+          _.type === 'IfThenElse' ||
+          _.type === 'TryCatch' ||
+          _.type === 'AgentDef'
             ? parser.of(_)
             : parser.fail<TermPipeline>({
                 type: 'InvalidSyntaxError',
@@ -1162,6 +1179,77 @@ export const ifThenElse: Parser<IfThenElse> = pipe(
   })),
 );
 
+export const tryCatch: Parser<TryCatch> = pipe(
+  parser.unit,
+  parser.left(text('try')),
+  parser.left(whitespaces1),
+  parser.bind('try_', () => expr),
+  parser.bind('catch_', () =>
+    pipe(
+      whitespaces1,
+      parser.left(text('catch')),
+      parser.left(whitespaces1),
+      parser.right(agentDef),
+      parser.optional,
+    ),
+  ),
+  parser.bind('finally_', () =>
+    pipe(
+      whitespaces1,
+      parser.left(text('finally')),
+      parser.left(whitespaces1),
+      parser.right(expr),
+      parser.optional,
+    ),
+  ),
+  parser.tap(({ catch_, finally_ }) =>
+    option.isNone(catch_) && option.isNone(finally_)
+      ? parser.fail({
+          type: 'UnexpectedParserError',
+          message: 'Either catch or finally block is required.',
+        })
+      : parser.unit,
+  ),
+  parser.range(({ try_, catch_, finally_ }) => ({
+    type: 'TryCatch',
+    try: try_,
+    catch: option.toUndefined(catch_),
+    finally: option.toUndefined(finally_),
+  })),
+);
+
+export const matchCase: Parser<MatchCase> = pipe(
+  parser.unit,
+  parser.bind('pattern', () => destructuring),
+  parser.left(whitespaces),
+  parser.left(text('->')),
+  parser.left(whitespaces),
+  parser.bind('body', () => expr),
+  parser.range(({ pattern, body }) => ({ type: 'MatchCase', pattern, body })),
+);
+
+export const match: Parser<Match> = pipe(
+  parser.unit,
+  parser.right(text('match')),
+  parser.right(whitespaces1),
+  parser.bind('value', () => expr),
+  parser.left(whitespaces1),
+  parser.left(char('{')),
+  parser.left(whitespaces),
+  parser.bind('cases', () =>
+    pipe(
+      matchCase,
+      parser.sepBy(pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces))),
+    ),
+  ),
+  parser.left(
+    pipe(whitespaces, parser.right(char(',')), parser.left(whitespaces), parser.optional),
+  ),
+  parser.left(whitespaces),
+  parser.left(char('}')),
+  parser.range(({ value, cases }) => ({ type: 'Match', value, cases })),
+);
+
 export const paren: Parser<Paren> = pipe(
   parser.unit,
   parser.left(char('(')),
@@ -1174,6 +1262,7 @@ export const paren: Parser<Paren> = pipe(
 
 export const expr: Parser<Expr> = pipe(
   ifThenElse,
+  parser.or<Expr>(tryCatch),
   parser.or<Expr>(agentDef),
   parser.or<Expr>(operator),
 );
@@ -1238,10 +1327,7 @@ export const nestedGraph: Parser<NestedGraph> = pipe(
   ),
 );
 
-export const computedNodeBody: Parser<ComputedNodeBody> = pipe(
-  nestedGraph,
-  parser.or<ComputedNodeBody>(expr),
-);
+export const computedNodeBody: Parser<ComputedNodeBody> = expr;
 
 export const anonComputedNode: Parser<ComputedNode> = pipe(
   parser.unit,
