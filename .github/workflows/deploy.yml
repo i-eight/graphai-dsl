@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./packages/@graphai-dsl/doc
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Build website
         working-directory: ./packages/@graphai-dsl/doc
