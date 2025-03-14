@@ -1,0 +1,274 @@
+---
+sidebar_position: 5
+---
+
+# Built-in Functions
+
+## println
+
+```
+println = (msg: unknown) -> void
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| msg | A message to print  |
+
+### Return value
+
+void
+
+### Example
+
+```
+println('Hello World');
+```
+
+## identity
+
+```
+identity = <A>(a: A) -> A;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | Any value to return |
+
+### Return value
+
+The same value as the input.
+
+### Example
+
+```
+identity(1) == 1;
+```
+
+## throw
+
+```
+throw = (a: unknown) -> void;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | A value to be thrown |
+
+### Return value
+
+void
+
+### Example
+
+```
+throw('error');
+```
+
+## loop
+
+```
+loop = <A>(init: A, f: (a: A) -> A) -> A;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| init | An initial value |
+| f | A callback function. |
+
+### Return value
+
+The value that results from running the callback function to completion.
+
+### Example
+
+```
+loop(0, (x) -> if x < 10 then recur(x + 1) else x) == 10;
+```
+
+## eval
+
+```
+eval = (code: string) -> unknown;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| code | A code of the GraphAI DSL |
+
+### Return value
+
+The value that results from running the code.
+
+### Example
+
+```
+@version("0.6");
+eval('
+  @version("0.6"); 
+  a = 1; 
+  b = 1;
+  a + b;
+') == 2;
+```
+
+## isBoolean
+
+```
+isBoolean = (a: unknown) -> boolean;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | A value to be tested |
+
+### Return value
+
+true if the value is a boolean, otherwise false.
+
+### Example
+
+```
+isBoolean(true) == true;
+```
+
+## `isNumber`
+
+```
+isNumber = (a: unknown) -> boolean;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | A value to be tested |
+
+### Return value
+
+true if the value is a number, otherwise false.
+
+### Example
+
+```
+isNumber(1) == true;
+```
+
+## isString
+
+```
+isString = (a: unknown) -> boolean;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | A value to be tested |
+
+### Return value
+
+true if the value is a string, otherwise false.
+
+### Example
+
+```
+isString('a') == true;
+```
+
+## isArray
+
+```
+isArray = (a: unknown) -> boolean;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | A value to be tested |
+
+### Return value
+
+true if the value is an array, otherwise false.
+
+### Example
+
+```
+isArray([1, 2, 3]) == true;
+```
+
+## `isObject`
+
+```
+isObject = (a: unknown) -> boolean;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| a | A value to be tested |
+
+### Return value
+
+true if the value is an object, otherwise false.
+
+### Example
+
+```
+isObject({a: 1, b: 2, c: 3}) == true;
+```
+
+## `getAgentInfo`
+
+```
+isObject = (agent: string) -> AgentFunctionInfo;
+```
+
+### Parameters
+
+| Name | Description|
+| :--- | :--- |
+| agent | An agent name |
+
+### Return value
+
+An object that contains the information of the agent.
+
+### Example
+
+```
+getAgentInfo('println').name == 'println';
+```
+
+## `getProcessEnvAgent`
+
+```
+getProcessEnvAgent = () -> object;
+```
+
+### Parameters
+
+None
+
+### Return value
+
+A map of the environment variables.
+
+### Example
+
+```
+getProcessEnvAgent().NODE_ENV == 'development';
+```

@@ -1,2 +1,7 @@
 @version("0.6");
-println(eval('@version("0.6"); static a = 1; static b = 1; a + b;'));
+println(eval('
+  @version("0.6"); 
+  a = 1; 
+  b = 1;
+  a + b;
+'));

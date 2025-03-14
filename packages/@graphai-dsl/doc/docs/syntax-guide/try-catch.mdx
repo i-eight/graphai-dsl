@@ -1,0 +1,26 @@
+---
+sidebar_position: 65
+---
+
+# Try Catch
+
+```
+try someFunction() catch e -> println(e);
+```
+
+```
+a = try someFunction() catch e -> e;
+println(a);
+```
+
+```
+try {
+  someFunction();
+} catch e -> {
+  println(e);
+};
+```
+
+```
+try throw('error') catch e -> println(e);
+```
