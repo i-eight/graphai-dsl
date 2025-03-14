@@ -4,8 +4,15 @@ sidebar_position: 50
 
 # Conditions
 
+## `If` Expression
+
 ```
 if x > 1 then 2 else 3;
+```
+
+```
+x = if x > 1 then 2 else 3;
+println(x);
 ```
 
 ```
@@ -13,7 +20,7 @@ if x > 1 then {
   println("x is greater than 1");
 } else {
   println("x is less than or equal to 1");
-}
+};
 ```
 
 ```
@@ -23,5 +30,40 @@ if x > 1 then {
   println("x is equal to 1");
 } else {
   println("x is less than 1");
-}
+};
+```
+
+## `Match` Expression
+
+```
+match x {
+  1 -> println("x is 1"),
+  2 -> println("x is 2"),
+  _ -> println("x is neither 1 nor 2")
+};
+```
+
+```
+y = match x {
+      {type: 'add', a, b} -> a + b,
+      {type: 'sub', a, b} -> a - b,
+      {type: 'mul', a, b} -> a * b,
+      {type: 'div', a, b} -> a / b,
+    };
+```
+
+```
+y = match x {
+      ['add', a, b] -> a + b,
+      ['sub', a, b] -> a - b,
+      ['mul', a, b] -> a * b,
+      ['div', a, b] -> a / b,
+    };
+```
+
+```
+y = match x {
+      {a, ...rest} -> a + rest.length,
+      [a, ...rest] -> a + rest.length,
+    };
 ```
