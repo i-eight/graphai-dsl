@@ -207,9 +207,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@anthropic-ai/sdk@npm:^0.36.2":
-  version: 0.36.3
-  resolution: "@anthropic-ai/sdk@npm:0.36.3"
+"@anthropic-ai/sdk@npm:^0.39.0":
+  version: 0.39.0
+  resolution: "@anthropic-ai/sdk@npm:0.39.0"
   dependencies:
     "@types/node": ^18.11.18
     "@types/node-fetch": ^2.6.4
@@ -218,7 +218,7 @@ __metadata:
     form-data-encoder: 1.7.2
     formdata-node: ^4.3.2
     node-fetch: ^2.6.7
-  checksum: 783a051fea42bb8cc52f92b1aaf1d5d1fb9412f8cc54c0cc3b4f6b5c3b97056bcdebc7c17d0b7efca67a8cf92642e2c9c50d49af80d2bd33b4cf286edf51664c
+  checksum: 47f00c9d3ca2d497b25c688cdfd923474e2f16e774f67a3e2ef3f0c24cd80412687e3a2caee3024dd9a5d7a95e0717d85e3ffc9c4ba75ff6f1641d5820394a76
   languageName: node
   linkType: hard
 
@@ -3176,10 +3176,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@google/generative-ai@npm:^0.21.0":
-  version: 0.21.0
-  resolution: "@google/generative-ai@npm:0.21.0"
-  checksum: 91345a8399b5e71382193d0eac47a4b264613a9d7e48a431290b523e3fbb44a207a33bdead304f181987e5a0127a84168c4e21cf461c1087cd3b0ebc5125d13d
+"@google/generative-ai@npm:^0.23.0":
+  version: 0.23.0
+  resolution: "@google/generative-ai@npm:0.23.0"
+  checksum: 85b354ddd63c08c78548e8e68d1662b09b282a7dcba41c536d96c91f11e8d963edc8515ebcc2d932a9a6bdda1f366456cf395d8b98400119e2fb0f018285c2cd
   languageName: node
   linkType: hard
 
@@ -3215,7 +3215,7 @@ __metadata:
   resolution: "@graphai-dsl/lib@workspace:packages/@graphai-dsl/lib"
   dependencies:
     "@eslint/js": ^9.17.0
-    "@graphai/agents": 0.2.10
+    "@graphai/agents": 1.0.2
     "@swc/core": ^1.10.4
     "@swc/jest": ^0.2.37
     "@types/geoip-lite": ^1.4.4
@@ -3227,7 +3227,7 @@ __metadata:
     fp-ts: ^2.16.9
     geoip-lite: ^1.4.10
     globals: ^15.14.0
-    graphai: 0.6.24
+    graphai: 1.0.1
     jest: ^29.7.0
     prettier: ^3.4.2
     rxjs: ^7.8.1
@@ -3240,85 +3240,85 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@graphai/agent_utils@npm:0.0.3":
-  version: 0.0.3
-  resolution: "@graphai/agent_utils@npm:0.0.3"
-  checksum: f28768eeaec446a6b018a7bbf985ddbd0f677befaea211cfa55de56b1891544cf346b49eba8df3ff4be85de6f1de8877f725aa07a90e664b6c09417ba9a1fe84
+"@graphai/agent_utils@npm:^0.0.9":
+  version: 0.0.9
+  resolution: "@graphai/agent_utils@npm:0.0.9"
+  checksum: 2ffc08dc4e5a0a5f9feee6001d634325512ae5544a391c6923dcdb888ba2ba928ee9b987d5048ffdaaf0bcf78ad56ae03abebe07e56dc8068a969a0e38374cc9
   languageName: node
   linkType: hard
 
-"@graphai/agents@npm:0.2.10":
-  version: 0.2.10
-  resolution: "@graphai/agents@npm:0.2.10"
+"@graphai/agents@npm:1.0.2":
+  version: 1.0.2
+  resolution: "@graphai/agents@npm:1.0.2"
   dependencies:
-    "@graphai/data_agents": ^0.2.0
-    "@graphai/input_agents": ^0.2.2
-    "@graphai/llm_agents": ^0.2.10
-    "@graphai/service_agents": ^0.2.0
+    "@graphai/data_agents": ^1.0.0
+    "@graphai/input_agents": ^1.0.1
+    "@graphai/llm_agents": ^1.0.2
+    "@graphai/service_agents": ^1.0.0
     "@graphai/sleeper_agents": ^0.2.0
-    "@graphai/vanilla": ^0.2.14
-  checksum: 1bd8f4b2bfb02bd843c9397d2cdd2631981784e5d0abc80924359c51d6dd43e52ea7c07cb338fe1cbaff04e5dda5d46a2c5abf15b9d7f8f6b40146e6d11562b6
+    "@graphai/vanilla": ^1.0.5
+  checksum: 69bb72445a38a094610e212fede80598a5f2504947be719d2d4634f29572ddca5e21ec2b3499dd17fa036cb5d36574c54d7683ce72235d523deb751c2d16d50a
   languageName: node
   linkType: hard
 
-"@graphai/anthropic_agent@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@graphai/anthropic_agent@npm:0.2.3"
+"@graphai/anthropic_agent@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@graphai/anthropic_agent@npm:1.0.1"
   dependencies:
-    "@anthropic-ai/sdk": ^0.36.2
+    "@anthropic-ai/sdk": ^0.39.0
     "@graphai/llm_utils": ^0.2.0
-  checksum: 17156d36c4fab9cf26e61c55287857710f4d0ccd38da8b628361b23ba5108785f9d3a34884cd166014eb83e97b45a1e1d672afcd8e715a09098429d1b7cc581e
+  checksum: e444c05951e425c15595790c3217a91073fdb175d8e03b1eb0a8147be191848d1b03a430efc76d50baeca182838f5ff33ae73dc784a797ae0a67d7abdb084ca4
   languageName: node
   linkType: hard
 
-"@graphai/data_agents@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "@graphai/data_agents@npm:0.2.0"
+"@graphai/data_agents@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@graphai/data_agents@npm:1.0.0"
   dependencies:
     deepmerge: ^4.3.1
-  checksum: 5cd41f48fb660b0f02c7be1ad97e275a0843d6aaf59fd47ee0ff0c57a636fa2c3a23a744bb3114f05aed525827be57e561b6afc98e154b9b1207b07e3a4e36e8
+  checksum: b09a9a28a126eedd6bcc67c2bdeaf53572a3219ac0e0d6a7d959a979210dd4de7d3b10583c31df18ee06688b63529358184f88b15ca86ab47c53201138c1b590
   languageName: node
   linkType: hard
 
-"@graphai/gemini_agent@npm:^0.2.4":
-  version: 0.2.4
-  resolution: "@graphai/gemini_agent@npm:0.2.4"
+"@graphai/gemini_agent@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@graphai/gemini_agent@npm:1.0.1"
   dependencies:
-    "@google/generative-ai": ^0.21.0
+    "@google/generative-ai": ^0.23.0
     "@graphai/llm_utils": ^0.2.0
-  checksum: ffa0f9e7339185151a73053905a1da141180a29828f4d2fff9096e8232a6c7b2cc77503bc04830e11ad683c667b45706eef5442dfe5cf84b38d0bbb00871d321
+  checksum: 0fc6739290f567101a5247421ee2d78a0b320422d7d19886a2e5ed0a04261d4f56e3b4d39339f650a1dd9f4932aa892b5ff17b046539770ba4548827f863f8ba
   languageName: node
   linkType: hard
 
-"@graphai/groq_agent@npm:^0.2.4":
-  version: 0.2.4
-  resolution: "@graphai/groq_agent@npm:0.2.4"
+"@graphai/groq_agent@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@graphai/groq_agent@npm:1.0.1"
   dependencies:
     "@graphai/llm_utils": ^0.2.0
-    groq-sdk: ^0.14.0
-  checksum: 2e5bdf54cfb5e79638c973afce1114c36cdf3e3ea1a875ccf20dd9ffd973bdb64b25bade6381c26fa7e60b5527b5b2ae2c5cba2383460c0a7b7deb58ad3f5d5b
+    groq-sdk: ^0.15.0
+  checksum: f302725430276c82a6d19cbb215268f758d0b510572f4f7a88edff8d0875e87bd4c75ba449dd482e8bd5ef2f4c71c05a8ec1c408db407b8adb7107da5cea1857
   languageName: node
   linkType: hard
 
-"@graphai/input_agents@npm:^0.2.2":
-  version: 0.2.2
-  resolution: "@graphai/input_agents@npm:0.2.2"
+"@graphai/input_agents@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@graphai/input_agents@npm:1.0.1"
   dependencies:
-    "@inquirer/input": ^4.1.3
-  checksum: 4747fde7ea433a583cd941ba188314c178ec08265c19595cca1483e97d700b0cd8793d137b649c009b5bdaff4cbf994bbcf40e9de94c37d63827027985572c3b
+    "@inquirer/input": ^4.1.6
+  checksum: 2cec87d518122d61c956253dfa9f95d607c0ad0a07798b2316b12e39acba218ae9fa5bcc504b12744ba7acbb02e9521d4938e8e540c6d391a10225473659c78f
   languageName: node
   linkType: hard
 
-"@graphai/llm_agents@npm:^0.2.10":
-  version: 0.2.10
-  resolution: "@graphai/llm_agents@npm:0.2.10"
+"@graphai/llm_agents@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "@graphai/llm_agents@npm:1.0.2"
   dependencies:
-    "@graphai/anthropic_agent": ^0.2.3
-    "@graphai/gemini_agent": ^0.2.4
-    "@graphai/groq_agent": ^0.2.4
-    "@graphai/openai_agent": ^0.2.6
-    "@graphai/replicate_agent": ^0.2.2
-  checksum: ec87bb428d3304aee94c82b2f3fba9e249815605c1f6bbb7037725d4fdced12d32548fea37ce894b5581290520cd9a143a268be9ff8a92790ebd915ddfeb4839
+    "@graphai/anthropic_agent": ^1.0.1
+    "@graphai/gemini_agent": ^1.0.1
+    "@graphai/groq_agent": ^1.0.1
+    "@graphai/openai_agent": ^1.0.2
+    "@graphai/replicate_agent": ^1.0.1
+  checksum: 2dc2168dd64f7ce7d928d009dd9706726209f79e89b5d7d77ea4bdf444dfba36194021e0651c637a7af9baa3ce9679d831f2738342eacbada7dd3399cecfeada
   languageName: node
   linkType: hard
 
@@ -3329,35 +3329,35 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphai/openai_agent@npm:^0.2.6":
-  version: 0.2.6
-  resolution: "@graphai/openai_agent@npm:0.2.6"
+"@graphai/openai_agent@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "@graphai/openai_agent@npm:1.0.2"
   dependencies:
     "@graphai/llm_utils": ^0.2.0
-    openai: ^4.82.0
-  checksum: 506f355ad9ffeb8b7d24f9f6f7db680bfa16fa64069fd792aba10e82ecdee207e0deb6754a5873642781443e82139cc7b1b2be025417ea62fb807b59313e1bfc
+    openai: ^4.86.1
+  checksum: 025ddab666fd774e935722c229acc3595c526937b9a445b38ad46bd5a9ee62eb26ac11461a12211e68c697078d599cd102fdc2568410c43cb97ade5366160254
   languageName: node
   linkType: hard
 
-"@graphai/replicate_agent@npm:^0.2.2":
-  version: 0.2.2
-  resolution: "@graphai/replicate_agent@npm:0.2.2"
+"@graphai/replicate_agent@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@graphai/replicate_agent@npm:1.0.1"
   dependencies:
     "@graphai/llm_utils": ^0.2.0
     replicate: ^1.0.1
-  checksum: 2b57249de84f8b09cfba8ddb7e7ff52bb68b396a9372a477c525aca28ad562242a6bfb2f7bed89218b439475dc61ca0660c4daf62aed49b186e0dfb961e080d1
+  checksum: b0923f548cc4591d1ad48c34c0a5724d62dd4b61fc907f43372f74e5da5d79d4464ccd138aaa01cb8748f81041cbb61b542afb3ff2610aec574a157ff64e46c7
   languageName: node
   linkType: hard
 
-"@graphai/service_agents@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "@graphai/service_agents@npm:0.2.0"
+"@graphai/service_agents@npm:^1.0.0":
+  version: 1.0.1
+  resolution: "@graphai/service_agents@npm:1.0.1"
   dependencies:
     "@types/xml2js": ^0.4.14
     deepmerge: ^4.3.1
     wikipedia: ^2.1.2
     xml2js: ^0.6.2
-  checksum: 2994866887fb330cef3ba150aed3b586282e887d566e33ecdcfcf51804329121cb0cdfbc2a97bcaf6ac0abe564a65b749181ef6d2e4d924b7a4ed219f0270e48
+  checksum: c717bff663d1b2abc149244df29ccc18f0a2b2a39854134ae9e38c74815030af5b91af14482e377717f1d9ed8849668a1fb94732e26848f46808d16e0d86ad46
   languageName: node
   linkType: hard
 
@@ -3370,12 +3370,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphai/vanilla@npm:^0.2.14":
-  version: 0.2.14
-  resolution: "@graphai/vanilla@npm:0.2.14"
+"@graphai/vanilla@npm:^1.0.5":
+  version: 1.0.9
+  resolution: "@graphai/vanilla@npm:1.0.9"
   dependencies:
-    "@graphai/agent_utils": 0.0.3
-  checksum: 74866ec2f968520c01cc33e2d3ab4c6039058360951647a40779618f6297d4a311f68f3068f6a588bcf4ba5e2f74e7b122794afdd372a604603249b9c0f90c88
+    "@graphai/agent_utils": ^0.0.9
+  checksum: 5e99f57121567f8c6703509c979956f95f52ab9c368de44ad0ac7a29b5e03754352e2ea4fea2ef089256585019a405ffa1bcbf462bd0bac70395727fb8311ecf
   languageName: node
   linkType: hard
 
@@ -3451,12 +3451,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@inquirer/core@npm:^10.1.6":
-  version: 10.1.6
-  resolution: "@inquirer/core@npm:10.1.6"
+"@inquirer/core@npm:^10.1.8":
+  version: 10.1.8
+  resolution: "@inquirer/core@npm:10.1.8"
   dependencies:
-    "@inquirer/figures": ^1.0.10
-    "@inquirer/type": ^3.0.4
+    "@inquirer/figures": ^1.0.11
+    "@inquirer/type": ^3.0.5
     ansi-escapes: ^4.3.2
     cli-width: ^4.1.0
     mute-stream: ^2.0.0
@@ -3468,41 +3468,41 @@ __metadata:
   peerDependenciesMeta:
     "@types/node":
       optional: true
-  checksum: 08f29faf4d21b89cb7347e8cc9ef89fe30ee7818368879825b4ead15596ce940632860da66059af3e32b709a1738bfea4c19e41709c125365b8a26ee935f11b8
+  checksum: 277e3662981f7c768a1912f3d8f61d92da047a4b4a8f7074b6235675c8ff86c5fbf127cf861da31387e33ae48f443a84f09d30c895d3623816aae27dd47336f0
   languageName: node
   linkType: hard
 
-"@inquirer/figures@npm:^1.0.10":
-  version: 1.0.10
-  resolution: "@inquirer/figures@npm:1.0.10"
-  checksum: bf3b86e55bce1d32f6ec0cb9413a10fe9a3aa2757071e45e46b26011bfb69b001b31da2b1e0c6b97be424df1f32047402a03e3234cda4c9a433ea122f1b0ad73
+"@inquirer/figures@npm:^1.0.11":
+  version: 1.0.11
+  resolution: "@inquirer/figures@npm:1.0.11"
+  checksum: 6be2867050f5c179d9fcc389a4a3e9aca6ac45fd02106918eba2d6c27a7251a48693ac13fcf9f084e25bf963eb51045c23ca9e87c523e318b0e286d4173449a9
   languageName: node
   linkType: hard
 
-"@inquirer/input@npm:^4.1.3":
-  version: 4.1.5
-  resolution: "@inquirer/input@npm:4.1.5"
+"@inquirer/input@npm:^4.1.6":
+  version: 4.1.7
+  resolution: "@inquirer/input@npm:4.1.7"
   dependencies:
-    "@inquirer/core": ^10.1.6
-    "@inquirer/type": ^3.0.4
+    "@inquirer/core": ^10.1.8
+    "@inquirer/type": ^3.0.5
   peerDependencies:
     "@types/node": ">=18"
   peerDependenciesMeta:
     "@types/node":
       optional: true
-  checksum: f9542dd3baa6f586d3edfe30dfafbd69c774b88c25f293609d6af9b8625293036cc5ebb42095bea6e6dc9057ab388427abdf464f255625f7ea7b58fdf341d536
+  checksum: 6885a2af48ea40b92b6258596e70287a77c0209d1d9c1f0c643c94d4a371ad25728750acae9c8eb6678a9c71c42a3ff82145ff80c2cfaedcd66adebcab9f5aa2
   languageName: node
   linkType: hard
 
-"@inquirer/type@npm:^3.0.4":
-  version: 3.0.4
-  resolution: "@inquirer/type@npm:3.0.4"
+"@inquirer/type@npm:^3.0.5":
+  version: 3.0.5
+  resolution: "@inquirer/type@npm:3.0.5"
   peerDependencies:
     "@types/node": ">=18"
   peerDependenciesMeta:
     "@types/node":
       optional: true
-  checksum: 64ec072d2725ee31586af65cf32f553f217978f7020011d049e663b45776ff8c72aefe18eb12ece46788eaef9b239fc3bd01edfbe1d07b9162cc97aae5c173fb
+  checksum: a2d2aeba1b7e2000c5cddbb289cbf7a751dcea924f6c4a732a6ec99cac98a668bcce23f98357e098855027e18113949a4fb31162e3b3742775ab8e96cf59fb88
   languageName: node
   linkType: hard
 
@@ -9124,10 +9124,10 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"graphai@npm:0.6.24":
-  version: 0.6.24
-  resolution: "graphai@npm:0.6.24"
-  checksum: cbc28e4aa0261c7ac2a755559e69b34baa4ea0c6f9f3ee9cb3f072051aeb2d734051f99a26dbe9663becaa0863cfc68cdd615a5d4cc9fe408b40f24c11ec25e7
+"graphai@npm:1.0.1":
+  version: 1.0.1
+  resolution: "graphai@npm:1.0.1"
+  checksum: ff6c1616eeb90e392fc91f843c9b141cdda2eed30c21c21777f2f887fe85f9372aa54503c2c5cb214f2feb6b27f7a0320f6c4154f38fb282bcfad3d829ccef43
   languageName: node
   linkType: hard
 
@@ -9150,9 +9150,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"groq-sdk@npm:^0.14.0":
-  version: 0.14.0
-  resolution: "groq-sdk@npm:0.14.0"
+"groq-sdk@npm:^0.15.0":
+  version: 0.15.0
+  resolution: "groq-sdk@npm:0.15.0"
   dependencies:
     "@types/node": ^18.11.18
     "@types/node-fetch": ^2.6.4
@@ -9161,7 +9161,7 @@ __metadata:
     form-data-encoder: 1.7.2
     formdata-node: ^4.3.2
     node-fetch: ^2.6.7
-  checksum: 2c825ba6b79a7cf3b7e076077cb7c1b410fe6f6d02a00be3d3259daa6532ef0825ebd1e9c808450af0d2035be870f6f55bfe620a564cefe6379f2e36a7a252b2
+  checksum: 0a06adb3848acf6f254120ac388fd9fa657059f77d8db05f4bfb138a7a8b70d7ac4612ae05a850a487281cb2c74ff957121be030fe877f286e37507a3d12885c
   languageName: node
   linkType: hard
 
@@ -12481,9 +12481,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"openai@npm:^4.82.0":
-  version: 4.84.1
-  resolution: "openai@npm:4.84.1"
+"openai@npm:^4.86.1":
+  version: 4.87.3
+  resolution: "openai@npm:4.87.3"
   dependencies:
     "@types/node": ^18.11.18
     "@types/node-fetch": ^2.6.4
@@ -12502,7 +12502,7 @@ __metadata:
       optional: true
   bin:
     openai: bin/cli
-  checksum: 54d5bb9c19305564d5167b29769e23eafd127ff38eb71799ccd838d4a7fb4f23bcdb36bcdbb178d5cff4f8d7c2f25a3e09991d4050de931aed0f0600de6f634f
+  checksum: 2cbb548c5b6dfa21c87b012fee81010925d8106626e4adc0ba86e2a5974aca3b5ec29e3ddc2f354d8c95e1d64da8d384f1495ceabbbf2948269fc2dab34bb3fc
   languageName: node
   linkType: hard
 
