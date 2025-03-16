@@ -80,6 +80,7 @@ import {
   newTryCatch,
   toReadableJson,
 } from './dsl-util';
+import { deprecate } from 'util';
 
 export type Json = number | string | boolean | JsonArray | JsonObject | null | undefined;
 
@@ -838,6 +839,30 @@ export const agentContextToJson = (
   );
 
 export const nestedGraphToJson = (graph: NestedGraph): Result<CompileData<JsonObject>> =>
+  agentCallToJson(
+    newAgentCall(
+      {
+        agentContext: [],
+        agent: newParen(
+          {
+            expr: newAgentDef(
+              {
+                body: graph.graph,
+              },
+              graph.graph.context,
+            ),
+          },
+          graph.context,
+        ),
+      },
+      graph.context,
+    ),
+  );
+
+/**
+ * @deprecated
+ */
+export const nestedGraphToJson_ = (graph: NestedGraph): Result<CompileData<JsonObject>> =>
   pipe(
     result.of<Unit>(unit),
     // Convert the nested graph to a JSON

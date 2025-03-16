@@ -660,33 +660,10 @@ describe('Compiler', () => {
     ));
 
   test('A nested graph 1', () =>
-    pipe(parseSourceTest('a = { static b = 1; };'), compileFileTest(), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          nodes: {
-            __anon0__: {
-              agent: 'nestedAgent',
-              inputs: {},
-              graph: {
-                nodes: {
-                  b: {
-                    value: 1,
-                  },
-                },
-              },
-              isResult: false,
-            },
-            a: {
-              agent: 'getObjectMemberAgent',
-              inputs: {
-                key: 'b',
-                object: ':__anon0__',
-              },
-              isResult: true,
-            },
-          },
-        }),
-      ),
+    pipe(
+      parseSourceTest('a = { b = 1; };'),
+      compileFileTest(),
+      runFileTest(either.right({ a: 1 })),
     ));
 
   test('A nested graph 2', () =>
@@ -700,83 +677,14 @@ describe('Compiler', () => {
         };
       `),
       compileFileTest(),
-      through(_ =>
-        expect(_).toStrictEqual(
-          either.right({
-            version: '0.6',
-            nodes: {
-              foo: {
-                isResult: true,
-                agent: 'getObjectMemberAgent',
-                inputs: {
-                  key: '__anon0__',
-                  object: ':__anon1__',
-                },
-              },
-              __anon1__: {
-                isResult: false,
-                agent: 'nestedAgent',
-                inputs: {},
-                graph: {
-                  nodes: {
-                    x: {
-                      value: 1,
-                    },
-                    y: {
-                      value: 2,
-                    },
-                    __anon0__: {
-                      isResult: true,
-                      agent: 'plusAgent',
-                      inputs: {
-                        left: ':x',
-                        right: ':y',
-                      },
-                      graph: {},
-                    },
-                  },
-                },
-              },
-            },
-          }),
-        ),
-      ),
       runFileTest(either.right({ foo: 3 })),
     ));
 
   test('A nested graph with a captured value in static node', () =>
-    pipe(parseSourceTest('static a = 1; { static b = a; };'), compileFileTest(), _ =>
-      expect(_).toStrictEqual(
-        either.right({
-          nodes: {
-            a: {
-              value: 1,
-            },
-            __anon0__: {
-              agent: 'getObjectMemberAgent',
-              inputs: {
-                key: 'b',
-                object: ':__anon1__',
-              },
-              isResult: true,
-            },
-            __anon1__: {
-              agent: 'nestedAgent',
-              inputs: {
-                a: ':a',
-              },
-              isResult: false,
-              graph: {
-                nodes: {
-                  b: {
-                    value: ':a',
-                  },
-                },
-              },
-            },
-          },
-        }),
-      ),
+    pipe(
+      parseSourceTest('static a = 1; static b = 2; { c = a + b; };'),
+      compileFileTest(),
+      runFileTest(either.right({ __anon0__: 3 })),
     ));
 
   test('A nested graph with a captured value 1', () =>
@@ -784,50 +692,10 @@ describe('Compiler', () => {
       parseSourceTest(`
         @version("0.6"); 
         static a = 1; 
-        { b = println(a); };
+        { b = identity(a); };
       `),
       compileFileTest(),
-      through(_ =>
-        expect(_).toStrictEqual(
-          either.right({
-            version: '0.6',
-            nodes: {
-              a: {
-                value: 1,
-              },
-              __anon0__: {
-                agent: 'getObjectMemberAgent',
-                inputs: {
-                  key: 'b',
-                  object: ':__anon1__',
-                },
-                isResult: true,
-              },
-              __anon1__: {
-                agent: 'nestedAgent',
-                inputs: {
-                  a: ':a',
-                },
-                isResult: false,
-                graph: {
-                  nodes: {
-                    b: {
-                      agent: 'apply',
-                      inputs: {
-                        agent: 'println',
-                        args: ':a',
-                      },
-                      isResult: true,
-                      graph: {},
-                    },
-                  },
-                },
-              },
-            },
-          }),
-        ),
-      ),
-      runFileTest(either.right({ __anon0__: null })),
+      runFileTest(either.right({ __anon0__: 1 })),
     ));
 
   test('A deep nested graph with a captured value', () =>
@@ -842,65 +710,6 @@ describe('Compiler', () => {
         };
       `),
       compileFileTest(),
-      through(_ =>
-        expect(_).toStrictEqual(
-          either.right({
-            version: '0.6',
-            nodes: {
-              a: {
-                value: 1,
-              },
-              __anon3__: {
-                isResult: false,
-                agent: 'nestedAgent',
-                inputs: {
-                  a: ':a',
-                },
-                graph: {
-                  nodes: {
-                    __anon2__: {
-                      isResult: false,
-                      agent: 'nestedAgent',
-                      inputs: {
-                        a: ':a',
-                      },
-                      graph: {
-                        nodes: {
-                          __anon1__: {
-                            isResult: true,
-                            graph: {},
-                            agent: 'plusAgent',
-                            inputs: {
-                              left: ':a',
-                              right: 2,
-                            },
-                          },
-                        },
-                      },
-                    },
-                    b: {
-                      isResult: true,
-                      agent: 'getObjectMemberAgent',
-                      inputs: {
-                        object: ':__anon2__',
-                        key: '__anon1__',
-                      },
-                    },
-                  },
-                },
-              },
-              __anon0__: {
-                isResult: true,
-                agent: 'getObjectMemberAgent',
-                inputs: {
-                  object: ':__anon3__',
-                  key: 'b',
-                },
-              },
-            },
-          }),
-        ),
-      ),
       runFileTest(either.right({ __anon0__: 3 })),
     ));
 
@@ -2052,7 +1861,7 @@ describe('Compiler', () => {
     pipe(
       parseFileTest(`${__dirname}/cases/compiler/import-1.graphai`),
       compileFileTest(),
-      runFileTest(either.right({ __anon15__: { x: 18, y: 'This is import-1-package' } })),
+      runFileTest(either.right({ __anon20__: { x: 18, y: 'This is import-1-package' } })),
     ));
 
   test('native import 1', async () =>
@@ -2198,6 +2007,19 @@ describe('Compiler', () => {
       compileFileTest(),
       //printJson,
       runFileTest(either.right({ __anon12__: 11 })),
+    ));
+
+  test('try catch 2', async () =>
+    pipe(
+      parseSourceTest(`
+          @version('0.6');
+          a = try { 
+            throw('error');
+          } catch () -> 2;
+        `),
+      compileFileTest(),
+      //printJson,
+      runFileTest(either.right({ a: 2 })),
     ));
 
   test('match 1', async () =>
