@@ -1,0 +1,122 @@
+@version('1.0');
+
+owner = 'i-eight';
+repo = 'graphai-tasks';
+accessToken = getProcessEnvAgent().GITHUB_ACCESS_TOKEN;
+
+headers = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    Authorization: 'Bearer ${accessToken}',
+    'User-Agent': 'graphai',
+};
+
+formatIssue = (issue) -> {
+    number: issue.number, 
+    state: issue.state,
+    title: issue.title,
+    body: issue.body,
+};
+
+issueType = {
+  type: 'object',
+  properties: {
+    number: { type: 'number' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    state: { type: 'string' },
+  },
+};
+
+public getIssues = {
+    name: 'getIssues', 
+    agent: () -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+        method: 'GET',
+        headers: headers,
+    }) 
+    |> Array.map(formatIssue)
+    |> Json.prettyStringify,
+
+    description: 'Get issues from Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {},
+    },
+    
+    output: {
+        type: 'array',
+        items: issueType,
+    },
+};
+
+public createIssue = {
+    name: 'createIssue',
+    agent: ({title}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+        method: 'POST',
+        headers: headers,
+        body: {title: title},
+    })
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Create an issue in Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {
+            title: { type: 'string' },
+        }
+    },
+
+    output: issueType,
+};
+
+public editIssue = {
+    name: 'editIssue',
+    agent: ({issueNumber, body}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}',
+        method: 'PATCH',
+        headers: headers,
+        body: {body: body},
+    })
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Edit an issue in Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {
+            issueNumber: { type: 'number' },
+            body: { type: 'string' },
+        }
+    },
+    
+    output: issueType,
+};
+
+public closeIssue = {
+    name: 'closeIssue',
+    agent: ({issueNumber}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}',
+        method: 'PATCH',
+        headers: headers,
+        body: {state: 'closed'},
+    })
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Close an issue in Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {
+            issueNumber: { type: 'number' },
+        },
+    },
+
+    output: issueType,
+};
