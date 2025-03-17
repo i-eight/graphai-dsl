@@ -1,0 +1,330 @@
+---
+sidebar_position: 20
+---
+
+# Tutorial
+
+このチュートリアルでは、自然言語でGitHubのIssueを管理するアプリを作成します。
+
+機能要件
+- 自然言語で操作する
+- Issueの閲覧
+- Issueの作成
+- Issueの編集
+- Issueのクローズ
+
+## GraphAI DSLのインストール
+
+```
+corepack enable
+```
+
+```
+yarn init -2
+```
+
+```
+yarn config set nodeLinker node-modules
+```
+
+`@graphai-dsl/cli`をインストール
+
+```
+yarn add @graphai-dsl/cli 
+```
+
+## Hello World
+
+まず、`@graphai-dsl/cli`が正しくインストールされていることを確認するために、コンソールに"Hello World!"と出力するプログラムを作成します。
+
+`hello-world.graphai`:
+```js
+@version('1.0');
+println('Hello World!');
+```
+
+実行:
+```
+yarn graphai-dsl run hello-world.graphai
+```
+
+出力結果:
+```
+Hello World!
+```
+
+## エコーボットを作る
+
+エコーボットは、ユーザーが入力したテキストをそのまま出力するだけのシンプルなボットです。
+自然言語で操作するアプリを作成するには必要な最初のステップです。
+
+エコーボットを作成するためのモジュールが既に用意されているので、それを使ってエコーボットを作成します。
+
+モジュールを使用するには`import`構文を使います。
+```js
+import '@graphai-dsl/lib/tools/text-chat.graphai';
+```
+
+このモジュールには`textChat`という関数が定義されており、これを使うと簡単にエコーボットを作成できます。
+
+```js
+textChat((userInput) -> println(userInput));
+```
+
+`(userInput) -> println(userInput)`は、ユーザーが入力するたびに呼ばれるコールバック関数です。
+この関数は、ユーザーが入力したテキストをそのまま出力します。
+
+最終的に、以下のようなコードになります。
+
+```js
+@version('1.0');
+import '@graphai-dsl/lib/tools/text-chat.graphai';
+
+textChat((userInput) -> println(userInput));
+```
+
+## GitHub Issueを操作するエージェントを作成する
+
+次に、GitHub Issueを操作するエージェントを作成します。
+このエージェントは、GitHub APIを使用してIssueを閲覧、作成、編集、クローズする機能を提供します。
+GitHub APIを使用するためのアクセストークンは、GitHubの設定ページから取得してください。
+
+ここでは、ユーザーがアクセストークンが環境変数に`GITHUB_ACCESS_TOKEN`と設定しているものとして実装します。
+GraphAI DSLで環境変数を取得するには、`getProcessEnvAgent`を使います。
+以下のように`GITHUB_ACCESS_TOKEN`を取得できます。
+
+```js
+accessToken = getProcessEnvAgent().GITHUB_ACCESS_TOKEN;
+```
+
+他にGitHub APIを使うための情報として、`owner`名と`repository`名が必要です。
+APIコール時に使用するので変数として保持しておきます。
+
+```js
+owner = 'owner-name';
+repo = 'repository-name';
+```
+
+さらに、APIコール時に使用するHTTPヘッダーも定義しておきます。
+
+```
+jsheaders = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    Authorization: 'Bearer ${accessToken}',
+    'User-Agent': 'graphai',
+};
+```
+
+では、Issueの一覧を取得すするAPIをGraphAI DSLでコールしてみましょう。
+GraphAIには、JSの`fetch`APIに相当するエージェント`vanillaFetchAgent`が用意されているので、それを使います。
+
+```js
+vanillaFetchAgent({
+    url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+    method: 'GET',
+    headers: headers,
+})
+```
+
+ただ、この呼び出し結果は情報量が多いので、結果を見やすくするために、Issue番号、状態、タイトル、本文のみを取得することにします。
+以下のように、`formatIssue`関数を定義します。
+
+```js
+formatIssue = (issue) -> {
+    number: issue.number, 
+    state: issue.state,
+    title: issue.title,
+    body: issue.body,
+};
+```
+
+そして、APIコールの結果に`formatIssue`関数を適用します。
+
+```js
+vanillaFetchAgent({
+    url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+    method: 'GET',
+    headers: headers,
+})
+|> Array.map(formatIssue)
+```
+
+`|>`はパイプ演算子で、左辺の結果を右辺の関数の引数として渡します。
+ここでは、`Array.map`関数の第２引数にAPIコールの結果を渡しています。
+
+さらに、コンソールに出力した際に、見やすくするためにJSONを整形した文字列に変換します。
+
+```js
+vanillaFetchAgent({
+    url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+    method: 'GET',
+    headers: headers,
+})
+|> Array.map(formatIssue)
+|> Json.prettyStringify
+```
+
+ここまでで、Issueの一覧を取得するコードが出来ました。
+
+続いて、このコードをエージェント化します。
+ここでは、LLMのFunction Callingを使うために必要な最小限の情報を持ったエージェントを作成します。
+つまり、関数の名前、実行する関数、関数の説明、関数の引数、関数の出力形式の情報を持ったJSONを作成します。
+これらの情報を持ったJSONは、エージェントとして扱われます。
+具体的には、以下のようになります。
+
+```js
+issueType = {
+  type: 'object',
+  properties: {
+    number: { type: 'number' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    state: { type: 'string' },
+  },
+};
+
+public getIssues = {
+    name: 'getIssues', 
+    agent: () -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+        method: 'GET',
+        headers: headers,
+    }) 
+    |> Array.map(formatIssue)
+    |> Json.prettyStringify,
+
+    description: 'Get issues from Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {},
+    },
+    
+    output: {
+        type: 'array',
+        items: issueType,
+    },
+};
+```
+
+ここで、`getIssues`変数の前に`public`を付けているのは、他のファイルからこのエージェントを参照できるようにするためです。
+
+これで、GitHub Issueを取得するエージェントが作成できました。
+他の３つのエージェントも同様に作成しすると以下のようになります。
+
+```js
+public createIssue = {
+    name: 'createIssue',
+    agent: ({title}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues',
+        method: 'POST',
+        headers: headers,
+        body: {title: title},
+    })
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Create an issue in Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {
+            title: { type: 'string' },
+        }
+    },
+
+    output: issueType,
+};
+
+public editIssue = {
+    name: 'editIssue',
+    agent: ({issueNumber, body}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}',
+        method: 'PATCH',
+        headers: headers,
+        body: {body: body},
+    })
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Edit an issue in Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {
+            issueNumber: { type: 'number' },
+            body: { type: 'string' },
+        }
+    },
+    
+    output: issueType,
+};
+
+public closeIssue = {
+    name: 'closeIssue',
+    agent: ({issueNumber}) -> vanillaFetchAgent({
+        url: 'https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}',
+        method: 'PATCH',
+        headers: headers,
+        body: {state: 'closed'},
+    })
+    |> formatIssue
+    |> Json.prettyStringify,
+
+    description: 'Close an issue in Github repository',
+
+    inputs: {
+        type: 'object',
+        properties: {
+            issueNumber: { type: 'number' },
+        },
+    },
+
+    output: issueType,
+};
+```
+
+後でモジュールとして使用するために、この４つのエージェントを定義したファイルを`github.graphai`として保存おきます。
+
+## 自然言語を使ってエージェントを実行する
+
+GraphAI DSLには、自然言語でエージェントを実行するための演算子`-->`が用意されています。
+例えば、「タイトルがhogeというIssueを作成して」という自然言語をエージェントに渡す場合、以下のように記述します。
+
+```js
+'タイトルがhogeというIssueを作成して' --> createIssue
+```
+
+つまり、`-->`演算子は以下のことを行います。
+
+- 自然言語を解析して、エージェントに渡す引数を生成する
+- エージェントを実行する
+
+これは、LLMのFunction Callingを使って実現されているため、LLMのAPI Keyが必要です。
+GraphAI DSLでは、現状OpenAIのAPIのみサポートしているので、環境変数`OPENAI_API_KEY`にOpenAIのAPI Keyを設定してください。
+
+## アプリの完成
+
+これまで作成した、エコーボットとGitHub Issueを操作するエージェントを組み合わせて、自然言語でGitHubのIssueを管理するアプリを完成させます。
+
+`issue-manager.graphai`:
+```js
+@version('1.0');
+import '@graphai-dsl/lib/tools/text-chat.graphai';
+import './github.graphai';
+
+textChat((userInput) ->
+    userInput --> [
+        getIssues, 
+        createIssue, 
+        editIssue, 
+        closeIssue
+    ] |> println
+);
+```
+
+実行:
+```
+yarn graphai-dsl run issue-manager.graphai
+```
