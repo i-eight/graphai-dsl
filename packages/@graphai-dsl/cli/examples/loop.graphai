@@ -1,8 +1,6 @@
 @version('0.6');
-sum = loop(0, (cnt) -> 
+loop(0, (cnt) -> 
     if cnt < 10 
     then recur(cnt + 1) 
     else cnt,
-);
-
-println(sum);
+) |> println;

@@ -24,4 +24,4 @@ yarn graphai-dsl compile <source file>
 
 ## More Examples
 
-https://github.com/i-eight/graphai-dsl/tree/main/packages/graphai-dsl-cli/examples
+https://github.com/i-eight/graphai-dsl/tree/main/packages/%40graphai-dsl/cli/examples
